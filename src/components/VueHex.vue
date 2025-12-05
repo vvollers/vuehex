@@ -34,24 +34,14 @@ import {
   shallowRef,
   watch,
 } from "vue";
-
-export type VueHexSource = Uint8Array | number[] | string;
-
-export interface VueHexWindow {
-  offset: number;
-  data: VueHexSource;
-}
-
-export interface VueHexWindowRequest {
-  offset: number;
-  length: number;
-}
-
-export interface VueHexDataBinding {
-  window: VueHexWindow;
-  totalBytes: number;
-  requestWindow: (payload: VueHexWindowRequest) => void | Promise<void>;
-}
+import type {
+  VueHexAsciiRenderer,
+  VueHexDataBinding,
+  VueHexPrintableCheck,
+  VueHexSource,
+  VueHexWindowRequest,
+} from "./vuehex-api";
+import { DEFAULT_ASCII_RENDERER, DEFAULT_PRINTABLE_CHECK } from "./vuehex-api";
 
 const DEFAULT_ROW_HEIGHT = 24;
 
@@ -82,19 +72,26 @@ const props = withDefaults(
     uppercase?: boolean;
     nonPrintableChar?: string;
     overscan?: number;
+    isPrintable?: VueHexPrintableCheck;
+    renderAscii?: VueHexAsciiRenderer;
   }>(),
   {
     bytesPerRow: 16,
     uppercase: false,
     nonPrintableChar: ".",
     overscan: 2,
+    isPrintable: DEFAULT_PRINTABLE_CHECK,
+    renderAscii: DEFAULT_ASCII_RENDERER,
   }
 );
 
 const emit = defineEmits<{
-  (event: "row-hover", payload: { offset: number }): void;
-  (event: "hex-hover", payload: { index: number; byte: number }): void;
-  (event: "ascii-hover", payload: { index: number; byte: number }): void;
+  (event: "row-hover-on", payload: { offset: number }): void;
+  (event: "row-hover-off", payload: { offset: number }): void;
+  (event: "hex-hover-on", payload: { index: number; byte: number }): void;
+  (event: "hex-hover-off", payload: { index: number; byte: number }): void;
+  (event: "ascii-hover-on", payload: { index: number; byte: number }): void;
+  (event: "ascii-hover-off", payload: { index: number; byte: number }): void;
 }>();
 
 const bindingWindow = computed(() => props.binding.window);
@@ -173,7 +170,9 @@ const overscanRows = computed(() => Math.max(0, Math.trunc(props.overscan)));
 const lastRequested = shallowRef<VueHexWindowRequest | null>(null);
 
 let resizeObserver: ResizeObserver | null = null;
-let lastRowHoverOffset: number | null = null;
+let activeRowOffset: number | null = null;
+let activeHex: { index: number; byte: number } | null = null;
+let activeAscii: { index: number; byte: number } | null = null;
 
 watch(
   () => ({
@@ -182,6 +181,8 @@ watch(
     bytesPerRow: bytesPerRow.value,
     uppercase: props.uppercase,
     nonPrintableChar: props.nonPrintableChar,
+    isPrintable: props.isPrintable,
+    renderAscii: props.renderAscii,
   }),
   () => {
     const activeWindow = bindingWindow.value;
@@ -247,6 +248,8 @@ onBeforeUnmount(() => {
     tbody.removeEventListener("pointerover", handlePointerOver);
     tbody.removeEventListener("pointerout", handlePointerOut);
   }
+
+  clearHoverState();
 });
 
 function handleScroll() {
@@ -259,46 +262,184 @@ function handlePointerOver(event: PointerEvent) {
     return;
   }
 
-  const rowEl = target.closest<HTMLElement>("tr[data-row-offset]");
-  if (rowEl?.dataset.rowOffset) {
-    const offset = Number.parseInt(rowEl.dataset.rowOffset, 10);
-    if (Number.isFinite(offset) && offset !== lastRowHoverOffset) {
-      lastRowHoverOffset = offset;
-      emit("row-hover", { offset });
-    }
-  }
-
-  const hexEl = target.closest<HTMLElement>("span[data-hex-index]");
-  if (hexEl?.dataset.hexIndex && hexEl.dataset.byteValue) {
-    const index = Number.parseInt(hexEl.dataset.hexIndex, 10);
-    const byte = Number.parseInt(hexEl.dataset.byteValue, 10);
-    if (Number.isFinite(index) && Number.isFinite(byte)) {
-      emit("hex-hover", { index, byte });
-    }
-  }
-
-  const asciiEl = target.closest<HTMLElement>("span[data-ascii-index]");
-  if (asciiEl?.dataset.asciiIndex && asciiEl.dataset.byteValue) {
-    const index = Number.parseInt(asciiEl.dataset.asciiIndex, 10);
-    const byte = Number.parseInt(asciiEl.dataset.byteValue, 10);
-    if (Number.isFinite(index) && Number.isFinite(byte)) {
-      emit("ascii-hover", { index, byte });
-    }
-  }
+  applyRowEnter(target);
+  applyHexEnter(target);
+  applyAsciiEnter(target);
 }
 
 function handlePointerOut(event: PointerEvent) {
-  const currentTarget = event.currentTarget;
-  if (!(currentTarget instanceof HTMLElement)) {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
     return;
   }
 
-  const nextTarget = event.relatedTarget;
+  const related = event.relatedTarget;
+  applyRowLeave(target, related);
+  applyHexLeave(target, related);
+  applyAsciiLeave(target, related);
+
+  const currentTarget = event.currentTarget;
   if (
-    !(nextTarget instanceof HTMLElement) ||
-    !currentTarget.contains(nextTarget)
+    currentTarget instanceof HTMLElement &&
+    (!(related instanceof HTMLElement) || !currentTarget.contains(related))
   ) {
-    lastRowHoverOffset = null;
+    clearHoverState();
+  }
+}
+
+function applyRowEnter(element: HTMLElement) {
+  const rowEl = element.closest<HTMLElement>("tr[data-row-offset]");
+  if (!rowEl?.dataset.rowOffset) {
+    return;
+  }
+
+  const offset = Number.parseInt(rowEl.dataset.rowOffset, 10);
+  if (!Number.isFinite(offset)) {
+    return;
+  }
+
+  if (activeRowOffset != null && activeRowOffset !== offset) {
+    emit("row-hover-off", { offset: activeRowOffset });
+    activeRowOffset = null;
+  }
+
+  if (activeRowOffset === offset) {
+    return;
+  }
+
+  activeRowOffset = offset;
+  emit("row-hover-on", { offset });
+}
+
+function applyRowLeave(element: HTMLElement, related: EventTarget | null) {
+  if (activeRowOffset == null) {
+    return;
+  }
+
+  const rowEl = element.closest<HTMLElement>("tr[data-row-offset]");
+  if (!rowEl?.dataset.rowOffset) {
+    return;
+  }
+
+  const offset = Number.parseInt(rowEl.dataset.rowOffset, 10);
+  if (!Number.isFinite(offset) || offset !== activeRowOffset) {
+    return;
+  }
+
+  if (related instanceof HTMLElement && rowEl.contains(related)) {
+    return;
+  }
+
+  emit("row-hover-off", { offset });
+  activeRowOffset = null;
+}
+
+function applyHexEnter(element: HTMLElement) {
+  const hexEl = element.closest<HTMLElement>("span[data-hex-index]");
+  if (!hexEl?.dataset.hexIndex || !hexEl.dataset.byteValue) {
+    return;
+  }
+
+  const index = Number.parseInt(hexEl.dataset.hexIndex, 10);
+  const byte = Number.parseInt(hexEl.dataset.byteValue, 10);
+  if (!Number.isFinite(index) || !Number.isFinite(byte)) {
+    return;
+  }
+
+  if (activeHex) {
+    if (activeHex.index === index && activeHex.byte === byte) {
+      return;
+    }
+    emit("hex-hover-off", activeHex);
+    activeHex = null;
+  }
+
+  activeHex = { index, byte };
+  emit("hex-hover-on", activeHex);
+}
+
+function applyHexLeave(element: HTMLElement, related: EventTarget | null) {
+  if (!activeHex) {
+    return;
+  }
+
+  const hexEl = element.closest<HTMLElement>("span[data-hex-index]");
+  if (!hexEl?.dataset.hexIndex) {
+    return;
+  }
+
+  const index = Number.parseInt(hexEl.dataset.hexIndex, 10);
+  if (!Number.isFinite(index) || index !== activeHex.index) {
+    return;
+  }
+
+  if (related instanceof HTMLElement && hexEl.contains(related)) {
+    return;
+  }
+
+  emit("hex-hover-off", activeHex);
+  activeHex = null;
+}
+
+function applyAsciiEnter(element: HTMLElement) {
+  const asciiEl = element.closest<HTMLElement>("span[data-ascii-index]");
+  if (!asciiEl?.dataset.asciiIndex || !asciiEl.dataset.byteValue) {
+    return;
+  }
+
+  const index = Number.parseInt(asciiEl.dataset.asciiIndex, 10);
+  const byte = Number.parseInt(asciiEl.dataset.byteValue, 10);
+  if (!Number.isFinite(index) || !Number.isFinite(byte)) {
+    return;
+  }
+
+  if (activeAscii) {
+    if (activeAscii.index === index && activeAscii.byte === byte) {
+      return;
+    }
+    emit("ascii-hover-off", activeAscii);
+    activeAscii = null;
+  }
+
+  activeAscii = { index, byte };
+  emit("ascii-hover-on", activeAscii);
+}
+
+function applyAsciiLeave(element: HTMLElement, related: EventTarget | null) {
+  if (!activeAscii) {
+    return;
+  }
+
+  const asciiEl = element.closest<HTMLElement>("span[data-ascii-index]");
+  if (!asciiEl?.dataset.asciiIndex) {
+    return;
+  }
+
+  const index = Number.parseInt(asciiEl.dataset.asciiIndex, 10);
+  if (!Number.isFinite(index) || index !== activeAscii.index) {
+    return;
+  }
+
+  if (related instanceof HTMLElement && asciiEl.contains(related)) {
+    return;
+  }
+
+  emit("ascii-hover-off", activeAscii);
+  activeAscii = null;
+}
+
+function clearHoverState() {
+  if (activeHex) {
+    emit("hex-hover-off", activeHex);
+    activeHex = null;
+  }
+  if (activeAscii) {
+    emit("ascii-hover-off", activeAscii);
+    activeAscii = null;
+  }
+  if (activeRowOffset != null) {
+    emit("row-hover-off", { offset: activeRowOffset });
+    activeRowOffset = null;
   }
 }
 
@@ -433,6 +574,7 @@ function updateRenderedSlice() {
     markup.value = "";
     renderStartRowRef.value = Math.floor(windowStart / bytesPerRowValue);
     renderedSliceRows.value = 0;
+    clearHoverState();
     return;
   }
 
@@ -484,6 +626,7 @@ function updateRenderedSlice() {
     markup.value = "";
     renderStartRowRef.value = Math.floor(renderStart / bytesPerRowValue);
     renderedSliceRows.value = 0;
+    clearHoverState();
     return;
   }
 
@@ -502,13 +645,23 @@ function updateRenderedSlice() {
   renderStartRowRef.value = Math.floor(renderStart / bytesPerRowValue);
   renderedSliceRows.value = sliceRowCount;
 
-  markup.value = buildHexTableMarkup(
+  const printableCheck = props.isPrintable ?? DEFAULT_PRINTABLE_CHECK;
+  const asciiRenderer = props.renderAscii ?? DEFAULT_ASCII_RENDERER;
+
+  const nextMarkup = buildHexTableMarkup(
     slice,
     bytesPerRowValue,
     Boolean(props.uppercase),
     fallbackAsciiChar.value,
-    renderStart
+    renderStart,
+    printableCheck,
+    asciiRenderer
   );
+
+  if (markup.value !== nextMarkup) {
+    clearHoverState();
+    markup.value = nextMarkup;
+  }
 }
 
 function normalizeSource(source: VueHexSource): Uint8Array {
@@ -543,14 +696,23 @@ function clampBytesPerRow(value: unknown): number {
 function resolveFallbackChar(value: unknown): string {
   if (typeof value === "string" && value.length > 0) {
     const candidate = value.slice(0, 1);
-    return HTML_ESCAPE_LOOKUP[candidate] ?? candidate;
+    return escapeHtml(candidate);
   }
 
   return ".";
 }
 
 function escapeAsciiChar(value: string): string {
-  return HTML_ESCAPE_LOOKUP[value] ?? value;
+  return escapeHtml(value);
+}
+
+function escapeHtml(value: string): string {
+  let result = "";
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index] ?? "";
+    result += HTML_ESCAPE_LOOKUP[char] ?? char;
+  }
+  return result;
 }
 
 function formatOffset(value: number, uppercase: boolean): string {
@@ -573,14 +735,16 @@ function buildHexTableMarkup(
   bytesPerRow: number,
   uppercase: boolean,
   fallbackAscii: string,
-  baseOffset: number
+  baseOffset: number,
+  isPrintable: VueHexPrintableCheck,
+  renderAscii: VueHexAsciiRenderer
 ): string {
   if (bytes.length === 0) {
     return "";
   }
 
   const hexLookup = uppercase ? HEX_UPPER : HEX_LOWER;
-  const asciiFallbackEscaped = escapeAsciiChar(fallbackAscii);
+  const asciiFallbackEscaped = fallbackAscii;
   const tableMarkup: string[] = [];
 
   for (let offset = 0; offset < bytes.length; offset += bytesPerRow) {
@@ -613,12 +777,16 @@ function buildHexTableMarkup(
     for (let index = 0; index < remaining; index += 1) {
       const value = bytes[offset + index] ?? 0;
       const absoluteIndex = rowOffset + index;
-      const char =
-        value >= 0x20 && value <= 0x7e
-          ? escapeAsciiChar(String.fromCharCode(value))
-          : asciiFallbackEscaped;
+      let asciiContent = asciiFallbackEscaped;
+      if (isPrintable(value)) {
+        const rendered = renderAscii(value);
+        const renderedString = rendered != null ? String(rendered) : "";
+        if (renderedString.length > 0) {
+          asciiContent = escapeAsciiChar(renderedString);
+        }
+      }
       tableMarkup.push(
-        `<span class="vuehex-ascii-char" data-ascii-index="${absoluteIndex}" data-byte-value="${value}">${char}</span>`
+        `<span class="vuehex-ascii-char" data-ascii-index="${absoluteIndex}" data-byte-value="${value}">${asciiContent}</span>`
       );
     }
 
