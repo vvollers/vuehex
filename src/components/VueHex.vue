@@ -717,7 +717,18 @@ function escapeHtml(value: string): string {
 
 function formatOffset(value: number, uppercase: boolean): string {
   const raw = value.toString(16).padStart(OFFSET_PAD, "0");
-  return uppercase ? raw.toUpperCase() : raw;
+  const normalized = uppercase ? raw.toUpperCase() : raw;
+  const trimmed = normalized.replace(/^0+/, "");
+  const leadingCount = normalized.length - trimmed.length;
+
+  if (leadingCount <= 0) {
+    return normalized;
+  }
+
+  const leading = normalized.slice(0, leadingCount);
+  const significant = normalized.slice(leadingCount);
+
+  return `<span class="vuehex-offset-leading">${leading}</span>${significant}`;
 }
 
 function clamp(value: number, min: number, max: number): number {
