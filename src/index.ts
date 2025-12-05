@@ -1,12 +1,17 @@
 import type { App } from "vue";
 import VueHex from "./components/VueHex.vue";
 
-function install(app: App) {
-  app.component("VueHex", VueHex);
+export interface VueHexPluginOptions {
+	componentName?: string;
 }
 
-import "./assets/vuehex.css";
+export function install(app: App, options: VueHexPluginOptions = {}) {
+	const name = options.componentName ?? "VueHex";
+	app.component(name, VueHex);
+}
 
 export default { install };
+
+export { VueHex };
 
 export * from "./components/VueHex.vue";

@@ -1,8 +1,77 @@
 .vuehex {
-  font-family: monospace;
-  background-color: #1e1e1e;
-  color: #d4d4d4;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  overflow-x: auto;
+	font-family:
+		ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+		"Courier New", monospace;
+	background-color: #0f172a;
+	color: #e2e8f0;
+	padding: 1rem;
+	border-radius: 0.75rem;
+	border: 1px solid rgba(148, 163, 184, 0.25);
+	overflow-x: auto;
+	overflow-y: auto;
+	position: relative;
+	height: 100%;
+	box-sizing: border-box;
+}
+
+.vuehex-table {
+	width: 100%;
+	border-collapse: collapse;
+	table-layout: fixed;
+}
+
+.vuehex-spacer {
+	height: 0;
+}
+
+.vuehex-table tbody tr {
+	border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.vuehex-table tbody tr:last-child {
+	border-bottom: none;
+}
+
+.vuehex-offset {
+	padding: 0.25rem 0.75rem 0.25rem 0;
+	text-align: left;
+	font-weight: 600;
+	color: #94a3b8;
+	white-space: nowrap;
+}
+
+.vuehex-bytes,
+.vuehex-ascii {
+	padding: 0.25rem 0;
+	white-space: nowrap;
+}
+
+.vuehex-bytes {
+	min-width: 15rem;
+}
+
+.vuehex-byte,
+.vuehex-ascii-char {
+	display: inline-block;
+	min-width: 2ch;
+	text-align: center;
+	margin: 0 0.25ch;
+}
+
+.vuehex-byte {
+	color: #f8fafc;
+}
+
+.vuehex-ascii {
+	padding-left: 0.75rem;
+	border-left: 1px solid rgba(148, 163, 184, 0.2);
+	color: #cbd5f5;
+}
+
+.vuehex-ascii-char {
+	color: #f1f5f9;
+}
+
+.vuehex-byte--placeholder {
+	visibility: hidden;
 }

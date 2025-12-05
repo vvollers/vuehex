@@ -3,30 +3,34 @@ import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  plugins: [vue()],
+	plugins: [vue()],
 
-  resolve: {
-    alias: {
-      "@": resolve(__dirname, "src"),
-    },
-  },
+	resolve: {
+		alias: {
+			"@": resolve(__dirname, "src"),
+		},
+	},
 
-  build: {
-    target: "esnext",
-    cssCodeSplit: true,
+	build: {
+		target: "esnext",
+		cssCodeSplit: true,
 
-    lib: {
-      entry: resolve(__dirname, "src/index.ts"),
-      formats: ["es"],
-      fileName: (format) => `vuehex.${format}.js`,
-    },
+		lib: {
+			entry: {
+				index: resolve(__dirname, "src/index.ts"),
+				styles: resolve(__dirname, "src/styles.ts"),
+			},
+			formats: ["es"],
+			fileName: (_format, entryName) =>
+				entryName === "index" ? "index.js" : `${entryName}.js`,
+		},
 
-    rolldownOptions: {
-      external: ["vue"],
-      output: {
-        preserveModules: false,
-        exports: "named",
-      },
-    },
-  },
+		rolldownOptions: {
+			external: ["vue"],
+			output: {
+				preserveModules: false,
+				exports: "named",
+			},
+		},
+	},
 });

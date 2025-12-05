@@ -1,50 +1,62 @@
 {
-  "name": "vuehex",
-  "version": "0.0.1",
-  "private": false,
-  "description": "A fast and flexible Vue 3 component for displaying binary data as a hexadecimal view and editor.",
-  "author": "Vincent Vollers",
-  "license": "MIT",
-  "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "lint": "biome check",
-    "type-check": "vue-tsc --noEmit",
-    "format": "biome check --write",
-    "build:lib": "vite build",
-    "build:types": "vue-tsc --declaration --emitDeclarationOnly --outDir dist",
-    "build:all": "npm run build:lib && npm run build:types",
-    "publish:dry": "npm publish --dry-run"
-  },
-  "dependencies": {
-    "vue": "^3.5.24"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "2.3.8",
-    "@types/node": "^24.10.1",
-    "@vitejs/plugin-vue": "^6.0.1",
-    "@vue/tsconfig": "^0.8.1",
-    "typescript": "~5.9.3",
-    "vite": "npm:rolldown-vite@7.2.5",
-    "vue-tsc": "^3.1.5"
-  },
-  "overrides": {
-    "vite": "npm:rolldown-vite@7.2.5"
-  },
-  "keywords": [
-    "vue",
-    "vue3",
-    "hex",
-    "hex-view",
-    "hex-editor",
-    "component"
-  ]
+	"name": "vuehex",
+	"version": "0.0.1",
+	"private": false,
+	"description": "A fast and flexible Vue 3 component for displaying binary data as a hexadecimal view and editor.",
+	"author": "Vincent Vollers",
+	"license": "MIT",
+	"type": "module",
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"import": "./dist/index.js",
+			"types": "./dist/index.d.ts"
+		},
+		"./styles": {
+			"import": "./dist/styles.js",
+			"types": "./dist/styles.d.ts"
+		},
+		"./style.css": "./dist/style.css",
+		"./package.json": "./package.json"
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview",
+		"lint": "biome check",
+		"type-check": "vue-tsc --noEmit",
+		"format": "biome check --write",
+		"build:lib": "vite build",
+		"build:types": "vue-tsc --declaration --emitDeclarationOnly --outDir dist",
+		"build:all": "npm run build:lib && npm run build:types",
+		"publish:dry": "npm publish --dry-run"
+	},
+	"dependencies": {
+		"vue": "^3.5.24"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.3.8",
+		"@types/node": "^24.10.1",
+		"@vitejs/plugin-vue": "^6.0.1",
+		"@vue/tsconfig": "^0.8.1",
+		"typescript": "~5.9.3",
+		"vite": "npm:rolldown-vite@7.2.5",
+		"vue-tsc": "^3.1.5"
+	},
+	"overrides": {
+		"vite": "npm:rolldown-vite@7.2.5"
+	},
+	"keywords": [
+		"vue",
+		"vue3",
+		"hex",
+		"hex-view",
+		"hex-editor",
+		"component"
+	]
 }
