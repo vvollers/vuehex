@@ -33,7 +33,28 @@
           :bytes-per-row="bytesPerRow"
           :uppercase="uppercase"
           :non-printable-char="nonPrintableChar"
+          @row-hover="handleRowHover"
+          @hex-hover="handleHexHover"
+          @ascii-hover="handleAsciiHover"
         />
+      </div>
+
+      <div class="events">
+        <h3 class="events-title">Hover events</h3>
+        <div class="events-grid">
+          <div class="events-card">
+            <h4>Row</h4>
+            <p>{{ rowHoverText }}</p>
+          </div>
+          <div class="events-card">
+            <h4>Hex byte</h4>
+            <p>{{ hexHoverText }}</p>
+          </div>
+          <div class="events-card">
+            <h4>ASCII char</h4>
+            <p>{{ asciiHoverText }}</p>
+          </div>
+        </div>
       </div>
 
       <div class="controls">
@@ -49,9 +70,9 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import type {
-	VueHexDataBinding,
-	VueHexWindow,
-	VueHexWindowRequest,
+  VueHexDataBinding,
+  VueHexWindow,
+  VueHexWindowRequest,
 } from "./components/VueHex.vue";
 import VueHex from "./components/VueHex.vue";
 import "@/assets/vuehex.css";
@@ -64,7 +85,7 @@ const viewerRef = ref<InstanceType<typeof VueHex> | null>(null);
 
 const backingData = new Uint8Array(SAMPLE_SIZE);
 for (let index = 0; index < backingData.length; index += 1) {
-	backingData[index] = index % 256;
+  backingData[index] = index % 256;
 }
 
 const totalBytes = backingData.length;
@@ -74,46 +95,96 @@ const bytesPerRowInput = ref(BYTES_PER_ROW);
 const nonPrintableInput = ref(".");
 
 const bytesPerRow = computed(() =>
-	Math.max(1, Math.trunc(bytesPerRowInput.value)),
+  Math.max(1, Math.trunc(bytesPerRowInput.value))
 );
 
 const nonPrintableChar = computed(() =>
-	nonPrintableInput.value.length > 0 ? nonPrintableInput.value[0] : ".",
+  nonPrintableInput.value.length > 0 ? nonPrintableInput.value[0] : "."
 );
 
 const viewerBinding = ref<VueHexDataBinding>({
-	window: {
-		offset: 0,
-		data: backingData.slice(0, BYTES_PER_ROW * VISIBLE_ROWS),
-	} as VueHexWindow,
-	totalBytes,
-	requestWindow: handleRequestWindow,
+  window: {
+    offset: 0,
+    data: backingData.slice(0, BYTES_PER_ROW * VISIBLE_ROWS),
+  } as VueHexWindow,
+  totalBytes,
+  requestWindow: handleRequestWindow,
+});
+
+const rowHoverOffset = ref<number | null>(null);
+const hexHoverDetails = ref<{ index: number; byte: number } | null>(null);
+const asciiHoverDetails = ref<{ index: number; byte: number } | null>(null);
+
+const rowHoverText = computed(() => {
+  const offset = rowHoverOffset.value;
+  if (offset == null) {
+    return "Hover a row to see offset";
+  }
+  return `${formatHex(offset, 8)} (${offset})`;
+});
+
+const hexHoverText = computed(() => {
+  const details = hexHoverDetails.value;
+  if (!details) {
+    return "Hover a hex byte";
+  }
+  return `Index ${formatHex(details.index, 8)} | Byte ${formatHex(
+    details.byte,
+    2
+  )}`;
+});
+
+const asciiHoverText = computed(() => {
+  const details = asciiHoverDetails.value;
+  if (!details) {
+    return "Hover an ASCII character";
+  }
+  return `Index ${formatHex(details.index, 8)} | Byte ${formatHex(
+    details.byte,
+    2
+  )}`;
 });
 
 function handleRequestWindow(request: VueHexWindowRequest) {
-	const offset = Math.max(0, Math.min(request.offset, totalBytes));
-	const length = Math.min(request.length, totalBytes - offset);
-	const slice = backingData.slice(offset, offset + length);
-	viewerBinding.value.window = {
-		offset,
-		data: slice,
-	};
+  const offset = Math.max(0, Math.min(request.offset, totalBytes));
+  const length = Math.min(request.length, totalBytes - offset);
+  const slice = backingData.slice(offset, offset + length);
+  viewerBinding.value.window = {
+    offset,
+    data: slice,
+  };
+}
+
+function handleRowHover(payload: { offset: number }) {
+  rowHoverOffset.value = payload.offset;
+}
+
+function handleHexHover(payload: { index: number; byte: number }) {
+  hexHoverDetails.value = payload;
+}
+
+function handleAsciiHover(payload: { index: number; byte: number }) {
+  asciiHoverDetails.value = payload;
 }
 
 function scrollToByte(offset: number) {
-	viewerRef.value?.scrollToByte(offset);
+  viewerRef.value?.scrollToByte(offset);
 }
 
 function scrollToStart() {
-	scrollToByte(0);
+  scrollToByte(0);
 }
 
 function scrollToMiddle() {
-	scrollToByte(Math.floor(totalBytes / 2));
+  scrollToByte(Math.floor(totalBytes / 2));
 }
 
 function scrollToEnd() {
-	scrollToByte(Math.max(totalBytes - bytesPerRow.value, 0));
+  scrollToByte(Math.max(totalBytes - bytesPerRow.value, 0));
+}
+
+function formatHex(value: number, pad: number): string {
+  return `0x${value.toString(16).padStart(pad, "0")}`;
 }
 </script>
 
@@ -136,6 +207,45 @@ function scrollToEnd() {
 .viewer {
   height: min(480px, 70vh);
   min-height: 320px;
+}
+
+.events {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.events-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.events-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.events-card {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.1);
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.events-card h4 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.events-card p {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 0.8rem;
 }
 
 .panel-title {

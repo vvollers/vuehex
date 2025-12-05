@@ -91,6 +91,12 @@ const props = withDefaults(
   }
 );
 
+const emit = defineEmits<{
+  (event: "row-hover", payload: { offset: number }): void;
+  (event: "hex-hover", payload: { index: number; byte: number }): void;
+  (event: "ascii-hover", payload: { index: number; byte: number }): void;
+}>();
+
 const bindingWindow = computed(() => props.binding.window);
 const totalBytes = computed(() => props.binding.totalBytes);
 
@@ -167,6 +173,7 @@ const overscanRows = computed(() => Math.max(0, Math.trunc(props.overscan)));
 const lastRequested = shallowRef<VueHexWindowRequest | null>(null);
 
 let resizeObserver: ResizeObserver | null = null;
+let lastRowHoverOffset: number | null = null;
 
 watch(
   () => ({
@@ -221,6 +228,12 @@ onMounted(() => {
     resizeObserver.observe(container);
   }
 
+  const tbody = tbodyEl.value;
+  if (tbody) {
+    tbody.addEventListener("pointerover", handlePointerOver);
+    tbody.addEventListener("pointerout", handlePointerOut);
+  }
+
   pendingScrollByte.value = props.binding.window.offset;
   scheduleWindowEvaluation();
 });
@@ -228,10 +241,65 @@ onMounted(() => {
 onBeforeUnmount(() => {
   resizeObserver?.disconnect();
   resizeObserver = null;
+
+  const tbody = tbodyEl.value;
+  if (tbody) {
+    tbody.removeEventListener("pointerover", handlePointerOver);
+    tbody.removeEventListener("pointerout", handlePointerOut);
+  }
 });
 
 function handleScroll() {
   scheduleWindowEvaluation();
+}
+
+function handlePointerOver(event: PointerEvent) {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  const rowEl = target.closest<HTMLElement>("tr[data-row-offset]");
+  if (rowEl?.dataset.rowOffset) {
+    const offset = Number.parseInt(rowEl.dataset.rowOffset, 10);
+    if (Number.isFinite(offset) && offset !== lastRowHoverOffset) {
+      lastRowHoverOffset = offset;
+      emit("row-hover", { offset });
+    }
+  }
+
+  const hexEl = target.closest<HTMLElement>("span[data-hex-index]");
+  if (hexEl?.dataset.hexIndex && hexEl.dataset.byteValue) {
+    const index = Number.parseInt(hexEl.dataset.hexIndex, 10);
+    const byte = Number.parseInt(hexEl.dataset.byteValue, 10);
+    if (Number.isFinite(index) && Number.isFinite(byte)) {
+      emit("hex-hover", { index, byte });
+    }
+  }
+
+  const asciiEl = target.closest<HTMLElement>("span[data-ascii-index]");
+  if (asciiEl?.dataset.asciiIndex && asciiEl.dataset.byteValue) {
+    const index = Number.parseInt(asciiEl.dataset.asciiIndex, 10);
+    const byte = Number.parseInt(asciiEl.dataset.byteValue, 10);
+    if (Number.isFinite(index) && Number.isFinite(byte)) {
+      emit("ascii-hover", { index, byte });
+    }
+  }
+}
+
+function handlePointerOut(event: PointerEvent) {
+  const currentTarget = event.currentTarget;
+  if (!(currentTarget instanceof HTMLElement)) {
+    return;
+  }
+
+  const nextTarget = event.relatedTarget;
+  if (
+    !(nextTarget instanceof HTMLElement) ||
+    !currentTarget.contains(nextTarget)
+  ) {
+    lastRowHoverOffset = null;
+  }
 }
 
 function scheduleWindowEvaluation() {
@@ -517,17 +585,21 @@ function buildHexTableMarkup(
 
   for (let offset = 0; offset < bytes.length; offset += bytesPerRow) {
     const remaining = Math.min(bytesPerRow, bytes.length - offset);
+    const rowOffset = baseOffset + offset;
 
     tableMarkup.push(
-      `<tr role="row"><th scope="row" class="vuehex-offset" role="rowheader">${formatOffset(
-        baseOffset + offset,
+      `<tr role="row" data-row-offset="${rowOffset}"><th scope="row" class="vuehex-offset" role="rowheader">${formatOffset(
+        rowOffset,
         uppercase
       )}</th><td class="vuehex-bytes" role="cell">`
     );
 
     for (let index = 0; index < remaining; index += 1) {
       const value = bytes[offset + index] ?? 0;
-      tableMarkup.push(`<span class="vuehex-byte">${hexLookup[value]}</span>`);
+      const absoluteIndex = rowOffset + index;
+      tableMarkup.push(
+        `<span class="vuehex-byte" data-hex-index="${absoluteIndex}" data-byte-value="${value}">${hexLookup[value]}</span>`
+      );
     }
 
     for (let pad = remaining; pad < bytesPerRow; pad += 1) {
@@ -540,11 +612,14 @@ function buildHexTableMarkup(
 
     for (let index = 0; index < remaining; index += 1) {
       const value = bytes[offset + index] ?? 0;
+      const absoluteIndex = rowOffset + index;
       const char =
         value >= 0x20 && value <= 0x7e
           ? escapeAsciiChar(String.fromCharCode(value))
           : asciiFallbackEscaped;
-      tableMarkup.push(`<span class="vuehex-ascii-char">${char}</span>`);
+      tableMarkup.push(
+        `<span class="vuehex-ascii-char" data-ascii-index="${absoluteIndex}" data-byte-value="${value}">${char}</span>`
+      );
     }
 
     for (let pad = remaining; pad < bytesPerRow; pad += 1) {
