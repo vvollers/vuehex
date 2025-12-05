@@ -1,0 +1,6 @@
+src/
+tests/
+vitest.config.ts
+vite.config.ts
+tsconfig.json
+README-draft.md
