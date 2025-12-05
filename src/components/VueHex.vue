@@ -757,6 +757,23 @@ function buildHexTableMarkup(
   const hexLookup = uppercase ? HEX_UPPER : HEX_LOWER;
   const asciiFallbackEscaped = fallbackAscii;
   const tableMarkup: string[] = [];
+  const useColumnSplit = bytesPerRow % 2 === 0;
+  const columnBreakIndex = useColumnSplit ? bytesPerRow / 2 : -1;
+
+  const composeCellClass = (
+    base: string,
+    columnIndex: number,
+    extra: string[] = []
+  ) => {
+    const classes = [base, ...extra];
+    if (useColumnSplit && columnIndex >= columnBreakIndex) {
+      classes.push(`${base}--second-column`);
+      if (columnIndex === columnBreakIndex) {
+        classes.push(`${base}--column-start`);
+      }
+    }
+    return classes.join(" ");
+  };
 
   for (let offset = 0; offset < bytes.length; offset += bytesPerRow) {
     const remaining = Math.min(bytesPerRow, bytes.length - offset);
@@ -772,14 +789,19 @@ function buildHexTableMarkup(
     for (let index = 0; index < remaining; index += 1) {
       const value = bytes[offset + index] ?? 0;
       const absoluteIndex = rowOffset + index;
+      const className = composeCellClass("vuehex-byte", index);
       tableMarkup.push(
-        `<span class="vuehex-byte" data-hex-index="${absoluteIndex}" data-byte-value="${value}">${hexLookup[value]}</span>`
+        `<span class="${className}" data-hex-index="${absoluteIndex}" data-byte-value="${value}">${hexLookup[value]}</span>`
       );
     }
 
     for (let pad = remaining; pad < bytesPerRow; pad += 1) {
+      const columnIndex = pad;
+      const className = composeCellClass("vuehex-byte", columnIndex, [
+        "vuehex-byte--placeholder",
+      ]);
       tableMarkup.push(
-        `<span class="vuehex-byte vuehex-byte--placeholder" aria-hidden="true">${PLACEHOLDER_HEX}</span>`
+        `<span class="${className}" aria-hidden="true">${PLACEHOLDER_HEX}</span>`
       );
     }
 
@@ -796,14 +818,19 @@ function buildHexTableMarkup(
           asciiContent = escapeAsciiChar(renderedString);
         }
       }
+      const className = composeCellClass("vuehex-ascii-char", index);
       tableMarkup.push(
-        `<span class="vuehex-ascii-char" data-ascii-index="${absoluteIndex}" data-byte-value="${value}">${asciiContent}</span>`
+        `<span class="${className}" data-ascii-index="${absoluteIndex}" data-byte-value="${value}">${asciiContent}</span>`
       );
     }
 
     for (let pad = remaining; pad < bytesPerRow; pad += 1) {
+      const columnIndex = pad;
+      const className = composeCellClass("vuehex-ascii-char", columnIndex, [
+        "vuehex-byte--placeholder",
+      ]);
       tableMarkup.push(
-        `<span class="vuehex-ascii-char vuehex-byte--placeholder" aria-hidden="true">${PLACEHOLDER_ASCII}</span>`
+        `<span class="${className}" aria-hidden="true">${PLACEHOLDER_ASCII}</span>`
       );
     }
 

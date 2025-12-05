@@ -1,4 +1,5 @@
 .vuehex {
+  --vuehex-mid-column-gutter: 1.5ch;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
   background-color: #0f172a;
@@ -63,6 +64,11 @@
 
 .vuehex-byte {
   color: #f8fafc;
+}
+
+.vuehex-byte--column-start,
+.vuehex-ascii-char--column-start {
+  margin-left: calc(var(--vuehex-mid-column-gutter) + 0.25ch);
 }
 
 .vuehex-ascii {
