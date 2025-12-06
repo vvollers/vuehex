@@ -6,21 +6,11 @@
     aria-label="Hex viewer"
     @scroll="handleScroll"
   >
-    <div
-      class="vuehex-spacer"
-      role="presentation"
-      aria-hidden="true"
-      :style="beforeSpacerStyle"
-    ></div>
-    <table :class="tableClass" role="presentation">
-      <tbody ref="tbodyEl" v-html="markup"></tbody>
-    </table>
-    <div
-      class="vuehex-spacer"
-      role="presentation"
-      aria-hidden="true"
-      :style="afterSpacerStyle"
-    ></div>
+    <div class="vuehex-inner" :style="innerStyle" role="presentation">
+      <table :class="tableClass" :style="tableStyle" role="presentation">
+        <tbody ref="tbodyEl" v-html="markup"></tbody>
+      </table>
+    </div>
   </div>
 </template>
 
@@ -34,6 +24,7 @@ import {
   shallowRef,
   watch,
 } from "vue";
+import type { CSSProperties } from "vue";
 import type {
   VueHexAsciiRenderer,
   VueHexCellClassResolver,
@@ -110,7 +101,6 @@ const normalizedBytes = shallowRef<Uint8Array<ArrayBufferLike>>(
 );
 const fallbackAsciiChar = shallowRef(".");
 const renderStartRowRef = ref(0);
-const renderedSliceRows = ref(0);
 
 const rowHeight = ref<number | null>(null);
 const containerHeight = ref(0);
@@ -154,18 +144,6 @@ const renderedRows = computed(() => {
   );
 });
 
-const beforeHeight = computed(
-  () => renderStartRowRef.value * rowHeightValue.value
-);
-
-const afterHeight = computed(() => {
-  const remainingRows = Math.max(
-    totalRows.value - (renderStartRowRef.value + renderedSliceRows.value),
-    0
-  );
-  return remainingRows * rowHeightValue.value;
-});
-
 const viewportRows = computed(() => {
   if (containerHeight.value <= 0) {
     return 0;
@@ -174,10 +152,35 @@ const viewportRows = computed(() => {
   return Math.max(1, Math.ceil(containerHeight.value / rowHeightValue.value));
 });
 
-const beforeSpacerStyle = computed(() => ({
-  height: `${beforeHeight.value}px`,
+const totalHeight = computed(() => {
+  if (totalRows.value <= 0) {
+    return 0;
+  }
+  return totalRows.value * rowHeightValue.value;
+});
+
+const tableOffset = computed(
+  () => renderStartRowRef.value * rowHeightValue.value
+);
+
+const innerStyle = computed<CSSProperties>(() => ({
+  position: "relative",
+  height: `${Math.max(totalHeight.value, 0)}px`,
 }));
-const afterSpacerStyle = computed(() => ({ height: `${afterHeight.value}px` }));
+
+const tableStyle = computed<CSSProperties>(() => {
+  const offset = tableOffset.value;
+  const transformValue = Number.isFinite(offset)
+    ? `translateY(${offset}px)`
+    : "translateY(0px)";
+  return {
+    position: "absolute",
+    top: "0px",
+    left: "0px",
+    right: "0px",
+    transform: transformValue,
+  };
+});
 
 const overscanRows = computed(() => Math.max(0, Math.trunc(props.overscan)));
 
@@ -588,7 +591,6 @@ function updateRenderedSlice() {
   if (data.length === 0) {
     markup.value = "";
     renderStartRowRef.value = Math.floor(windowStart / bytesPerRowValue);
-    renderedSliceRows.value = 0;
     clearHoverState();
     return;
   }
@@ -640,7 +642,6 @@ function updateRenderedSlice() {
   if (renderEnd <= renderStart) {
     markup.value = "";
     renderStartRowRef.value = Math.floor(renderStart / bytesPerRowValue);
-    renderedSliceRows.value = 0;
     clearHoverState();
     return;
   }
@@ -652,13 +653,7 @@ function updateRenderedSlice() {
   );
 
   const slice = data.subarray(relativeStart, relativeEnd);
-  const renderedLength = relativeEnd - relativeStart;
-  const sliceRowCount = Math.max(
-    1,
-    Math.ceil(renderedLength / bytesPerRowValue)
-  );
   renderStartRowRef.value = Math.floor(renderStart / bytesPerRowValue);
-  renderedSliceRows.value = sliceRowCount;
 
   const printableCheck = props.isPrintable ?? DEFAULT_PRINTABLE_CHECK;
   const asciiRenderer = props.renderAscii ?? DEFAULT_ASCII_RENDERER;

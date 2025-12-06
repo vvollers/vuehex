@@ -31,8 +31,10 @@
   table-layout: fixed;
 }
 
-.vuehex-spacer {
-  height: 0;
+.vuehex-inner {
+  position: relative;
+  width: 100%;
+  min-height: 100%;
 }
 
 .vuehex-table tbody tr {
