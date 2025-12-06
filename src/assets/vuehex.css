@@ -1,3 +1,150 @@
+.vuehex-root {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  gap: 0.75rem;
+}
+
+.vuehex-root--horizontal {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.vuehex-root--vertical {
+  flex-direction: column;
+}
+
+.vuehex-viewer {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+.vuehex-viewer > .vuehex {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.vuehex-viewer--with-nav.vuehex-viewer--nav-left,
+.vuehex-viewer--with-nav.vuehex-viewer--nav-right {
+  flex: 1 1 auto;
+}
+
+.vuehex-chunk-nav {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  border: 1px solid var(--vuehex-border-color);
+  border-radius: 0.5rem;
+  background: var(--vuehex-background);
+  color: var(--vuehex-foreground);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+}
+
+.vuehex-chunk-nav--right,
+.vuehex-chunk-nav--left {
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 220px;
+  max-width: 280px;
+}
+
+.vuehex-chunk-nav--right {
+  order: 1;
+}
+
+.vuehex-chunk-nav--left {
+  order: -1;
+}
+
+.vuehex-chunk-nav--top,
+.vuehex-chunk-nav--bottom {
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+}
+
+.vuehex-chunk-nav--top {
+  order: -1;
+}
+
+.vuehex-chunk-nav--bottom {
+  order: 1;
+}
+
+.vuehex-chunk-nav__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.vuehex-chunk-nav__title {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.vuehex-chunk-nav__summary {
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+.vuehex-chunk-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.vuehex-chunk-nav--top .vuehex-chunk-list,
+.vuehex-chunk-nav--bottom .vuehex-chunk-list {
+  flex-direction: row;
+  overflow-y: visible;
+  overflow-x: auto;
+}
+
+.vuehex-chunk-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  background: rgba(148, 163, 184, 0.08);
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.vuehex-chunk-item:hover {
+  border-color: rgba(148, 163, 184, 0.4);
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.vuehex-chunk-item:focus-visible {
+  outline: 2px solid rgba(96, 165, 250, 0.8);
+  outline-offset: 2px;
+}
+
+.vuehex-chunk-item--active {
+  border-color: rgba(96, 165, 250, 0.8);
+  background: rgba(96, 165, 250, 0.22);
+}
+
+.vuehex-chunk-item__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.vuehex-chunk-item__range {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
 .vuehex {
   --vuehex-background: #0f172a;
   --vuehex-foreground: #e2e8f0;

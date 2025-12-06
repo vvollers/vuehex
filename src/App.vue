@@ -49,6 +49,18 @@
           </select>
         </label>
         <label class="option">
+          Chunk navigator
+          <select v-model="chunkNavigatorPlacement">
+            <option
+              v-for="option in chunkNavigatorPlacementOptions"
+              :key="option.value"
+              :value="option.value"
+            >
+              {{ option.label }}
+            </option>
+          </select>
+        </label>
+        <label class="option">
           Highlights
           <select v-model="highlightKey">
             <option
@@ -89,6 +101,8 @@
           :render-ascii="activeAsciiPreset.renderAscii"
           :theme="themeKey"
           :cell-class-for-byte="activeCellClassResolver"
+          :show-chunk-navigator="true"
+          :chunk-navigator-placement="chunkNavigatorPlacement"
           @row-hover-on="handleRowHoverOn"
           @row-hover-off="handleRowHoverOff"
           @hex-hover-on="handleHexHoverOn"
@@ -255,6 +269,18 @@ const highlightOptions = [
 type HighlightKey = (typeof highlightOptions)[number]["key"];
 
 const highlightKey = ref<HighlightKey>("structure");
+
+const chunkNavigatorPlacementOptions = [
+  { value: "right", label: "Navigator right" },
+  { value: "left", label: "Navigator left" },
+  { value: "top", label: "Navigator top" },
+  { value: "bottom", label: "Navigator bottom" },
+] as const;
+
+type ChunkNavigatorPlacement =
+  (typeof chunkNavigatorPlacementOptions)[number]["value"];
+
+const chunkNavigatorPlacement = ref<ChunkNavigatorPlacement>("right");
 
 const activeAsciiPreset = computed(() => {
   const found = asciiPresetOptions.find(
