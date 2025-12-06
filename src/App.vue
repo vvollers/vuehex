@@ -36,6 +36,30 @@
             </option>
           </select>
         </label>
+        <label class="option">
+          Theme
+          <select v-model="themeKey">
+            <option
+              v-for="option in themeOptions"
+              :key="option.key"
+              :value="option.key"
+            >
+              {{ option.label }}
+            </option>
+          </select>
+        </label>
+        <label class="option">
+          Highlights
+          <select v-model="highlightKey">
+            <option
+              v-for="option in highlightOptions"
+              :key="option.key"
+              :value="option.key"
+            >
+              {{ option.label }}
+            </option>
+          </select>
+        </label>
       </div>
 
       <div class="file-loader">
@@ -63,6 +87,8 @@
           :non-printable-char="nonPrintableChar"
           :is-printable="activeAsciiPreset.isPrintable"
           :render-ascii="activeAsciiPreset.renderAscii"
+          :theme="themeKey"
+          :cell-class-for-byte="activeCellClassResolver"
           @row-hover-on="handleRowHoverOn"
           @row-hover-off="handleRowHoverOff"
           @hex-hover-on="handleHexHoverOn"
@@ -70,6 +96,15 @@
           @ascii-hover-on="handleAsciiHoverOn"
           @ascii-hover-off="handleAsciiHoverOff"
         />
+      </div>
+
+      <div v-if="activeHighlightNotes.length" class="highlight-legend">
+        <h3 class="highlight-legend-title">Highlight guide</h3>
+        <ul class="highlight-legend-list">
+          <li v-for="note in activeHighlightNotes" :key="note">
+            {{ note }}
+          </li>
+        </ul>
       </div>
 
       <div class="events">
@@ -115,6 +150,7 @@ import VueHex from "./components/VueHex.vue";
 import {
   VUE_HEX_ASCII_PRESETS,
   type VueHexAsciiPreset,
+  type VueHexCellClassResolver,
   type VueHexDataBinding,
   type VueHexWindow,
   type VueHexWindowRequest,
@@ -199,12 +235,103 @@ type AsciiPresetKey = (typeof asciiPresetOptions)[number]["key"];
 
 const asciiPresetKey = ref<AsciiPresetKey>("standard");
 
+const themeOptions = [
+  { key: "default", label: "Midnight (default)" },
+  { key: "light", label: "Cloud Light" },
+  { key: "terminal", label: "Terminal Green" },
+  { key: "sunset", label: "Sunset Glow" },
+] as const;
+
+type ThemeKey = (typeof themeOptions)[number]["key"];
+
+const themeKey = ref<ThemeKey>("default");
+
+const highlightOptions = [
+  { key: "structure", label: "Sample structure" },
+  { key: "asciiCategories", label: "ASCII categories" },
+  { key: "none", label: "No highlights" },
+] as const;
+
+type HighlightKey = (typeof highlightOptions)[number]["key"];
+
+const highlightKey = ref<HighlightKey>("structure");
+
 const activeAsciiPreset = computed(() => {
   const found = asciiPresetOptions.find(
     (option) => option.key === asciiPresetKey.value
   );
   return found?.preset ?? asciiPresetOptions[0].preset;
 });
+
+const structureHighlight: VueHexCellClassResolver = ({ index }) => {
+  const total = totalBytes.value;
+  const headerLimit = Math.min(0x40, Math.max(total, 0));
+  const hasFooter = total >= 0x80;
+  const footerStart = hasFooter
+    ? Math.max(total - 0x40, headerLimit)
+    : Infinity;
+  const metadataLimit = Math.min(0x180, footerStart);
+
+  if (index < headerLimit) {
+    return "vuehex-demo-region--header";
+  }
+  if (index < metadataLimit) {
+    return "vuehex-demo-region--metadata";
+  }
+  if (index >= footerStart) {
+    return "vuehex-demo-region--footer";
+  }
+  return "vuehex-demo-region--payload";
+};
+
+const asciiCategoryHighlight: VueHexCellClassResolver = ({ byte }) => {
+  if (byte >= 0x30 && byte <= 0x39) {
+    return "vuehex-demo-byte--digit";
+  }
+  if (byte >= 0x41 && byte <= 0x5a) {
+    return "vuehex-demo-byte--uppercase";
+  }
+  if (byte >= 0x61 && byte <= 0x7a) {
+    return "vuehex-demo-byte--lowercase";
+  }
+  if (byte === 0x00) {
+    return "vuehex-demo-byte--null";
+  }
+  return undefined;
+};
+
+const highlightResolverMap: Record<
+  HighlightKey,
+  VueHexCellClassResolver | undefined
+> = {
+  structure: structureHighlight,
+  asciiCategories: asciiCategoryHighlight,
+  none: undefined,
+};
+
+const highlightNotesMap: Record<HighlightKey, string[]> = {
+  structure: [
+    "Header: first 64 bytes (or the whole file if shorter)",
+    "Metadata: bytes 0x40–0x17F until the footer boundary",
+    "Payload: everything after metadata until the footer",
+    "Footer: final 64 bytes when available",
+  ],
+  asciiCategories: [
+    "Digits highlighted in gold",
+    "Uppercase ASCII highlighted in cyan",
+    "Lowercase ASCII highlighted in violet",
+    "Null bytes dimmed",
+  ],
+  none: [],
+};
+
+const activeCellClassResolver = computed(
+  () => highlightResolverMap[highlightKey.value]
+);
+
+const activeHighlightNotes = computed(
+  () => highlightNotesMap[highlightKey.value] ?? []
+);
 
 const activeRowOffset = ref<number | null>(null);
 const activeHex = ref<{ index: number; byte: number } | null>(null);
@@ -298,8 +425,12 @@ function replaceBackingData(data: Uint8Array, label: string) {
 }
 
 function resetViewerToOffset(offset: number) {
-  viewerBinding.value.window = createInitialWindow(backingData.value, offset);
-  viewerBinding.value.totalBytes = totalBytes.value;
+  const nextWindow = createInitialWindow(backingData.value, offset);
+  viewerBinding.value = {
+    window: nextWindow,
+    totalBytes: backingData.value.length,
+    requestWindow: handleRequestWindow,
+  };
 }
 
 function handleRequestWindow(request: VueHexWindowRequest) {
@@ -322,11 +453,14 @@ function handleRequestWindow(request: VueHexWindowRequest) {
       ? backingData.value.slice(offset, offset + length)
       : new Uint8Array(0);
 
-  viewerBinding.value.window = {
-    offset,
-    data: slice,
+  viewerBinding.value = {
+    window: {
+      offset,
+      data: slice,
+    },
+    totalBytes: total,
+    requestWindow: handleRequestWindow,
   };
-  viewerBinding.value.totalBytes = total;
 }
 
 function handleRowHoverOn(payload: { offset: number }) {
@@ -693,5 +827,69 @@ input[type="text"]:focus,
 select:focus {
   outline: 2px solid rgba(99, 102, 241, 0.35);
   outline-offset: 1px;
+}
+
+.highlight-legend {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.highlight-legend-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.highlight-legend-list {
+  list-style: disc;
+  margin: 0 0 0 1.2rem;
+  padding: 0;
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+}
+
+:deep(.vuehex-demo-region--header),
+:deep(.vuehex-demo-region--metadata),
+:deep(.vuehex-demo-region--payload),
+:deep(.vuehex-demo-region--footer) {
+  border-radius: 0.25rem;
+  padding: 0 0.2rem;
+}
+
+:deep(.vuehex-demo-region--header) {
+  background: rgba(56, 189, 248, 0.2);
+}
+
+:deep(.vuehex-demo-region--metadata) {
+  background: rgba(94, 234, 212, 0.18);
+}
+
+:deep(.vuehex-demo-region--payload) {
+  background: rgba(251, 191, 36, 0.18);
+}
+
+:deep(.vuehex-demo-region--footer) {
+  background: rgba(249, 115, 22, 0.2);
+}
+
+:deep(.vuehex-demo-byte--digit) {
+  color: #facc15;
+}
+
+:deep(.vuehex-demo-byte--uppercase) {
+  color: #38bdf8;
+}
+
+:deep(.vuehex-demo-byte--lowercase) {
+  color: #c084fc;
+}
+
+:deep(.vuehex-demo-byte--null) {
+  opacity: 0.5;
 }
 </style>

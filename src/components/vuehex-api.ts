@@ -19,6 +19,18 @@ export interface VueHexDataBinding {
 export type VueHexPrintableCheck = (byte: number) => boolean;
 export type VueHexAsciiRenderer = (byte: number) => string;
 
+export type VueHexCellKind = "hex" | "ascii";
+
+export interface VueHexCellClassPayload {
+  kind: VueHexCellKind;
+  index: number;
+  byte: number;
+}
+
+export type VueHexCellClassResolver = (
+  payload: VueHexCellClassPayload
+) => string | string[] | null | undefined;
+
 export const DEFAULT_PRINTABLE_CHECK: VueHexPrintableCheck = (byte) =>
   byte >= 0x20 && byte <= 0x7e;
 

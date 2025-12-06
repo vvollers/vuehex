@@ -1,12 +1,23 @@
 .vuehex {
+  --vuehex-background: #0f172a;
+  --vuehex-foreground: #e2e8f0;
+  --vuehex-border-color: rgba(148, 163, 184, 0.25);
+  --vuehex-offset-color: #94a3b8;
+  --vuehex-offset-leading-opacity: 0.4;
+  --vuehex-row-divider: rgba(148, 163, 184, 0.2);
+  --vuehex-byte-color: #f8fafc;
+  --vuehex-ascii-color: #f1f5f9;
+  --vuehex-ascii-non-printable-color: rgba(148, 163, 184, 0.45);
+  --vuehex-ascii-column-border: rgba(148, 163, 184, 0.2);
   --vuehex-mid-column-gutter: 1.5ch;
+
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
-  background-color: #0f172a;
-  color: #e2e8f0;
+  background: var(--vuehex-background);
+  color: var(--vuehex-foreground);
   padding: 1rem;
   border-radius: 0.75rem;
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  border: 1px solid var(--vuehex-border-color);
   overflow-x: auto;
   overflow-y: auto;
   position: relative;
@@ -25,7 +36,7 @@
 }
 
 .vuehex-table tbody tr {
-  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  border-bottom: 1px solid var(--vuehex-row-divider);
 }
 
 .vuehex-table tbody tr:last-child {
@@ -36,12 +47,13 @@
   padding: 0.25rem 0.75rem 0.25rem 0;
   text-align: left;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--vuehex-offset-color);
   white-space: nowrap;
+  width: 150px;
 }
 
 .vuehex-offset-leading {
-  opacity: 0.4;
+  opacity: var(--vuehex-offset-leading-opacity);
 }
 
 .vuehex-bytes,
@@ -63,7 +75,7 @@
 }
 
 .vuehex-byte {
-  color: #f8fafc;
+  color: var(--vuehex-byte-color);
 }
 
 .vuehex-byte--column-start,
@@ -73,14 +85,83 @@
 
 .vuehex-ascii {
   padding-left: 0.75rem;
-  border-left: 1px solid rgba(148, 163, 184, 0.2);
-  color: #cbd5f5;
+  border-left: 1px solid var(--vuehex-ascii-column-border);
+  color: var(--vuehex-ascii-color);
 }
 
 .vuehex-ascii-char {
-  color: #f1f5f9;
+  color: var(--vuehex-ascii-color);
 }
 
-.vuehex-byte--placeholder {
+.vuehex-ascii-char--non-printable {
+  color: var(--vuehex-ascii-non-printable-color);
+}
+
+.vuehex-byte--placeholder,
+.vuehex-ascii-char--placeholder {
   visibility: hidden;
+}
+
+/* Default theme */
+.vuehex-theme-default {
+  --vuehex-background: #0f172a;
+  --vuehex-foreground: #e2e8f0;
+  --vuehex-border-color: rgba(148, 163, 184, 0.25);
+  --vuehex-offset-color: #94a3b8;
+  --vuehex-offset-leading-opacity: 0.35;
+  --vuehex-row-divider: rgba(148, 163, 184, 0.18);
+  --vuehex-byte-color: #f8fafc;
+  --vuehex-ascii-color: #f1f5f9;
+  --vuehex-ascii-non-printable-color: rgba(148, 163, 184, 0.35);
+  --vuehex-ascii-column-border: rgba(148, 163, 184, 0.24);
+  --vuehex-mid-column-gutter: 1.5ch;
+}
+
+/* Light theme */
+.vuehex-theme-light {
+  --vuehex-background: #f8fafc;
+  --vuehex-foreground: #0f172a;
+  --vuehex-border-color: rgba(15, 23, 42, 0.12);
+  --vuehex-offset-color: rgba(15, 23, 42, 0.65);
+  --vuehex-offset-leading-opacity: 0.5;
+  --vuehex-row-divider: rgba(15, 23, 42, 0.08);
+  --vuehex-byte-color: #1f2937;
+  --vuehex-ascii-color: #334155;
+  --vuehex-ascii-non-printable-color: rgba(100, 116, 139, 0.5);
+  --vuehex-ascii-column-border: rgba(148, 163, 184, 0.35);
+  --vuehex-mid-column-gutter: 1.5ch;
+}
+
+.vuehex-theme-light [class~="vuehex-ascii-char--non-printable"] {
+  color: rgba(100, 116, 139, 0.35);
+}
+
+/* Terminal theme */
+.vuehex-theme-terminal {
+  --vuehex-background: #050505;
+  --vuehex-foreground: #7fff7f;
+  --vuehex-border-color: rgba(80, 255, 120, 0.25);
+  --vuehex-offset-color: rgba(143, 255, 143, 0.65);
+  --vuehex-offset-leading-opacity: 0.55;
+  --vuehex-row-divider: rgba(80, 255, 120, 0.15);
+  --vuehex-byte-color: #7fff7f;
+  --vuehex-ascii-color: #b8ff8a;
+  --vuehex-ascii-non-printable-color: rgba(127, 255, 127, 0.35);
+  --vuehex-ascii-column-border: rgba(127, 255, 127, 0.25);
+  --vuehex-mid-column-gutter: 2ch;
+}
+
+/* Sunset theme */
+.vuehex-theme-sunset {
+  --vuehex-background: radial-gradient(circle at top, #451952, #1f1728);
+  --vuehex-foreground: #fee2e2;
+  --vuehex-border-color: rgba(248, 113, 113, 0.35);
+  --vuehex-offset-color: rgba(248, 113, 113, 0.75);
+  --vuehex-offset-leading-opacity: 0.5;
+  --vuehex-row-divider: rgba(248, 113, 113, 0.12);
+  --vuehex-byte-color: #fca5a5;
+  --vuehex-ascii-color: #fcd34d;
+  --vuehex-ascii-non-printable-color: rgba(251, 191, 36, 0.4);
+  --vuehex-ascii-column-border: rgba(248, 113, 113, 0.25);
+  --vuehex-mid-column-gutter: 1.75ch;
 }

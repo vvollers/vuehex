@@ -184,12 +184,15 @@ Any byte that fails `isPrintable` falls back to the `nonPrintableChar` glyph, so
 - `nonPrintableChar` (default `"."`) – fallback character for ASCII column
 - `isPrintable` – `(byte: number) => boolean` predicate that determines ASCII visibility (defaults to standard ASCII range)
 - `renderAscii` – `(byte: number) => string` renderer for printable bytes (defaults to `String.fromCharCode`)
+- `theme` (default `"default"`) – selects one of the packaged palettes (`default`, `light`, `terminal`, `sunset`) by applying `vuehex-theme-*` classes
+- `cellClassForByte` – `(payload: { kind: "hex" | "ascii"; index: number; byte: number }) => string | string[] | void` callback for adding custom class names to rendered cells
 - `overscan` (default `2`) – extra rows to fetch above/below the viewport to reduce churn
 
 ## Styling options
 
 1. **Default theme** – `import "vuehex/styles"` once in your app to load the packaged CSS.
-2. **Custom theme** – skip the import and write your own styles targeting the emitted class names: `vuehex`, `vuehex-spacer`, `vuehex-table`, `vuehex-offset`, `vuehex-bytes`, `vuehex-byte`, `vuehex-ascii`, `vuehex-ascii-char`, and `vuehex-byte--placeholder`.
+2. **Theme prop** – set the `theme` prop to swap between the bundled palettes without rewriting styles.
+3. **Custom theme** – skip the import and write your own styles targeting the emitted class names: `vuehex`, `vuehex-spacer`, `vuehex-table`, `vuehex-offset`, `vuehex-bytes`, `vuehex-byte`, `vuehex-ascii`, `vuehex-ascii-char`, `vuehex-byte--placeholder`, and the value-aware helpers `vuehex-byte--value-<n>` / `vuehex-ascii-char--value-<n>`.
 
 The build also exposes `vuehex/style.css` if your bundler prefers direct CSS imports.
 
@@ -362,12 +365,17 @@ handleHexLeave() { tooltip.close(); }
 - `bytesPerRow` (default `16`) – how many bytes to display per row
 - `uppercase` (default `false`) – render hex pairs in uppercase
 - `nonPrintableChar` (default `"."`) – fallback character for ASCII column
+- `isPrintable` – `(byte: number) => boolean` predicate for ASCII visibility (defaults to standard ASCII range)
+- `renderAscii` – `(byte: number) => string` renderer for printable bytes (defaults to `String.fromCharCode`)
+- `theme` (default `"default"`) – applies one of the bundled palettes via `vuehex-theme-*` classes
+- `cellClassForByte` – `(payload: { kind: "hex" | "ascii"; index: number; byte: number }) => string | string[] | void` callback for injecting custom classes
 - `overscan` (default `2`) – extra rows to fetch above/below the viewport to reduce churn
 
 ## Styling options
 
 1. **Default theme** – `import "vuehex/styles"` once in your app to load the packaged CSS.
-2. **Custom theme** – skip the import and write your own styles targeting the emitted class names: `vuehex`, `vuehex-spacer`, `vuehex-table`, `vuehex-offset`, `vuehex-bytes`, `vuehex-byte`, `vuehex-ascii`, `vuehex-ascii-char`, and `vuehex-byte--placeholder`.
+2. **Theme prop** – toggle the `theme` prop to swap between bundled palettes.
+3. **Custom theme** – skip the import and write your own styles targeting the emitted class names: `vuehex`, `vuehex-spacer`, `vuehex-table`, `vuehex-offset`, `vuehex-bytes`, `vuehex-byte`, `vuehex-ascii`, `vuehex-ascii-char`, `vuehex-byte--placeholder`, and the value-soft selectors `vuehex-byte--value-<n>` / `vuehex-ascii-char--value-<n>`.
 
 The build also exposes `vuehex/style.css` if your bundler prefers direct CSS imports.
 
