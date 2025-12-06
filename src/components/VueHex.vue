@@ -46,8 +46,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { CSSProperties } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useChunkNavigator } from "./composables/useChunkNavigator";
+import { useHexWindow } from "./composables/useHexWindow";
+import { useHoverLinking } from "./composables/useHoverLinking";
 import type {
   VueHexAsciiRenderer,
   VueHexCellClassResolver,
@@ -55,44 +58,53 @@ import type {
   VueHexPrintableCheck,
 } from "./vuehex-api";
 import { DEFAULT_ASCII_RENDERER, DEFAULT_PRINTABLE_CHECK } from "./vuehex-api";
-import { useChunkNavigator } from "./composables/useChunkNavigator";
-import { useHoverLinking } from "./composables/useHoverLinking";
-import { useHexWindow } from "./composables/useHexWindow";
 import {
   buildHexTableMarkup,
   clampBytesPerRow,
   normalizeThemeKey,
 } from "./vuehex-utils";
 
+/** Fallback row height used until the DOM is measured. */
 const DEFAULT_ROW_HEIGHT = 24;
+/** Maximum height allowed before chunking kicks in to avoid huge scroll containers. */
 const MAX_VIRTUAL_HEIGHT = 8_000_000;
 
-const props = withDefaults(
-  defineProps<{
-    binding: VueHexDataBinding;
-    bytesPerRow?: number;
-    uppercase?: boolean;
-    nonPrintableChar?: string;
-    overscan?: number;
-    isPrintable?: VueHexPrintableCheck;
-    renderAscii?: VueHexAsciiRenderer;
-    theme?: string | null;
-    cellClassForByte?: VueHexCellClassResolver;
-    showChunkNavigator?: boolean;
-    chunkNavigatorPlacement?: "left" | "right" | "top" | "bottom";
-  }>(),
-  {
-    bytesPerRow: 16,
-    uppercase: false,
-    nonPrintableChar: ".",
-    overscan: 2,
-    isPrintable: DEFAULT_PRINTABLE_CHECK,
-    renderAscii: DEFAULT_ASCII_RENDERER,
-    theme: "default",
-    showChunkNavigator: false,
-    chunkNavigatorPlacement: "right",
-  }
-);
+interface VueHexProps {
+  /** Reactive binding that supplies the current window and fetch callback. */
+  binding: VueHexDataBinding;
+  /** Controls how many bytes render per table row; consumers tune readability. */
+  bytesPerRow?: number;
+  /** When true, renders hexadecimal digits in uppercase for stylistic preference. */
+  uppercase?: boolean;
+  /** Substitute character used for non-printable bytes in the ASCII pane. */
+  nonPrintableChar?: string;
+  /** Number of rows to pre-render above/below the viewport to reduce flicker. */
+  overscan?: number;
+  /** Optional custom printable check letting consumers broaden the ASCII range. */
+  isPrintable?: VueHexPrintableCheck;
+  /** Optional renderer for printable ASCII cells so callers can supply glyphs. */
+  renderAscii?: VueHexAsciiRenderer;
+  /** Theme token appended to classes, enabling consumer-provided styling. */
+  theme?: string | null;
+  /** Hook for assigning classes per cell, useful for highlighting bytes of interest. */
+  cellClassForByte?: VueHexCellClassResolver;
+  /** Toggles the chunk navigator UI, allowing quick jumps through large files. */
+  showChunkNavigator?: boolean;
+  /** Places the chunk navigator around the viewer to fit various layouts. */
+  chunkNavigatorPlacement?: "left" | "right" | "top" | "bottom";
+}
+
+const props = withDefaults(defineProps<VueHexProps>(), {
+  bytesPerRow: 16,
+  uppercase: false,
+  nonPrintableChar: ".",
+  overscan: 2,
+  isPrintable: DEFAULT_PRINTABLE_CHECK,
+  renderAscii: DEFAULT_ASCII_RENDERER,
+  theme: "default",
+  showChunkNavigator: false,
+  chunkNavigatorPlacement: "right",
+});
 
 const emit = defineEmits<{
   (event: "row-hover-on", payload: { offset: number }): void;
@@ -103,18 +115,27 @@ const emit = defineEmits<{
   (event: "ascii-hover-off", payload: { index: number; byte: number }): void;
 }>();
 
+/** Provides easy access to the currently bound window. */
 const bindingWindow = computed(() => props.binding.window);
+/** Total bytes in the backing data; feeds navigation decisions. */
 const totalBytes = computed(() => props.binding.totalBytes);
 
+/** Scroll container ref for virtualization math. */
 const containerEl = ref<HTMLDivElement>();
+/** Table body ref so hover logic can traverse DOM nodes. */
 const tbodyEl = ref<HTMLTableSectionElement>();
 
+/** Measured row height in pixels; set once rows render. */
 const rowHeight = ref<number | null>(null);
+/** Current viewport height of the container, updated on resize. */
 const containerHeight = ref(0);
 
+/** Normalized bytes-per-row value to keep layout stable. */
 const bytesPerRow = computed(() => clampBytesPerRow(props.bytesPerRow));
+/** Row height fallback that always returns a number. */
 const rowHeightValue = computed(() => rowHeight.value ?? DEFAULT_ROW_HEIGHT);
 
+/** Number of rows visible in the viewport, guiding overscan math. */
 const viewportRows = computed(() => {
   if (containerHeight.value <= 0) {
     return 0;
@@ -122,9 +143,12 @@ const viewportRows = computed(() => {
   return Math.max(1, Math.ceil(containerHeight.value / rowHeightValue.value));
 });
 
+/** Amount of overscan rows to render, sanitized for downstream calculations. */
 const overscanRows = computed(() => Math.max(0, Math.trunc(props.overscan)));
 
+/** Normalized theme key derived from the consumer-specified string. */
 const themeKey = computed(() => normalizeThemeKey(props.theme));
+/** Classes applied to the scroll container, including theme modifiers. */
 const containerClass = computed(() => {
   const classes = ["vuehex"];
   if (themeKey.value) {
@@ -132,8 +156,10 @@ const containerClass = computed(() => {
   }
   return classes;
 });
+/** Static class list for the table element. */
 const tableClass = computed(() => ["vuehex-table"]);
 
+/** Chunk navigation helpers that keep oversized datasets scrollable. */
 const {
   chunkStartRow,
   chunkRowCount,
@@ -158,12 +184,14 @@ const {
   maxVirtualHeight: MAX_VIRTUAL_HEIGHT,
 });
 
+/** Hover coordination utilities that emit events and apply linked highlights. */
 const { handlePointerOver, handlePointerOut, clearHoverState } =
   useHoverLinking({
     emit: (event, payload) => emit(event as never, payload as never),
     tbodyEl,
   });
 
+/** Virtual window utilities that coordinate data requests and markup rendering. */
 const {
   markup,
   renderStartRow,
@@ -198,18 +226,21 @@ const {
   clearHoverState,
 });
 
+/** Pixel offset applied to translate the table to the rendered slice. */
 const tableOffset = computed(() => {
   const offsetRows = renderStartRow.value - chunkStartRow.value;
   const offset = offsetRows * rowHeightValue.value;
   return Math.max(offset, 0);
 });
 
+/** Inline styles for the inner wrapper sizing the virtualized content area. */
 const innerStyle = computed<CSSProperties>(() => ({
   position: "relative",
   width: "100%",
   height: `${Math.max(chunkHeight.value, 0)}px`,
 }));
 
+/** Table styles that apply translation and positioning within the inner wrapper. */
 const tableStyle = computed<CSSProperties>(() => {
   const offset = tableOffset.value;
   const transformValue = Number.isFinite(offset)
@@ -225,6 +256,7 @@ const tableStyle = computed<CSSProperties>(() => {
   };
 });
 
+/** Responds to navigator button clicks by moving to the chosen chunk. */
 function handleChunkSelect(index: number) {
   if (!Number.isFinite(index)) {
     return;

@@ -1,5 +1,5 @@
-import { computed, ref } from "vue";
 import type { ComputedRef, Ref } from "vue";
+import { computed, ref } from "vue";
 import { clamp, formatOffsetPlain } from "../vuehex-utils";
 
 type ChunkNavigatorPlacement = "left" | "right" | "top" | "bottom";
@@ -51,11 +51,21 @@ export interface ChunkDescriptor {
   range: string;
 }
 
+/**
+ * Provides chunk-aware scrolling state for the hex viewer so UIs can render navigation controls
+ * and request chunk transitions while keeping virtualized content aligned.
+ */
 export function useChunkNavigator(
   options: ChunkNavigatorOptions
 ): ChunkNavigatorResult {
+  /**
+   * Tracks the first row within the currently mounted chunk so other computed values stay aligned.
+   */
   const chunkStartRow = ref(0);
 
+  /**
+   * Total number of logical rows based on the byte count, regardless of chunking.
+   */
   const totalRows = computed(() => {
     const total = options.totalBytes.value;
     if (total <= 0) {
@@ -65,6 +75,9 @@ export function useChunkNavigator(
     return Math.ceil(total / options.bytesPerRow.value);
   });
 
+  /**
+   * Overall visual height if all rows were rendered, used to decide when to chunk.
+   */
   const fullContentHeight = computed(() => {
     if (totalRows.value <= 0) {
       return 0;
@@ -72,6 +85,9 @@ export function useChunkNavigator(
     return totalRows.value * options.rowHeightValue.value;
   });
 
+  /**
+   * Maximum number of rows that can fit into a single chunk before exceeding the virtual height.
+   */
   const chunkRowCapacity = computed(() => {
     const rowHeight = options.rowHeightValue.value;
     if (rowHeight <= 0) {
@@ -86,6 +102,9 @@ export function useChunkNavigator(
     return capacity;
   });
 
+  /**
+   * Number of rows currently represented by the active chunk, respecting remaining data.
+   */
   const chunkRowCount = computed(() => {
     if (!Number.isFinite(chunkRowCapacity.value)) {
       return totalRows.value;
@@ -95,6 +114,9 @@ export function useChunkNavigator(
     return Math.min(remainingRows, chunkRowCapacity.value);
   });
 
+  /**
+   * Pixel height of the active chunk, informing container styling.
+   */
   const chunkHeight = computed(() => {
     if (chunkRowCount.value <= 0) {
       return 0;
@@ -102,12 +124,18 @@ export function useChunkNavigator(
     return chunkRowCount.value * options.rowHeightValue.value;
   });
 
+  /**
+   * Indicates whether the total content exceeds the maximum virtual height and needs chunking.
+   */
   const isChunking = computed(
     () =>
       fullContentHeight.value > options.maxVirtualHeight &&
       Number.isFinite(chunkRowCapacity.value)
   );
 
+  /**
+   * Number of chunks required to represent the entire dataset when chunking is enabled.
+   */
   const chunkCount = computed(() => {
     if (!isChunking.value) {
       return 1;
@@ -121,6 +149,9 @@ export function useChunkNavigator(
     return Math.max(1, Math.ceil(totalRows.value / capacity));
   });
 
+  /**
+   * Index of the chunk that is currently mounted within the viewport container.
+   */
   const activeChunkIndex = computed(() => {
     if (!isChunking.value) {
       return 0;
@@ -135,6 +166,9 @@ export function useChunkNavigator(
     return clamp(currentIndex, 0, Math.max(chunkCount.value - 1, 0));
   });
 
+  /**
+   * Normalized placement for the chunk navigator UI, honoring supported positions.
+   */
   const navigatorPlacement = computed<ChunkNavigatorPlacement>(() => {
     const placement = options.props.chunkNavigatorPlacement ?? "right";
     switch (placement) {
@@ -148,12 +182,18 @@ export function useChunkNavigator(
     }
   });
 
+  /**
+   * Flags whether the navigator should be laid out vertically (top/bottom) or horizontally.
+   */
   const isNavigatorVertical = computed(
     () =>
       navigatorPlacement.value === "top" ||
       navigatorPlacement.value === "bottom"
   );
 
+  /**
+   * Determines when the chunk navigator control should be displayed.
+   */
   const shouldShowChunkNavigator = computed(
     () =>
       Boolean(options.props.showChunkNavigator) &&
@@ -161,6 +201,9 @@ export function useChunkNavigator(
       chunkCount.value > 1
   );
 
+  /**
+   * Class list for the root container, adding layout modifiers when the navigator is visible.
+   */
   const rootClass = computed(() => {
     const classes = ["vuehex-root"];
     if (shouldShowChunkNavigator.value) {
@@ -174,6 +217,9 @@ export function useChunkNavigator(
     return classes;
   });
 
+  /**
+   * Class list for the navigator container, allowing placement-specific styling.
+   */
   const chunkNavigatorClass = computed(() => {
     const classes = ["vuehex-chunk-nav"];
     if (shouldShowChunkNavigator.value) {
@@ -182,6 +228,9 @@ export function useChunkNavigator(
     return classes;
   });
 
+  /**
+   * Class list for the viewer portion, attaching modifiers that account for navigator presence.
+   */
   const viewerClass = computed(() => {
     const classes = ["vuehex-viewer"];
     if (shouldShowChunkNavigator.value) {
@@ -191,6 +240,9 @@ export function useChunkNavigator(
     return classes;
   });
 
+  /**
+   * Collection of chunk descriptors used to render the navigator button list.
+   */
   const chunkItems = computed<ChunkDescriptor[]>(() => {
     if (!shouldShowChunkNavigator.value) {
       return [];
@@ -234,6 +286,9 @@ export function useChunkNavigator(
     return items;
   });
 
+  /**
+   * Builds the class list for a chunk button, allowing callers to highlight the active chunk.
+   */
   function chunkButtonClass(index: number): string[] {
     const classes = ["vuehex-chunk-item"];
     if (index === activeChunkIndex.value) {
@@ -242,6 +297,9 @@ export function useChunkNavigator(
     return classes;
   }
 
+  /**
+   * Aligns the chunk start row with valid data bounds, keeping the active chunk index coherent.
+   */
   function clampChunkStartToBounds() {
     if (!isChunking.value) {
       if (chunkStartRow.value !== 0) {
@@ -279,6 +337,9 @@ export function useChunkNavigator(
     }
   }
 
+  /**
+   * Activates the target chunk index and optionally centers a row, returning whether it moved.
+   */
   function moveToChunk(targetIndex: number, focusRow?: number): boolean {
     clampChunkStartToBounds();
 
@@ -314,6 +375,9 @@ export function useChunkNavigator(
     return previousStart !== desiredStart;
   }
 
+  /**
+   * Ensures the chunk that contains the given row is active, useful before scrolling to a byte.
+   */
   function ensureChunkForRow(row: number): boolean {
     if (!Number.isFinite(row)) {
       row = 0;

@@ -1,5 +1,5 @@
-import { computed, nextTick, ref, shallowRef } from "vue";
 import type { ComputedRef, Ref, ShallowRef } from "vue";
+import { computed, nextTick, ref, shallowRef } from "vue";
 import type {
   VueHexAsciiRenderer,
   VueHexCellClassResolver,
@@ -51,17 +51,32 @@ export interface HexWindowResult {
 }
 
 export function useHexWindow(options: HexWindowOptions): HexWindowResult {
+  /**
+   * HTML markup for the visible table slice, consumed by the component via v-html.
+   */
   const markup = shallowRef("");
+  /**
+   * Normalized byte buffer backing the current window; updates trigger re-render calculations.
+   */
   const normalizedBytes = shallowRef<Uint8Array<ArrayBufferLike>>(
     new Uint8Array(0)
   );
+  /**
+   * HTML-safe fallback character used for bytes that cannot be rendered as printable ASCII.
+   */
   const fallbackAsciiChar = shallowRef(".");
+  /**
+   * Row index where the current markup slice begins, informing table translation offsets.
+   */
   const renderStartRow = ref(0);
 
   const pendingScrollByte = ref<number | null>(null);
   const pendingScrollCheck = ref(false);
   const lastRequested = shallowRef<VueHexWindowRequest | null>(null);
 
+  /**
+   * Row index of the data window provided by the binding, used to detect coverage gaps.
+   */
   const startRow = computed(() => {
     const windowData = options.getBindingWindow();
     return Math.floor(
@@ -69,6 +84,9 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
     );
   });
 
+  /**
+   * Number of rows currently rendered from the normalized byte buffer.
+   */
   const renderedRows = computed(() => {
     const bytes = normalizedBytes.value.length;
     if (bytes === 0) {
@@ -80,6 +98,9 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
     );
   });
 
+  /**
+   * Refreshes local window state from the external binding and schedules downstream updates.
+   */
   function updateFromBindingWindow() {
     options.clampChunkStartToBounds();
 
@@ -103,6 +124,9 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
     });
   }
 
+  /**
+   * Defers expensive recalculations until the next animation frame, coalescing scroll events.
+   */
   function scheduleWindowEvaluation() {
     if (pendingScrollCheck.value) {
       return;
@@ -117,15 +141,24 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
     });
   }
 
+  /**
+   * Handles scroll events from the container by scheduling a window evaluation.
+   */
   function handleScroll() {
     scheduleWindowEvaluation();
   }
 
+  /**
+   * Queues a scroll request to a specific byte offset, applying it once measurement is ready.
+   */
   function queueScrollToOffset(offset: number) {
     pendingScrollByte.value = Math.max(0, Math.trunc(offset));
     scheduleWindowEvaluation();
   }
 
+  /**
+   * Scrolls to the requested byte immediately when possible, falling back to queueing otherwise.
+   */
   function scrollToByte(offset: number) {
     if (!Number.isFinite(offset)) {
       return;
@@ -158,6 +191,9 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
     }
   }
 
+  /**
+   * Applies any pending scroll that was deferred due to missing measurements or container refs.
+   */
   function applyPendingScroll() {
     if (pendingScrollByte.value == null) {
       return;
@@ -181,6 +217,9 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
     pendingScrollByte.value = null;
   }
 
+  /**
+   * Measures the rendered row height to keep virtualization calculations accurate.
+   */
   function measureRowHeight() {
     const tbody = options.tbodyEl.value;
     if (!tbody) {
@@ -198,6 +237,9 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
     }
   }
 
+  /**
+   * Recomputes the visible markup slice based on scroll position, overscan, and window bounds.
+   */
   function updateRenderedSlice() {
     const data = normalizedBytes.value;
     const bytesPerRowValue = Math.max(options.bytesPerRow.value, 1);
@@ -294,6 +336,9 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
     }
   }
 
+  /**
+   * Determines whether a new data window should be requested from the binding.
+   */
   function evaluateWindowRequest() {
     if (options.viewportRows.value === 0) {
       return;

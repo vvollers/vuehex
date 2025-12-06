@@ -1,5 +1,5 @@
-import { ref } from "vue";
 import type { Ref } from "vue";
+import { ref } from "vue";
 
 type HoverEmit = (
   event:
@@ -26,11 +26,26 @@ export interface HoverLinkingResult {
 export function useHoverLinking(
   options: HoverLinkingOptions
 ): HoverLinkingResult {
+  /**
+   * Tracks the row offset currently hovered so enter/leave events can be emitted once per row.
+   */
   const activeRowOffset = ref<number | null>(null);
+  /**
+   * Records the active hex cell hover state, allowing linked ASCII highlighting.
+   */
   const activeHex = ref<{ index: number; byte: number } | null>(null);
+  /**
+   * Records the active ASCII cell hover state, allowing linked hex highlighting.
+   */
   const activeAscii = ref<{ index: number; byte: number } | null>(null);
+  /**
+   * Remembers the shared index being highlighted across hex and ASCII cells.
+   */
   const linkedHighlightIndex = ref<number | null>(null);
 
+  /**
+   * Pointer-enter handler for the tbody; delegates to element-specific hover logic.
+   */
   function handlePointerOver(event: PointerEvent) {
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
@@ -42,6 +57,9 @@ export function useHoverLinking(
     applyAsciiEnter(target);
   }
 
+  /**
+   * Pointer-leave handler for the tbody; manages hover exit and clearing when leaving the table.
+   */
   function handlePointerOut(event: PointerEvent) {
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
@@ -62,6 +80,9 @@ export function useHoverLinking(
     }
   }
 
+  /**
+   * Applies row hover enter behaviour, issuing row hover events and managing state transitions.
+   */
   function applyRowEnter(element: HTMLElement) {
     const rowEl = element.closest<HTMLElement>("tr[data-row-offset]");
     if (!rowEl?.dataset.rowOffset) {
@@ -86,6 +107,9 @@ export function useHoverLinking(
     options.emit("row-hover-on", { offset });
   }
 
+  /**
+   * Handles row hover exit logic for when the pointer leaves a row.
+   */
   function applyRowLeave(element: HTMLElement, related: EventTarget | null) {
     if (activeRowOffset.value == null) {
       return;
@@ -109,6 +133,9 @@ export function useHoverLinking(
     activeRowOffset.value = null;
   }
 
+  /**
+   * Runs when entering a hex cell, ensuring events fire and linked ASCII highlights engage.
+   */
   function applyHexEnter(element: HTMLElement) {
     const hexEl = element.closest<HTMLElement>("span[data-hex-index]");
     if (!hexEl?.dataset.hexIndex || !hexEl.dataset.byteValue) {
@@ -135,6 +162,9 @@ export function useHoverLinking(
     applyLinkedHighlight(index);
   }
 
+  /**
+   * Handles leaving a hex cell, firing events and clearing linked highlights when appropriate.
+   */
   function applyHexLeave(element: HTMLElement, related: EventTarget | null) {
     if (!activeHex.value) {
       return;
@@ -170,6 +200,9 @@ export function useHoverLinking(
     }
   }
 
+  /**
+   * Runs when entering an ASCII cell, mirroring hex logic to keep rows synchronized.
+   */
   function applyAsciiEnter(element: HTMLElement) {
     const asciiEl = element.closest<HTMLElement>("span[data-ascii-index]");
     if (!asciiEl?.dataset.asciiIndex || !asciiEl.dataset.byteValue) {
@@ -199,6 +232,9 @@ export function useHoverLinking(
     applyLinkedHighlight(index);
   }
 
+  /**
+   * Handles leaving an ASCII cell, maintaining proper paired highlights.
+   */
   function applyAsciiLeave(element: HTMLElement, related: EventTarget | null) {
     if (!activeAscii.value) {
       return;
@@ -234,6 +270,9 @@ export function useHoverLinking(
     }
   }
 
+  /**
+   * Applies CSS classes to both hex and ASCII cells that share the same absolute byte index.
+   */
   function applyLinkedHighlight(index: number) {
     if (!Number.isFinite(index) || index < 0) {
       return;
@@ -261,6 +300,9 @@ export function useHoverLinking(
     linkedHighlightIndex.value = index;
   }
 
+  /**
+   * Clears any pending linked hover highlighting across hex and ASCII cells.
+   */
   function clearLinkedHighlight() {
     if (linkedHighlightIndex.value == null) {
       return;
@@ -280,6 +322,9 @@ export function useHoverLinking(
     linkedHighlightIndex.value = null;
   }
 
+  /**
+   * Clears all active hover state and notifies listeners that highlighting has ended.
+   */
   function clearHoverState() {
     if (activeHex.value) {
       options.emit("hex-hover-off", activeHex.value);

@@ -36,6 +36,10 @@ export type BuildHexTableMarkupFn = (
   resolveCellClass?: VueHexCellClassResolver
 ) => string;
 
+/**
+ * Normalizes any supported data source into a Uint8Array, allowing components to accept
+ * arrays, typed arrays, or arbitrary values while receiving a consistent byte buffer.
+ */
 export function normalizeSource(source: unknown): Uint8Array {
   if (source instanceof Uint8Array) {
     return source;
@@ -56,6 +60,10 @@ export function normalizeSource(source: unknown): Uint8Array {
   return TEXT_ENCODER.encode(String(source ?? ""));
 }
 
+/**
+ * Sanitizes the requested bytes-per-row value, ensuring downstream layout logic always
+ * receives a finite integer at least one byte wide per row.
+ */
 export function clampBytesPerRow(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return 16;
@@ -64,6 +72,10 @@ export function clampBytesPerRow(value: unknown): number {
   return Math.max(1, Math.trunc(value));
 }
 
+/**
+ * Produces the fallback ASCII character used for non-printable bytes, escaping it so
+ * it can be dropped directly into HTML markup.
+ */
 export function resolveFallbackChar(value: unknown): string {
   if (typeof value === "string" && value.length > 0) {
     const candidate = value.slice(0, 1);
@@ -73,10 +85,16 @@ export function resolveFallbackChar(value: unknown): string {
   return ".";
 }
 
+/**
+ * Escapes a provided ASCII representation so it can be safely interpolated into HTML.
+ */
 export function escapeAsciiChar(value: string): string {
   return escapeHtml(value);
 }
 
+/**
+ * Escapes raw text for safe HTML insertion by replacing reserved characters.
+ */
 export function escapeHtml(value: string): string {
   let result = "";
   for (let index = 0; index < value.length; index += 1) {
@@ -86,11 +104,18 @@ export function escapeHtml(value: string): string {
   return result;
 }
 
+/**
+ * Formats a byte offset as plain hexadecimal text (no HTML) for summary displays.
+ */
 export function formatOffsetPlain(value: number, uppercase: boolean): string {
   const raw = value.toString(16).padStart(OFFSET_PAD, "0");
   return uppercase ? raw.toUpperCase() : raw;
 }
 
+/**
+ * Formats a byte offset for the table header, decorating leading zeros with markup for
+ * visual differentiation while honoring casing preferences.
+ */
 export function formatOffset(value: number, uppercase: boolean): string {
   const raw = value.toString(16).padStart(OFFSET_PAD, "0");
   const normalized = uppercase ? raw.toUpperCase() : raw;
@@ -107,6 +132,9 @@ export function formatOffset(value: number, uppercase: boolean): string {
   return `<span class="vuehex-offset-leading">${leading}</span>${significant}`;
 }
 
+/**
+ * Clamps a numeric value into an inclusive range for shared viewport math helpers.
+ */
 export function clamp(value: number, min: number, max: number): number {
   if (value < min) {
     return min;
@@ -117,6 +145,9 @@ export function clamp(value: number, min: number, max: number): number {
   return value;
 }
 
+/**
+ * Normalizes a theme identifier into a kebab-case token that can be appended to class names.
+ */
 export function normalizeThemeKey(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
@@ -136,6 +167,9 @@ export function normalizeThemeKey(value: unknown): string | null {
   return normalized || null;
 }
 
+/**
+ * Flattens and cleans arbitrary class token inputs so renderer utilities can safely append them.
+ */
 export function normalizeClassTokens(
   value: string | string[] | null | undefined
 ): string[] {
@@ -161,6 +195,9 @@ export function normalizeClassTokens(
     .filter(Boolean);
 }
 
+/**
+ * Escapes a list of class names for inclusion in an attribute, deduplicating tokens on the way.
+ */
 export function escapeClassAttribute(classes: string[]): string {
   const seen = new Set<string>();
   const normalized: string[] = [];
@@ -175,6 +212,10 @@ export function escapeClassAttribute(classes: string[]): string {
   return normalized.join(" ");
 }
 
+/**
+ * Builds the inner HTML for the hex table body, returning a string that can be assigned via
+ * v-html while taking care of alignment, placeholders, and optional cell class resolution.
+ */
 export const buildHexTableMarkup: BuildHexTableMarkupFn = (
   bytes,
   bytesPerRow,
