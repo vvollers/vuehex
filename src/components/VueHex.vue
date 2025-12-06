@@ -420,6 +420,7 @@ let resizeObserver: ResizeObserver | null = null;
 let activeRowOffset: number | null = null;
 let activeHex: { index: number; byte: number } | null = null;
 let activeAscii: { index: number; byte: number } | null = null;
+let linkedHighlightIndex: number | null = null;
 
 function clampChunkStartToBounds() {
   if (!isChunking.value) {
@@ -722,6 +723,8 @@ function applyHexEnter(element: HTMLElement) {
 
   activeHex = { index, byte };
   emit("hex-hover-on", activeHex);
+
+  applyLinkedHighlight(index);
 }
 
 function applyHexLeave(element: HTMLElement, related: EventTarget | null) {
@@ -743,8 +746,20 @@ function applyHexLeave(element: HTMLElement, related: EventTarget | null) {
     return;
   }
 
+  if (
+    related instanceof HTMLElement &&
+    (related.dataset.hexIndex === hexEl.dataset.hexIndex ||
+      related.dataset.asciiIndex === hexEl.dataset.hexIndex)
+  ) {
+    return;
+  }
+
   emit("hex-hover-off", activeHex);
   activeHex = null;
+
+  if (!activeAscii || activeAscii.index !== index) {
+    clearLinkedHighlight();
+  }
 }
 
 function applyAsciiEnter(element: HTMLElement) {
@@ -769,6 +784,8 @@ function applyAsciiEnter(element: HTMLElement) {
 
   activeAscii = { index, byte };
   emit("ascii-hover-on", activeAscii);
+
+  applyLinkedHighlight(index);
 }
 
 function applyAsciiLeave(element: HTMLElement, related: EventTarget | null) {
@@ -790,8 +807,66 @@ function applyAsciiLeave(element: HTMLElement, related: EventTarget | null) {
     return;
   }
 
+  if (
+    related instanceof HTMLElement &&
+    (related.dataset.asciiIndex === asciiEl.dataset.asciiIndex ||
+      related.dataset.hexIndex === asciiEl.dataset.asciiIndex)
+  ) {
+    return;
+  }
+
   emit("ascii-hover-off", activeAscii);
   activeAscii = null;
+
+  if (!activeHex || activeHex.index !== index) {
+    clearLinkedHighlight();
+  }
+}
+
+function applyLinkedHighlight(index: number) {
+  if (!Number.isFinite(index) || index < 0) {
+    return;
+  }
+
+  if (linkedHighlightIndex === index) {
+    return;
+  }
+
+  clearLinkedHighlight();
+
+  const tbody = tbodyEl.value;
+  if (!tbody) {
+    linkedHighlightIndex = index;
+    return;
+  }
+
+  const selector =
+    `[data-hex-index="${index}"]` + `, [data-ascii-index="${index}"]`;
+  const elements = tbody.querySelectorAll<HTMLElement>(selector);
+  elements.forEach((element) => {
+    element.classList.add("vuehex-linked-hover");
+  });
+
+  linkedHighlightIndex = index;
+}
+
+function clearLinkedHighlight() {
+  if (linkedHighlightIndex == null) {
+    return;
+  }
+
+  const tbody = tbodyEl.value;
+  if (tbody) {
+    const selector =
+      `[data-hex-index="${linkedHighlightIndex}"]` +
+      `, [data-ascii-index="${linkedHighlightIndex}"]`;
+    const elements = tbody.querySelectorAll<HTMLElement>(selector);
+    elements.forEach((element) => {
+      element.classList.remove("vuehex-linked-hover");
+    });
+  }
+
+  linkedHighlightIndex = null;
 }
 
 function clearHoverState() {
@@ -807,6 +882,8 @@ function clearHoverState() {
     emit("row-hover-off", { offset: activeRowOffset });
     activeRowOffset = null;
   }
+
+  clearLinkedHighlight();
 }
 
 function scheduleWindowEvaluation() {
