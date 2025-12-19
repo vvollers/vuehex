@@ -162,12 +162,12 @@
 import { computed, nextTick, ref } from "vue";
 import VueHex from "./components/VueHex.vue";
 import {
-  VUE_HEX_ASCII_PRESETS,
-  type VueHexAsciiPreset,
-  type VueHexCellClassResolver,
-  type VueHexDataBinding,
-  type VueHexWindow,
-  type VueHexWindowRequest,
+	VUE_HEX_ASCII_PRESETS,
+	type VueHexAsciiPreset,
+	type VueHexCellClassResolver,
+	type VueHexDataBinding,
+	type VueHexWindow,
+	type VueHexWindowRequest,
 } from "./components/vuehex-api";
 import "@/assets/vuehex.css";
 
@@ -183,11 +183,11 @@ const bytesPerRowInput = ref(BYTES_PER_ROW);
 const nonPrintableInput = ref(".");
 
 const bytesPerRow = computed(() =>
-  Math.max(1, Math.trunc(bytesPerRowInput.value))
+	Math.max(1, Math.trunc(bytesPerRowInput.value)),
 );
 
 const nonPrintableChar = computed(() =>
-  nonPrintableInput.value.length > 0 ? nonPrintableInput.value[0] : "."
+	nonPrintableInput.value.length > 0 ? nonPrintableInput.value[0] : ".",
 );
 
 const backingData = ref<Uint8Array>(createSampleData());
@@ -197,52 +197,52 @@ const fileError = ref<string | null>(null);
 const totalBytes = computed(() => backingData.value.length);
 
 const viewerBinding = ref<VueHexDataBinding>({
-  window: createInitialWindow(backingData.value, 0),
-  totalBytes: totalBytes.value,
-  requestWindow: handleRequestWindow,
+	window: createInitialWindow(backingData.value, 0),
+	totalBytes: totalBytes.value,
+	requestWindow: handleRequestWindow,
 });
 
 const presetStandard: VueHexAsciiPreset = VUE_HEX_ASCII_PRESETS.standard;
 const presetLatin1: VueHexAsciiPreset = VUE_HEX_ASCII_PRESETS.latin1;
 const presetWhitespace: VueHexAsciiPreset =
-  VUE_HEX_ASCII_PRESETS.visibleWhitespace;
+	VUE_HEX_ASCII_PRESETS.visibleWhitespace;
 
 const customAsciiPreset: VueHexAsciiPreset = {
-  label: "Digits + uppercase (custom demo)",
-  isPrintable: (byte) =>
-    (byte >= 0x30 && byte <= 0x39) || (byte >= 0x41 && byte <= 0x5a),
-  renderAscii: (byte) => {
-    if (byte >= 0x41 && byte <= 0x5a) {
-      return String.fromCharCode(byte + 0x20);
-    }
-    if (byte >= 0x30 && byte <= 0x39) {
-      return `[${String.fromCharCode(byte)}]`;
-    }
-    return "";
-  },
+	label: "Digits + uppercase (custom demo)",
+	isPrintable: (byte) =>
+		(byte >= 0x30 && byte <= 0x39) || (byte >= 0x41 && byte <= 0x5a),
+	renderAscii: (byte) => {
+		if (byte >= 0x41 && byte <= 0x5a) {
+			return String.fromCharCode(byte + 0x20);
+		}
+		if (byte >= 0x30 && byte <= 0x39) {
+			return `[${String.fromCharCode(byte)}]`;
+		}
+		return "";
+	},
 };
 
 const asciiPresetOptions = [
-  {
-    key: "standard",
-    label: presetStandard.label,
-    preset: presetStandard,
-  },
-  {
-    key: "latin1",
-    label: presetLatin1.label,
-    preset: presetLatin1,
-  },
-  {
-    key: "visibleWhitespace",
-    label: presetWhitespace.label,
-    preset: presetWhitespace,
-  },
-  {
-    key: "custom",
-    label: customAsciiPreset.label,
-    preset: customAsciiPreset,
-  },
+	{
+		key: "standard",
+		label: presetStandard.label,
+		preset: presetStandard,
+	},
+	{
+		key: "latin1",
+		label: presetLatin1.label,
+		preset: presetLatin1,
+	},
+	{
+		key: "visibleWhitespace",
+		label: presetWhitespace.label,
+		preset: presetWhitespace,
+	},
+	{
+		key: "custom",
+		label: customAsciiPreset.label,
+		preset: customAsciiPreset,
+	},
 ] as const;
 
 type AsciiPresetKey = (typeof asciiPresetOptions)[number]["key"];
@@ -250,10 +250,10 @@ type AsciiPresetKey = (typeof asciiPresetOptions)[number]["key"];
 const asciiPresetKey = ref<AsciiPresetKey>("standard");
 
 const themeOptions = [
-  { key: "default", label: "Midnight (default)" },
-  { key: "light", label: "Cloud Light" },
-  { key: "terminal", label: "Terminal Green" },
-  { key: "sunset", label: "Sunset Glow" },
+	{ key: "default", label: "Midnight (default)" },
+	{ key: "light", label: "Cloud Light" },
+	{ key: "terminal", label: "Terminal Green" },
+	{ key: "sunset", label: "Sunset Glow" },
 ] as const;
 
 type ThemeKey = (typeof themeOptions)[number]["key"];
@@ -261,9 +261,9 @@ type ThemeKey = (typeof themeOptions)[number]["key"];
 const themeKey = ref<ThemeKey>("default");
 
 const highlightOptions = [
-  { key: "structure", label: "Sample structure" },
-  { key: "asciiCategories", label: "ASCII categories" },
-  { key: "none", label: "No highlights" },
+	{ key: "structure", label: "Sample structure" },
+	{ key: "asciiCategories", label: "ASCII categories" },
+	{ key: "none", label: "No highlights" },
 ] as const;
 
 type HighlightKey = (typeof highlightOptions)[number]["key"];
@@ -271,92 +271,92 @@ type HighlightKey = (typeof highlightOptions)[number]["key"];
 const highlightKey = ref<HighlightKey>("structure");
 
 const chunkNavigatorPlacementOptions = [
-  { value: "right", label: "Navigator right" },
-  { value: "left", label: "Navigator left" },
-  { value: "top", label: "Navigator top" },
-  { value: "bottom", label: "Navigator bottom" },
+	{ value: "right", label: "Navigator right" },
+	{ value: "left", label: "Navigator left" },
+	{ value: "top", label: "Navigator top" },
+	{ value: "bottom", label: "Navigator bottom" },
 ] as const;
 
 type ChunkNavigatorPlacement =
-  (typeof chunkNavigatorPlacementOptions)[number]["value"];
+	(typeof chunkNavigatorPlacementOptions)[number]["value"];
 
 const chunkNavigatorPlacement = ref<ChunkNavigatorPlacement>("right");
 
 const activeAsciiPreset = computed(() => {
-  const found = asciiPresetOptions.find(
-    (option) => option.key === asciiPresetKey.value
-  );
-  return found?.preset ?? asciiPresetOptions[0].preset;
+	const found = asciiPresetOptions.find(
+		(option) => option.key === asciiPresetKey.value,
+	);
+	return found?.preset ?? asciiPresetOptions[0].preset;
 });
 
 const structureHighlight: VueHexCellClassResolver = ({ index }) => {
-  const total = totalBytes.value;
-  const headerLimit = Math.min(0x40, Math.max(total, 0));
-  const hasFooter = total >= 0x80;
-  const footerStart = hasFooter
-    ? Math.max(total - 0x40, headerLimit)
-    : Infinity;
-  const metadataLimit = Math.min(0x180, footerStart);
+	const total = totalBytes.value;
+	const headerLimit = Math.min(0x40, Math.max(total, 0));
+	const hasFooter = total >= 0x80;
+	const footerStart = hasFooter
+		? Math.max(total - 0x40, headerLimit)
+		: Infinity;
+	const metadataLimit = Math.min(0x180, footerStart);
 
-  if (index < headerLimit) {
-    return "vuehex-demo-region--header";
-  }
-  if (index < metadataLimit) {
-    return "vuehex-demo-region--metadata";
-  }
-  if (index >= footerStart) {
-    return "vuehex-demo-region--footer";
-  }
-  return "vuehex-demo-region--payload";
+	if (index < headerLimit) {
+		return "vuehex-demo-region--header";
+	}
+	if (index < metadataLimit) {
+		return "vuehex-demo-region--metadata";
+	}
+	if (index >= footerStart) {
+		return "vuehex-demo-region--footer";
+	}
+	return "vuehex-demo-region--payload";
 };
 
 const asciiCategoryHighlight: VueHexCellClassResolver = ({ byte }) => {
-  if (byte >= 0x30 && byte <= 0x39) {
-    return "vuehex-demo-byte--digit";
-  }
-  if (byte >= 0x41 && byte <= 0x5a) {
-    return "vuehex-demo-byte--uppercase";
-  }
-  if (byte >= 0x61 && byte <= 0x7a) {
-    return "vuehex-demo-byte--lowercase";
-  }
-  if (byte === 0x00) {
-    return "vuehex-demo-byte--null";
-  }
-  return undefined;
+	if (byte >= 0x30 && byte <= 0x39) {
+		return "vuehex-demo-byte--digit";
+	}
+	if (byte >= 0x41 && byte <= 0x5a) {
+		return "vuehex-demo-byte--uppercase";
+	}
+	if (byte >= 0x61 && byte <= 0x7a) {
+		return "vuehex-demo-byte--lowercase";
+	}
+	if (byte === 0x00) {
+		return "vuehex-demo-byte--null";
+	}
+	return undefined;
 };
 
 const highlightResolverMap: Record<
-  HighlightKey,
-  VueHexCellClassResolver | undefined
+	HighlightKey,
+	VueHexCellClassResolver | undefined
 > = {
-  structure: structureHighlight,
-  asciiCategories: asciiCategoryHighlight,
-  none: undefined,
+	structure: structureHighlight,
+	asciiCategories: asciiCategoryHighlight,
+	none: undefined,
 };
 
 const highlightNotesMap: Record<HighlightKey, string[]> = {
-  structure: [
-    "Header: first 64 bytes (or the whole file if shorter)",
-    "Metadata: bytes 0x40–0x17F until the footer boundary",
-    "Payload: everything after metadata until the footer",
-    "Footer: final 64 bytes when available",
-  ],
-  asciiCategories: [
-    "Digits highlighted in gold",
-    "Uppercase ASCII highlighted in cyan",
-    "Lowercase ASCII highlighted in violet",
-    "Null bytes dimmed",
-  ],
-  none: [],
+	structure: [
+		"Header: first 64 bytes (or the whole file if shorter)",
+		"Metadata: bytes 0x40–0x17F until the footer boundary",
+		"Payload: everything after metadata until the footer",
+		"Footer: final 64 bytes when available",
+	],
+	asciiCategories: [
+		"Digits highlighted in gold",
+		"Uppercase ASCII highlighted in cyan",
+		"Lowercase ASCII highlighted in violet",
+		"Null bytes dimmed",
+	],
+	none: [],
 };
 
 const activeCellClassResolver = computed(
-  () => highlightResolverMap[highlightKey.value]
+	() => highlightResolverMap[highlightKey.value],
 );
 
 const activeHighlightNotes = computed(
-  () => highlightNotesMap[highlightKey.value] ?? []
+	() => highlightNotesMap[highlightKey.value] ?? [],
 );
 
 const activeRowOffset = ref<number | null>(null);
@@ -364,293 +364,293 @@ const activeHex = ref<{ index: number; byte: number } | null>(null);
 const activeAscii = ref<{ index: number; byte: number } | null>(null);
 
 interface HoverLogEntry {
-  id: number;
-  text: string;
+	id: number;
+	text: string;
 }
 
 const hoverLog = ref<HoverLogEntry[]>([]);
 let hoverLogId = 0;
 
 const activeRowText = computed(() => {
-  const offset = activeRowOffset.value;
-  if (offset == null) {
-    return "None";
-  }
-  return `${formatHex(offset, 8)} (${offset})`;
+	const offset = activeRowOffset.value;
+	if (offset == null) {
+		return "None";
+	}
+	return `${formatHex(offset, 8)} (${offset})`;
 });
 
 const activeHexText = computed(() => {
-  const details = activeHex.value;
-  if (!details) {
-    return "None";
-  }
-  return `Index ${formatHex(details.index, 8)} | Byte ${formatHex(
-    details.byte,
-    2
-  )}`;
+	const details = activeHex.value;
+	if (!details) {
+		return "None";
+	}
+	return `Index ${formatHex(details.index, 8)} | Byte ${formatHex(
+		details.byte,
+		2,
+	)}`;
 });
 
 const activeAsciiText = computed(() => {
-  const details = activeAscii.value;
-  if (!details) {
-    return "None";
-  }
-  return `Index ${formatHex(details.index, 8)} | Byte ${formatHex(
-    details.byte,
-    2
-  )}`;
+	const details = activeAscii.value;
+	if (!details) {
+		return "None";
+	}
+	return `Index ${formatHex(details.index, 8)} | Byte ${formatHex(
+		details.byte,
+		2,
+	)}`;
 });
 
 const currentSourceSummary = computed(() => {
-  const sizeText = formatBytes(totalBytes.value);
-  return `${sourceLabel.value} - ${sizeText}`;
+	const sizeText = formatBytes(totalBytes.value);
+	return `${sourceLabel.value} - ${sizeText}`;
 });
 
 async function handleFileSelection(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const fileList = input.files;
-  if (!fileList || fileList.length === 0) {
-    return;
-  }
+	const input = event.target as HTMLInputElement;
+	const fileList = input.files;
+	if (!fileList || fileList.length === 0) {
+		return;
+	}
 
-  const file = fileList.item(0);
-  if (!file) {
-    return;
-  }
+	const file = fileList.item(0);
+	if (!file) {
+		return;
+	}
 
-  fileError.value = null;
+	fileError.value = null;
 
-  try {
-    const buffer = await file.arrayBuffer();
-    replaceBackingData(new Uint8Array(buffer), file.name);
-    await nextTick();
-    scrollToStart();
-  } catch (error) {
-    fileError.value =
-      error instanceof Error
-        ? error.message
-        : "Unable to read the selected file.";
-  } finally {
-    input.value = "";
-  }
+	try {
+		const buffer = await file.arrayBuffer();
+		replaceBackingData(new Uint8Array(buffer), file.name);
+		await nextTick();
+		scrollToStart();
+	} catch (error) {
+		fileError.value =
+			error instanceof Error
+				? error.message
+				: "Unable to read the selected file.";
+	} finally {
+		input.value = "";
+	}
 }
 
 async function resetToSampleData() {
-  fileError.value = null;
-  replaceBackingData(createSampleData(), SAMPLE_LABEL);
-  await nextTick();
-  scrollToStart();
+	fileError.value = null;
+	replaceBackingData(createSampleData(), SAMPLE_LABEL);
+	await nextTick();
+	scrollToStart();
 }
 
 function replaceBackingData(data: Uint8Array, label: string) {
-  backingData.value = data;
-  sourceLabel.value = label;
-  resetViewerToOffset(0);
-  resetHoverState();
-  clearHoverLog();
+	backingData.value = data;
+	sourceLabel.value = label;
+	resetViewerToOffset(0);
+	resetHoverState();
+	clearHoverLog();
 }
 
 function resetViewerToOffset(offset: number) {
-  const nextWindow = createInitialWindow(backingData.value, offset);
-  viewerBinding.value = {
-    window: nextWindow,
-    totalBytes: backingData.value.length,
-    requestWindow: handleRequestWindow,
-  };
+	const nextWindow = createInitialWindow(backingData.value, offset);
+	viewerBinding.value = {
+		window: nextWindow,
+		totalBytes: backingData.value.length,
+		requestWindow: handleRequestWindow,
+	};
 }
 
 function handleRequestWindow(request: VueHexWindowRequest) {
-  const total = totalBytes.value;
-  if (total <= 0) {
-    viewerBinding.value.window = {
-      offset: 0,
-      data: new Uint8Array(0),
-    };
-    viewerBinding.value.totalBytes = 0;
-    return;
-  }
+	const total = totalBytes.value;
+	if (total <= 0) {
+		viewerBinding.value.window = {
+			offset: 0,
+			data: new Uint8Array(0),
+		};
+		viewerBinding.value.totalBytes = 0;
+		return;
+	}
 
-  const offset = Math.max(0, Math.min(Math.trunc(request.offset), total));
-  const requestedLength = Math.max(0, Math.trunc(request.length));
-  const available = Math.max(total - offset, 0);
-  const length = Math.min(requestedLength, available);
-  const slice =
-    length > 0
-      ? backingData.value.slice(offset, offset + length)
-      : new Uint8Array(0);
+	const offset = Math.max(0, Math.min(Math.trunc(request.offset), total));
+	const requestedLength = Math.max(0, Math.trunc(request.length));
+	const available = Math.max(total - offset, 0);
+	const length = Math.min(requestedLength, available);
+	const slice =
+		length > 0
+			? backingData.value.slice(offset, offset + length)
+			: new Uint8Array(0);
 
-  viewerBinding.value = {
-    window: {
-      offset,
-      data: slice,
-    },
-    totalBytes: total,
-    requestWindow: handleRequestWindow,
-  };
+	viewerBinding.value = {
+		window: {
+			offset,
+			data: slice,
+		},
+		totalBytes: total,
+		requestWindow: handleRequestWindow,
+	};
 }
 
 function handleRowHoverOn(payload: { offset: number }) {
-  activeRowOffset.value = payload.offset;
-  pushHoverLog(
-    `row-hover-on  offset ${formatHex(payload.offset, 8)} (${payload.offset})`
-  );
+	activeRowOffset.value = payload.offset;
+	pushHoverLog(
+		`row-hover-on  offset ${formatHex(payload.offset, 8)} (${payload.offset})`,
+	);
 }
 
 function handleRowHoverOff(payload: { offset: number }) {
-  if (activeRowOffset.value === payload.offset) {
-    activeRowOffset.value = null;
-  }
-  pushHoverLog(
-    `row-hover-off offset ${formatHex(payload.offset, 8)} (${payload.offset})`
-  );
+	if (activeRowOffset.value === payload.offset) {
+		activeRowOffset.value = null;
+	}
+	pushHoverLog(
+		`row-hover-off offset ${formatHex(payload.offset, 8)} (${payload.offset})`,
+	);
 }
 
 function handleHexHoverOn(payload: { index: number; byte: number }) {
-  activeHex.value = payload;
-  pushHoverLog(
-    `hex-hover-on  index ${formatHex(payload.index, 8)} byte ${formatHex(
-      payload.byte,
-      2
-    )}`
-  );
+	activeHex.value = payload;
+	pushHoverLog(
+		`hex-hover-on  index ${formatHex(payload.index, 8)} byte ${formatHex(
+			payload.byte,
+			2,
+		)}`,
+	);
 }
 
 function handleHexHoverOff(payload: { index: number; byte: number }) {
-  if (activeHex.value && activeHex.value.index === payload.index) {
-    activeHex.value = null;
-  }
-  pushHoverLog(
-    `hex-hover-off index ${formatHex(payload.index, 8)} byte ${formatHex(
-      payload.byte,
-      2
-    )}`
-  );
+	if (activeHex.value && activeHex.value.index === payload.index) {
+		activeHex.value = null;
+	}
+	pushHoverLog(
+		`hex-hover-off index ${formatHex(payload.index, 8)} byte ${formatHex(
+			payload.byte,
+			2,
+		)}`,
+	);
 }
 
 function handleAsciiHoverOn(payload: { index: number; byte: number }) {
-  activeAscii.value = payload;
-  pushHoverLog(
-    `ascii-hover-on index ${formatHex(payload.index, 8)} byte ${formatHex(
-      payload.byte,
-      2
-    )}`
-  );
+	activeAscii.value = payload;
+	pushHoverLog(
+		`ascii-hover-on index ${formatHex(payload.index, 8)} byte ${formatHex(
+			payload.byte,
+			2,
+		)}`,
+	);
 }
 
 function handleAsciiHoverOff(payload: { index: number; byte: number }) {
-  if (activeAscii.value && activeAscii.value.index === payload.index) {
-    activeAscii.value = null;
-  }
-  pushHoverLog(
-    `ascii-hover-off index ${formatHex(payload.index, 8)} byte ${formatHex(
-      payload.byte,
-      2
-    )}`
-  );
+	if (activeAscii.value && activeAscii.value.index === payload.index) {
+		activeAscii.value = null;
+	}
+	pushHoverLog(
+		`ascii-hover-off index ${formatHex(payload.index, 8)} byte ${formatHex(
+			payload.byte,
+			2,
+		)}`,
+	);
 }
 
 function pushHoverLog(message: string) {
-  hoverLogId += 1;
-  const entry: HoverLogEntry = { id: hoverLogId, text: message };
-  hoverLog.value = [entry, ...hoverLog.value].slice(0, 8);
+	hoverLogId += 1;
+	const entry: HoverLogEntry = { id: hoverLogId, text: message };
+	hoverLog.value = [entry, ...hoverLog.value].slice(0, 8);
 }
 
 function clearHoverLog() {
-  hoverLogId = 0;
-  hoverLog.value = [];
+	hoverLogId = 0;
+	hoverLog.value = [];
 }
 
 function scrollToByte(offset: number) {
-  viewerRef.value?.scrollToByte(offset);
+	viewerRef.value?.scrollToByte(offset);
 }
 
 function scrollToStart() {
-  if (totalBytes.value === 0) {
-    return;
-  }
-  scrollToByte(0);
+	if (totalBytes.value === 0) {
+		return;
+	}
+	scrollToByte(0);
 }
 
 function scrollToMiddle() {
-  if (totalBytes.value === 0) {
-    return;
-  }
-  scrollToByte(Math.floor(totalBytes.value / 2));
+	if (totalBytes.value === 0) {
+		return;
+	}
+	scrollToByte(Math.floor(totalBytes.value / 2));
 }
 
 function scrollToEnd() {
-  if (totalBytes.value === 0) {
-    return;
-  }
-  scrollToByte(Math.max(totalBytes.value - bytesPerRow.value, 0));
+	if (totalBytes.value === 0) {
+		return;
+	}
+	scrollToByte(Math.max(totalBytes.value - bytesPerRow.value, 0));
 }
 
 function resetHoverState() {
-  activeRowOffset.value = null;
-  activeHex.value = null;
-  activeAscii.value = null;
+	activeRowOffset.value = null;
+	activeHex.value = null;
+	activeAscii.value = null;
 }
 
 function formatHex(value: number, pad: number): string {
-  return `0x${value.toString(16).padStart(pad, "0").toUpperCase()}`;
+	return `0x${value.toString(16).padStart(pad, "0").toUpperCase()}`;
 }
 
 function createSampleData(): Uint8Array {
-  const data = new Uint8Array(SAMPLE_SIZE);
-  for (let index = 0; index < data.length; index += 1) {
-    data[index] = index % 256;
-  }
-  return data;
+	const data = new Uint8Array(SAMPLE_SIZE);
+	for (let index = 0; index < data.length; index += 1) {
+		data[index] = index % 256;
+	}
+	return data;
 }
 
 function createInitialWindow(data: Uint8Array, offset: number): VueHexWindow {
-  const total = data.length;
-  if (total === 0) {
-    return {
-      offset: 0,
-      data: new Uint8Array(0),
-    };
-  }
+	const total = data.length;
+	if (total === 0) {
+		return {
+			offset: 0,
+			data: new Uint8Array(0),
+		};
+	}
 
-  const rowSize = Math.max(bytesPerRow.value, 1);
-  const clampedOffset = Math.max(0, Math.trunc(offset));
-  const alignedOffset = clampedOffset - (clampedOffset % rowSize);
-  const rowsToShow = Math.max(VISIBLE_ROWS, 1);
-  const visibleLength = Math.min(
-    rowSize * rowsToShow,
-    Math.max(total - alignedOffset, 0)
-  );
+	const rowSize = Math.max(bytesPerRow.value, 1);
+	const clampedOffset = Math.max(0, Math.trunc(offset));
+	const alignedOffset = clampedOffset - (clampedOffset % rowSize);
+	const rowsToShow = Math.max(VISIBLE_ROWS, 1);
+	const visibleLength = Math.min(
+		rowSize * rowsToShow,
+		Math.max(total - alignedOffset, 0),
+	);
 
-  const slice =
-    visibleLength > 0
-      ? data.slice(alignedOffset, alignedOffset + visibleLength)
-      : new Uint8Array(0);
+	const slice =
+		visibleLength > 0
+			? data.slice(alignedOffset, alignedOffset + visibleLength)
+			: new Uint8Array(0);
 
-  return {
-    offset: alignedOffset,
-    data: slice,
-  };
+	return {
+		offset: alignedOffset,
+		data: slice,
+	};
 }
 
 function formatBytes(size: number): string {
-  if (size <= 0) {
-    return "0 bytes";
-  }
+	if (size <= 0) {
+		return "0 bytes";
+	}
 
-  const units = ["bytes", "KB", "MB", "GB", "TB"];
-  let value = size;
-  let unitIndex = 0;
+	const units = ["bytes", "KB", "MB", "GB", "TB"];
+	let value = size;
+	let unitIndex = 0;
 
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
+	while (value >= 1024 && unitIndex < units.length - 1) {
+		value /= 1024;
+		unitIndex += 1;
+	}
 
-  const precision = unitIndex === 0 || value >= 100 ? 0 : 1;
-  const formatted = value.toFixed(precision);
-  const normalized = Number(formatted).toString();
+	const precision = unitIndex === 0 || value >= 100 ? 0 : 1;
+	const formatted = value.toFixed(precision);
+	const normalized = Number(formatted).toString();
 
-  return `${normalized} ${units[unitIndex]}`;
+	return `${normalized} ${units[unitIndex]}`;
 }
 </script>
 
