@@ -1,0 +1,37 @@
+.story-viewport {
+  display: flex;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.story-viewport--split {
+  flex-wrap: wrap;
+}
+
+.story-panel {
+  flex: 0 0 240px;
+  border: 1px solid color-mix(in srgb, var(--sb-color-border) 80%, transparent);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--sb-color-background) 85%, #fff);
+  box-shadow: 0 12px 24px rgba(10, 25, 41, 0.08);
+}
+
+.story-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.35rem;
+  color: color-mix(in srgb, var(--sb-color-text) 70%, #718096);
+}
+
+.story-value {
+  font-family: "Fira Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.story-byte--active {
+  box-shadow: inset 0 0 0 2px var(--sb-color-primary);
+  background: color-mix(in srgb, var(--sb-color-primary) 18%, transparent);
+}

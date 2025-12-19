@@ -76,6 +76,18 @@ const viewerBinding = computed<VueHexDataBinding>(() => ({
 </script>
 ```
 
+## Storybook workspace
+
+Run the bundled Storybook to browse live API demos without wiring up your own host application:
+
+```bash
+npm install
+npm run storybook         # starts Storybook on http://localhost:6006
+npm run storybook:build   # emits the static docs site into storybook-static/
+```
+
+All stories live in `src/stories` and showcase the binding contract, chunk navigator, and hover-driven embellishments.
+
 > The window `offset` should be aligned to whatever chunk you want to show (normally a row boundary). VueHex computes leading/trailing spacers so the scrollbar still reflects the total file size.
 
 ## Binding contract
