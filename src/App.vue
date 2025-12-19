@@ -883,8 +883,8 @@ select:focus {
 :deep(.vuehex-demo-region--metadata),
 :deep(.vuehex-demo-region--payload),
 :deep(.vuehex-demo-region--footer) {
-  border-radius: 0.25rem;
-  padding: 0 0.2rem;
+  //border-radius: 0.25rem;
+  //padding: 0 0.2rem;
 }
 
 :deep(.vuehex-demo-region--header) {

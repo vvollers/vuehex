@@ -37,7 +37,6 @@
 	gap: 0.5rem;
 	padding: 0.6rem;
 	border: 1px solid var(--vuehex-border-color);
-	border-radius: 0.5rem;
 	background: var(--vuehex-background);
 	color: var(--vuehex-foreground);
 	box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
@@ -112,7 +111,6 @@
 	align-items: flex-start;
 	gap: 0.125rem;
 	padding: 0.45rem 0.65rem;
-	border-radius: 0.45rem;
 	border: 1px solid rgba(148, 163, 184, 0.15);
 	background: rgba(148, 163, 184, 0.08);
 	color: inherit;
@@ -166,7 +164,6 @@
 	background: var(--vuehex-background);
 	color: var(--vuehex-foreground);
 	padding: 1rem;
-	border-radius: 0.75rem;
 	border: 1px solid var(--vuehex-border-color);
 	overflow-x: auto;
 	overflow-y: auto;
@@ -252,12 +249,9 @@
 .vuehex-byte.vuehex-linked-hover,
 .vuehex-ascii-char.vuehex-linked-hover {
 	background: rgba(96, 165, 250, 0.25);
-	outline: 1px solid rgba(96, 165, 250, 0.45);
-	border-radius: 0.35rem;
+	outline: 1px solid white;
 	color: var(--vuehex-byte-color);
-	transition:
-		background-color 0.12s ease,
-		outline-color 0.12s ease;
+	cursor: pointer;
 }
 
 .vuehex-byte--placeholder,
