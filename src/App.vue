@@ -93,7 +93,9 @@
       <div class="viewer">
         <VueHex
           ref="viewerRef"
-          :binding="viewerBinding"
+					v-model="viewerWindowData"
+					:window-offset="viewerWindowOffset"
+					:total-size="totalBytes"
           :bytes-per-row="bytesPerRow"
           :uppercase="uppercase"
           :non-printable-char="nonPrintableChar"
@@ -103,6 +105,7 @@
           :cell-class-for-byte="activeCellClassResolver"
           :show-chunk-navigator="true"
           :chunk-navigator-placement="chunkNavigatorPlacement"
+					@updateVirtualData="handleRequestWindow"
           @row-hover-on="handleRowHoverOn"
           @row-hover-off="handleRowHoverOff"
           @hex-hover-on="handleHexHoverOn"
@@ -165,7 +168,6 @@ import {
 	VUE_HEX_ASCII_PRESETS,
 	type VueHexAsciiPreset,
 	type VueHexCellClassResolver,
-	type VueHexDataBinding,
 	type VueHexWindow,
 	type VueHexWindowRequest,
 } from "./components/vuehex-api";
@@ -196,11 +198,9 @@ const fileError = ref<string | null>(null);
 
 const totalBytes = computed(() => backingData.value.length);
 
-const viewerBinding = ref<VueHexDataBinding>({
-	window: createInitialWindow(backingData.value, 0),
-	totalBytes: totalBytes.value,
-	requestWindow: handleRequestWindow,
-});
+const initialWindow = createInitialWindow(backingData.value, 0);
+const viewerWindowOffset = ref(initialWindow.offset);
+const viewerWindowData = ref(initialWindow.data);
 
 const presetStandard: VueHexAsciiPreset = VUE_HEX_ASCII_PRESETS.standard;
 const presetLatin1: VueHexAsciiPreset = VUE_HEX_ASCII_PRESETS.latin1;
@@ -452,21 +452,15 @@ function replaceBackingData(data: Uint8Array, label: string) {
 
 function resetViewerToOffset(offset: number) {
 	const nextWindow = createInitialWindow(backingData.value, offset);
-	viewerBinding.value = {
-		window: nextWindow,
-		totalBytes: backingData.value.length,
-		requestWindow: handleRequestWindow,
-	};
+	viewerWindowOffset.value = nextWindow.offset;
+	viewerWindowData.value = nextWindow.data;
 }
 
 function handleRequestWindow(request: VueHexWindowRequest) {
 	const total = totalBytes.value;
 	if (total <= 0) {
-		viewerBinding.value.window = {
-			offset: 0,
-			data: new Uint8Array(0),
-		};
-		viewerBinding.value.totalBytes = 0;
+		viewerWindowOffset.value = 0;
+		viewerWindowData.value = new Uint8Array(0);
 		return;
 	}
 
@@ -478,15 +472,8 @@ function handleRequestWindow(request: VueHexWindowRequest) {
 		length > 0
 			? backingData.value.slice(offset, offset + length)
 			: new Uint8Array(0);
-
-	viewerBinding.value = {
-		window: {
-			offset,
-			data: slice,
-		},
-		totalBytes: total,
-		requestWindow: handleRequestWindow,
-	};
+	viewerWindowOffset.value = offset;
+	viewerWindowData.value = slice;
 }
 
 function handleRowHoverOn(payload: { offset: number }) {

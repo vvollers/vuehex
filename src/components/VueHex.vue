@@ -54,8 +54,8 @@ import { useHoverLinking } from "./composables/useHoverLinking";
 import type {
 	VueHexAsciiRenderer,
 	VueHexCellClassResolver,
-	VueHexDataBinding,
 	VueHexPrintableCheck,
+	VueHexWindowRequest,
 } from "./vuehex-api";
 import { DEFAULT_ASCII_RENDERER, DEFAULT_PRINTABLE_CHECK } from "./vuehex-api";
 import {
@@ -70,8 +70,12 @@ const DEFAULT_ROW_HEIGHT = 24;
 const MAX_VIRTUAL_HEIGHT = 8_000_000;
 
 interface VueHexProps {
-	/** Reactive binding that supplies the current window and fetch callback. */
-	binding: VueHexDataBinding;
+	/** v-model binding containing the currently visible window bytes. */
+	modelValue: Uint8Array;
+	/** Absolute offset that the provided window data represents. */
+	windowOffset?: number;
+	/** Total bytes available in the backing source; defaults to modelValue length. */
+	totalSize?: number;
 	/** Controls how many bytes render per table row; consumers tune readability. */
 	bytesPerRow?: number;
 	/** When true, renders hexadecimal digits in uppercase for stylistic preference. */
@@ -95,6 +99,8 @@ interface VueHexProps {
 }
 
 const props = withDefaults(defineProps<VueHexProps>(), {
+	modelValue: () => new Uint8Array(0),
+	windowOffset: 0,
 	bytesPerRow: 16,
 	uppercase: false,
 	nonPrintableChar: ".",
@@ -107,6 +113,8 @@ const props = withDefaults(defineProps<VueHexProps>(), {
 });
 
 const emit = defineEmits<{
+	(event: "update:modelValue", value: Uint8Array): void;
+	(event: "updateVirtualData", payload: VueHexWindowRequest): void;
 	(event: "row-hover-on", payload: { offset: number }): void;
 	(event: "row-hover-off", payload: { offset: number }): void;
 	(event: "hex-hover-on", payload: { index: number; byte: number }): void;
@@ -115,10 +123,23 @@ const emit = defineEmits<{
 	(event: "ascii-hover-off", payload: { index: number; byte: number }): void;
 }>();
 
-/** Provides easy access to the currently bound window. */
-const bindingWindow = computed(() => props.binding.window);
+/** Normalized window offset used for table alignment. */
+const normalizedWindowOffset = computed(() =>
+	Math.max(0, Math.trunc(props.windowOffset ?? 0)),
+);
+/** Provides easy access to the currently supplied window data. */
+const bindingWindow = computed(() => ({
+	offset: normalizedWindowOffset.value,
+	data: props.modelValue ?? new Uint8Array(0),
+}));
 /** Total bytes in the backing data; feeds navigation decisions. */
-const totalBytes = computed(() => props.binding.totalBytes);
+const totalBytes = computed(() => {
+	const provided = props.totalSize;
+	if (typeof provided === "number" && Number.isFinite(provided)) {
+		return Math.max(0, Math.trunc(provided));
+	}
+	return bindingWindow.value.data.length;
+});
 
 /** Scroll container ref for virtualization math. */
 const containerEl = ref<HTMLDivElement>();
@@ -199,7 +220,7 @@ const {
 	handleScroll,
 	scrollToByte,
 	queueScrollToOffset,
-	updateFromBindingWindow,
+	updateFromWindowState,
 	measureRowHeight,
 } = useHexWindow({
 	containerEl,
@@ -216,13 +237,13 @@ const {
 	ensureChunkForRow,
 	clampChunkStartToBounds,
 	buildHexTableMarkup,
-	getBindingWindow: () => bindingWindow.value,
+	getWindowState: () => bindingWindow.value,
 	getUppercase: () => Boolean(props.uppercase),
 	getPrintableChecker: () => props.isPrintable ?? DEFAULT_PRINTABLE_CHECK,
 	getAsciiRenderer: () => props.renderAscii ?? DEFAULT_ASCII_RENDERER,
 	getCellClassResolver: () => props.cellClassForByte,
 	getNonPrintableChar: () => props.nonPrintableChar ?? ".",
-	requestWindow: (request) => props.binding.requestWindow(request),
+	requestWindow: (request) => emit("updateVirtualData", request),
 	clearHoverState,
 });
 
@@ -277,7 +298,7 @@ watch(
 		cellClassForByte: props.cellClassForByte,
 	}),
 	() => {
-		updateFromBindingWindow();
+		updateFromWindowState();
 	},
 	{ immediate: true },
 );
@@ -310,7 +331,7 @@ onMounted(() => {
 		tbody.addEventListener("pointerover", handlePointerOver);
 		tbody.addEventListener("pointerout", handlePointerOut);
 	}
-
+	console.debug("bindingwindow on mount:", bindingWindow.value);
 	queueScrollToOffset(bindingWindow.value.offset);
 });
 

@@ -15,8 +15,6 @@ const HEX_UPPER: readonly string[] = HEX_LOWER.map((value) =>
 	value.toUpperCase(),
 );
 
-const TEXT_ENCODER = new TextEncoder();
-
 const HTML_ESCAPE_LOOKUP: Record<string, string> = {
 	"&": "&amp;",
 	"<": "&lt;",
@@ -37,27 +35,16 @@ export type BuildHexTableMarkupFn = (
 ) => string;
 
 /**
- * Normalizes any supported data source into a Uint8Array, allowing components to accept
- * arrays, typed arrays, or arbitrary values while receiving a consistent byte buffer.
+ * Validates that the input data source is a Uint8Array, failing fast otherwise.
  */
 export function normalizeSource(source: unknown): Uint8Array {
 	if (source instanceof Uint8Array) {
 		return source;
 	}
 
-	if (Array.isArray(source)) {
-		return Uint8Array.from(source, (value) => {
-			const numeric = Number(value);
-			if (!Number.isFinite(numeric)) {
-				return 0;
-			}
-
-			const clampedValue = Math.min(255, Math.max(0, Math.trunc(numeric)));
-			return clampedValue;
-		});
-	}
-
-	return TEXT_ENCODER.encode(String(source ?? ""));
+	throw new TypeError(
+		"VueHex expects virtual window data as Uint8Array instances.",
+	);
 }
 
 /**

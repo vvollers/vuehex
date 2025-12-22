@@ -25,7 +25,7 @@ export interface HexWindowOptions {
 	ensureChunkForRow: (row: number) => boolean;
 	clampChunkStartToBounds: () => void;
 	buildHexTableMarkup: BuildHexTableMarkupFn;
-	getBindingWindow: () => VueHexWindow;
+	getWindowState: () => VueHexWindow;
 	getUppercase: () => boolean;
 	getPrintableChecker: () => VueHexPrintableCheck;
 	getAsciiRenderer: () => VueHexAsciiRenderer;
@@ -46,7 +46,7 @@ export interface HexWindowResult {
 	handleScroll: () => void;
 	scrollToByte: (offset: number) => void;
 	queueScrollToOffset: (offset: number) => void;
-	updateFromBindingWindow: () => void;
+	updateFromWindowState: () => void;
 	measureRowHeight: () => void;
 }
 
@@ -75,10 +75,10 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 	const lastRequested = shallowRef<VueHexWindowRequest | null>(null);
 
 	/**
-	 * Row index of the data window provided by the binding, used to detect coverage gaps.
+	 * Row index of the data window provided by the host, used to detect coverage gaps.
 	 */
 	const startRow = computed(() => {
-		const windowData = options.getBindingWindow();
+		const windowData = options.getWindowState();
 		return Math.floor(
 			windowData.offset / Math.max(options.bytesPerRow.value, 1),
 		);
@@ -99,12 +99,12 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 	});
 
 	/**
-	 * Refreshes local window state from the external binding and schedules downstream updates.
+	 * Refreshes local window state from the external data source and schedules downstream updates.
 	 */
-	function updateFromBindingWindow() {
+	function updateFromWindowState() {
 		options.clampChunkStartToBounds();
 
-		const windowData = options.getBindingWindow();
+		const windowData = options.getWindowState();
 		const normalized = normalizeSource(windowData.data);
 		normalizedBytes.value = normalized;
 
@@ -129,7 +129,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 	 */
 	function scheduleWindowEvaluation() {
 		if (pendingScrollCheck.value) {
-			return;
+	const windowData = options.getWindowState();
 		}
 
 		pendingScrollCheck.value = true;
@@ -243,7 +243,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 	function updateRenderedSlice() {
 		const data = normalizedBytes.value;
 		const bytesPerRowValue = Math.max(options.bytesPerRow.value, 1);
-		const windowStart = options.getBindingWindow().offset;
+		const windowStart = options.getWindowState().offset;
 
 		if (data.length === 0) {
 			markup.value = "";
@@ -337,7 +337,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 	}
 
 	/**
-	 * Determines whether a new data window should be requested from the binding.
+	 * Determines whether a new data window should be requested from the host application.
 	 */
 	function evaluateWindowRequest() {
 		if (options.viewportRows.value === 0) {
@@ -445,7 +445,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 		handleScroll,
 		scrollToByte,
 		queueScrollToOffset,
-		updateFromBindingWindow,
+		updateFromWindowState,
 		measureRowHeight,
 	};
 }

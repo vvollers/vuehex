@@ -1,31 +1,17 @@
 /**
- * Represents any supported byte source that can back the viewer: typed array, numeric array, or string.
- */
-export type VueHexSource = Uint8Array | number[] | string;
-
-/**
  * Describes the currently loaded window of bytes, including the absolute offset into the full data set.
  */
 export interface VueHexWindow {
 	offset: number;
-	data: VueHexSource;
+	data: Uint8Array;
 }
 
 /**
- * Payload used when requesting a new slice of data from the binding layer.
+ * Payload emitted when VueHex needs a new slice of bytes from the host application.
  */
 export interface VueHexWindowRequest {
 	offset: number;
 	length: number;
-}
-
-/**
- * Binding contract between the component and the host application, allowing window updates and total length reporting.
- */
-export interface VueHexDataBinding {
-	window: VueHexWindow;
-	totalBytes: number;
-	requestWindow: (payload: VueHexWindowRequest) => void | Promise<void>;
 }
 
 /**
