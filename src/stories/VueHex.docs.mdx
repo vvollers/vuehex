@@ -1,0 +1,217 @@
+import { Meta, Canvas } from '@storybook/addon-docs/blocks';
+import * as VueHexStories from "./VueHex.stories";
+
+<Meta of={VueHexStories} title="Components/VueHex/Guides" />
+
+# VueHex usage guide
+
+These notes expand on each demo so newcomers can understand when to pick a
+particular mode, which events fire, and how to customize the component without
+inspecting the source.
+
+## Virtual data contract
+
+VueHex renders only a small window of a backing file. As you scroll, it emits
+`updateVirtualData`, giving you the byte range it needs next so you can load data
+from disk, HTTP ranges, or IndexedDB.
+
+```ts
+import type { VueHexWindowRequest } from "@/components/vuehex-api";
+
+type VueHexWindowRequest = {
+  offset: number; // starting byte index
+  length: number; // preferred chunk length, used as a hint
+};
+```
+
+### Typical integration
+
+```ts
+<template>
+  <VueHex
+    :bytes-per-row="16"
+    :overscan="4"
+    v-model="windowData"
+    :window-offset="windowOffset"
+    :total-size="fileSize"
+    @updateVirtualData="handleUpdateVirtualData"
+  />
+</template>
+
+<script setup lang="ts">
+const windowData = ref(new Uint8Array());
+const windowOffset = ref(0);
+
+function handleUpdateVirtualData(payload: VueHexWindowRequest) {
+  windowOffset.value = payload.offset;
+  windowData.value = readBytes(payload.offset, payload.length ?? 0x4000);
+}
+</script>
+```
+
+Notes:
+
+- Always provide `total-size` (or `:total-size` in Vue) even when streaming from a socket; VueHex uses it to size the scroll rails.
+- You may debounce expensive fetches, but resolve them in order so a slower response cannot overwrite a newer one.
+- Reuse buffers inside `windowData` when possible to reduce garbage collection pressure; the story keeps things explicit for clarity.
+
+<Canvas of={VueHexStories.VirtualBinding} />
+
+## Self-managed dataset
+
+When you already own the entire `Uint8Array` (dropped file, clipboard paste, fixture), omit `total-size` and the `updateVirtualData` listener. VueHex detects that
+scenario and slices the full array internally while still virtualizing rows.
+
+```vue
+<template>
+  <VueHex v-model="fullData" :bytes-per-row="24" />
+</template>
+
+<script setup lang="ts">
+const fullData = ref(await file.arrayBuffer().then((buf) => new Uint8Array(buf)));
+</script>
+```
+
+Behavior highlights:
+
+- Self-managed mode activates when neither `total-size` nor `updateVirtualData` is provided.
+- You can continue mutating `fullData.value` to show highlights or edits; VueHex re-renders the affected rows.
+- Adding `total-size` or an `updateVirtualData` handler later flips the component back to externally managed virtualization.
+
+<Canvas of={VueHexStories.SelfManagedDataset} />
+
+## Chunk navigator + linked hover
+
+Use the chunk navigator when browsing multi-megabyte buffers and mirror hover
+state into status bars or other panes.
+
+```ts
+type HoverPayload = { index: number };
+// Events: "hex-hover-on", "hex-hover-off", "ascii-hover-on", "ascii-hover-off"
+// "*-on" events emit HoverPayload; "*-off" events do not include data.
+```
+
+```vue
+<VueHex
+  :show-chunk-navigator="true"
+  chunk-navigator-placement="left"
+  :cell-class-for-byte="cellClassForByte"
+  v-model="windowData"
+  :window-offset="windowOffset"
+  :total-size="totalBytes"
+  @hex-hover-on="handleHover"
+  @hex-hover-off="clearHover"
+  @ascii-hover-on="handleHover"
+  @ascii-hover-off="clearHover"
+  @updateVirtualData="handleUpdateVirtualData"
+/>
+```
+
+Tips:
+
+- `total-size` alone is enough for proportional chunk bars, but setting `showChunkNavigator` makes your intent explicit.
+- Return any class name from `cellClassForByte` to highlight ranges, search hits, or diffs. The story uses `story-byte--active` as an example.
+- Hover payloads are absolute file offsets, so consumers never have to add the current `windowOffset`.
+
+<Canvas of={VueHexStories.ChunkNavigatorHover} />
+
+## ASCII printability presets
+
+`isPrintable` decides whether a byte renders as a character or falls back to the
+`nonPrintableChar`. Import `VUE_HEX_ASCII_PRESETS` to skip reimplementing common
+ranges and pair them with their matching `renderAscii` helpers.
+
+```ts
+import { VUE_HEX_ASCII_PRESETS } from "@/components/vuehex-api";
+
+const presetKey = ref<"standard" | "latin1" | "visibleWhitespace">("standard");
+const activePreset = computed(() => VUE_HEX_ASCII_PRESETS[presetKey.value]);
+```
+
+Supported bundles:
+
+- **standard** -- ASCII 0x20-0x7E.
+- **latin1** -- ASCII plus Latin-1 supplement (0xA0-0xFF).
+- **visibleWhitespace** -- ASCII plus custom glyphs for tab, newline, carriage return, and space.
+
+Apply them directly:
+
+```vue
+<VueHex
+  v-model="windowData"
+  :window-offset="windowOffset"
+  :total-size="fileSize"
+  :is-printable="activePreset.isPrintable"
+  :render-ascii="activePreset.renderAscii"
+/>
+```
+
+<Canvas of={VueHexStories.AsciiPrintablePresets} />
+
+## Built-in themes
+
+The component ships with four palettes so you can pick a vibe without defining a
+token sheet. Themes are pure CSS, so switching between them does not trigger
+re-computation inside VueHex. Override individual custom properties (such as
+`--vuehex-byte-color`) when you only need slight tweaks.
+
+### Deep Space
+
+Perfect for long debugging sessions with high contrast.
+
+<Canvas of={VueHexStories.ThemeDefault} />
+
+### Daylight
+
+Soft neutrals that blend into docs or wikis.
+
+<Canvas of={VueHexStories.ThemeLight} />
+
+### Terminal
+
+Retro CRT greens for command-line nostalgia.
+
+<Canvas of={VueHexStories.ThemeTerminal} />
+
+### Sunset
+
+A playful gradient backdrop with warm highlights.
+
+<Canvas of={VueHexStories.ThemeSunset} />
+
+## Custom themes
+
+Target the emitted `.vuehex-theme-<token>` selector to ship your own art
+direction. Attach a stylesheet near the story/component and redefine the CSS
+custom properties VueHex consumes.
+
+```ts
+<template>
+  <VueHex theme="storybook-custom" v-model="windowData" />
+</template>
+
+<style scoped src="./vuehex-custom-theme.css"></style>
+```
+
+Available CSS variables:
+
+- `--vuehex-background`, `--vuehex-foreground`, `--vuehex-border-color`
+- `--vuehex-offset-color`, `--vuehex-offset-leading-opacity`
+- `--vuehex-row-divider`, `--vuehex-byte-color`
+- `--vuehex-ascii-color`, `--vuehex-ascii-non-printable-color`
+- `--vuehex-ascii-column-border`, `--vuehex-mid-column-gutter`
+
+Structural selectors you can target:
+
+```css
+.vuehex-theme-your-token .vuehex-byte { /* hex column cells */ }
+.vuehex-theme-your-token .vuehex-ascii-char { /* ASCII column */ }
+.vuehex-theme-your-token .vuehex-byte.vuehex-linked-hover { /* shared hover */ }
+.vuehex-theme-your-token .vuehex-ascii-char.vuehex-linked-hover { /* ASCII hover */ }
+```
+
+Pair those hooks with gradients, shadows, or data-URI textures to match your
+brand. Because themes are only CSS, no recompilation is necessary--just load the
+stylesheet next to your component.
+
+<Canvas of={VueHexStories.CustomTheme} />

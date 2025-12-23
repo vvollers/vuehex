@@ -1,11 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import VueHex from "@/components/VueHex.vue";
 import "./vuehex-custom-theme.css";
 import type {
 	VueHexCellClassResolver,
 	VueHexWindowRequest,
 } from "@/components/vuehex-api";
+import { VUE_HEX_ASCII_PRESETS } from "@/components/vuehex-api";
 
 const DEMO_TOTAL_BYTES = 4 * 1024 * 1024; // 4 MiB of procedurally generated data
 const SELF_MANAGED_BYTES = 64 * 1024; // 64 KiB sample for the full-data demo
@@ -35,6 +36,15 @@ const THEME_VARIANTS = [
 ] as const;
 
 type ThemeVariant = (typeof THEME_VARIANTS)[number];
+
+type AsciiPresetKey = keyof typeof VUE_HEX_ASCII_PRESETS;
+
+const ASCII_PRESET_OPTIONS = (
+	Object.keys(VUE_HEX_ASCII_PRESETS) as AsciiPresetKey[]
+).map((key) => ({
+	key,
+	label: VUE_HEX_ASCII_PRESETS[key]!.label,
+}));
 
 function clamp(value: number, min: number, max: number): number {
 	if (value < min) {
@@ -83,7 +93,6 @@ function createVirtualDataController(windowLength: number) {
 const meta: Meta<typeof VueHex> = {
 	title: "Components/VueHex",
 	component: VueHex,
-	tags: ["autodocs"],
 	argTypes: {
 		modelValue: { control: false },
 		windowOffset: { control: false },
@@ -143,40 +152,6 @@ function createThemeStory(variant: ThemeVariant): Story {
 				</div>
 				`,
 		}),
-		parameters: {
-			docs: {
-				description: {
-					story: `
-**When to use it**
-
-Lean on the ${variant.title} palette whenever you want ${variant.description.toLowerCase()}
-without building your own token map.
-
-**Usage**
-
-\`\`\`vue
-<template>
-  <VueHex
-    theme="${variant.key}"
-    :bytes-per-row="16"
-    :overscan="2"
-    v-model="windowData"
-    :window-offset="windowOffset"
-    :total-size="totalBytes"
-    @updateVirtualData="handleUpdateVirtualData"
-  />
-</template>
-\`\`\`
-
-**Details**
-
-- Themes are pure CSS: switching values never triggers re-computation inside VueHex.
-- Combine with chunk navigation, hover linking, or full data mode--the palette layers on top of any other story.
-- Override individual CSS custom properties (for example \`--vuehex-byte-color\`) when you only need to tweak a small portion of the palette.
-`,
-				},
-			},
-		},
 	};
 }
 
@@ -220,61 +195,6 @@ export const VirtualBinding: Story = {
 			</div>
 			`,
 	}),
-	parameters: {
-		docs: {
-			description: {
-				story: `
-**Concept**
-
-VueHex renders only a sliver of the backing file. As you scroll, it emits
-\`updateVirtualData\` describing which slice is needed next so you can fetch it
-from disk, over the network, or from an IndexedDB cache.
-
-**Event payload**
-
-\`ts
-type VueHexWindowRequest = {
-  offset: number; // byte index to start reading from
-  length: number; // preferred chunk length; use as a hint when allocating buffers
-};
-\`
-
-**Typical usage**
-
-\`vue
-<template>
-  <VueHex
-    :bytes-per-row="16"
-    :overscan="4"
-    v-model="windowData"
-    :window-offset="windowOffset"
-    :total-size="fileSize"
-    @updateVirtualData="handleUpdateVirtualData"
-  />
-</template>
-
-<script setup lang="ts">
-import type { VueHexWindowRequest } from "@/components/vuehex-api";
-
-const windowData = ref(new Uint8Array());
-const windowOffset = ref(0);
-
-function handleUpdateVirtualData(payload: VueHexWindowRequest) {
-  windowOffset.value = payload.offset;
-  windowData.value = readBytes(payload.offset, payload.length ?? 0x4000);
-}
-</script>
-\`
-
-**Notes**
-
-- Emit \`total-size\` even if you stream from a socket--VueHex uses it to size the scrollbar.
-- You can debounce expensive fetches, but always resolve them in order so the table does not briefly display stale chunks.
-- When providing \`modelValue\` ref objects, prefer reusing buffers to avoid GC churn; the story uses fresh arrays for clarity.
-`,
-			},
-		},
-	},
 };
 
 export const SelfManagedDataset: Story = {
@@ -313,42 +233,77 @@ export const SelfManagedDataset: Story = {
 			</div>
 			`,
 	}),
-	parameters: {
-		docs: {
-			description: {
-				story: `
-**Why this exists**
+};
 
-Not every viewer needs streaming. When you already have a \`Uint8Array\`--for
-example from drag-and-drop, clipboard paste, or a fixture in Storybook--VueHex
-can virtualize internally without ever emitting \`updateVirtualData\`.
-
-**Usage**
-
-\`\`\`vue
-<template>
-  <VueHex v-model="fullData" :bytes-per-row="24" />
-</template>
-
-<script setup lang="ts">
-const fullData = ref(await file.arrayBuffer().then((buf) => new Uint8Array(buf)));
-</script>
-\`\`\`
-
-**Behavior**
-
-- The component detects "self-managed" mode when no \`updateVirtualData\` listener
-  exists and no \`total-size\` prop is supplied.
-- Chunking still happens internally; VueHex just slices the provided array instead
-  of calling back out to you.
-- You can still mutate \`fullData.value\` (e.g., to highlight differences or to
-  replace a selection) and VueHex will re-render the affected rows.
-- If you later supply \`total-size\` or an \`updateVirtualData\` handler, the
-  component flips back to external virtualization automatically.
-`,
-			},
-		},
+export const AsciiPrintablePresets: Story = {
+	name: "ASCII printability presets",
+	args: {
+		bytesPerRow: 16,
+		overscan: 2,
+		nonPrintableChar: ".",
 	},
+	render: (args) => ({
+		components: { VueHex },
+		setup() {
+			const windowLength = Math.max(1, (args.bytesPerRow ?? 16) * 40);
+			const controller = createVirtualDataController(windowLength);
+			const presetKey = ref<AsciiPresetKey>("standard");
+			const presetEntries = ASCII_PRESET_OPTIONS;
+			const activePreset = computed(
+				() => VUE_HEX_ASCII_PRESETS[presetKey.value],
+			);
+			return {
+				args,
+				...controller,
+				presetKey,
+				presetEntries,
+				activePreset,
+			};
+		},
+		template: `
+			<div class="story-viewport story-viewport--column">
+			  <section class="story-stack">
+			    <header class="story-card__header">
+			      <p class="story-card__eyebrow">ASCII rendering</p>
+			      <h3 class="story-card__title">Choose printable byte ranges</h3>
+			      <p class="story-card__subtitle">
+			        Swap between the built-in helpers or wire up a custom <code>isPrintable</code> function.
+			      </p>
+			    </header>
+			    <div class="story-panel">
+			      <label class="story-label" for="ascii-preset">ASCII preset</label>
+			      <select id="ascii-preset" v-model="presetKey" style="width: 100%; padding: 0.4rem 0.5rem;">
+			        <option
+			          v-for="option in presetEntries"
+			          :key="option.key"
+			          :value="option.key"
+			        >
+			          {{ option.label }}
+			        </option>
+			      </select>
+			      <p class="story-caption" style="margin-top: 0.5rem;">
+			        Printable bytes follow <code>{{ activePreset.label }}</code>.
+			      </p>
+			    </div>
+			    <div class="story-demo">
+			      <VueHex
+			        v-bind="args"
+			        v-model="windowData"
+			        :window-offset="windowOffset"
+			        :total-size="totalBytes"
+			        :is-printable="activePreset.isPrintable"
+			        :render-ascii="activePreset.renderAscii"
+			        style="height: 320px"
+			        @updateVirtualData="handleUpdateVirtualData"
+			      />
+			    </div>
+			    <p class="story-caption">
+			      Lookups receive a raw byte value, so you can treat control codes, Latin-1, or even domain-specific tokens as printable characters.
+			    </p>
+			  </section>
+			</div>
+			`,
+	}),
 };
 
 export const ChunkNavigatorHover: Story = {
@@ -423,54 +378,6 @@ export const ChunkNavigatorHover: Story = {
 			</div>
 			`,
 	}),
-	parameters: {
-		docs: {
-			description: {
-				story: `
-**What it demonstrates**
-
-- The chunk navigator exposes a mini-map for multi-megabyte buffers.
-- Hex and ASCII columns emit synchronized hover events so you can decorate
-  related UI (status bars, disassembly panes, etc.).
-
-**Hover events**
-
-\`\`\`ts
-type HoverPayload = { index: number };
-// Events: "hex-hover-on", "hex-hover-off", "ascii-hover-on", "ascii-hover-off"
-// "*-on" events include the payload above. "*-off" events emit no payload.
-\`\`\`
-
-**Usage**
-
-\`\`\`vue
-<VueHex
-  :show-chunk-navigator="true"
-  chunk-navigator-placement="left"
-  :cell-class-for-byte="cellClassForByte"
-  v-model="windowData"
-  :window-offset="windowOffset"
-  :total-size="totalBytes"
-  @hex-hover-on="handleHover"
-  @hex-hover-off="clearHover"
-  @ascii-hover-on="handleHover"
-  @ascii-hover-off="clearHover"
-  @updateVirtualData="handleUpdateVirtualData"
-/>
-\`\`\`
-
-**Implementation notes**
-
-- The chunk navigator works without additional props--\`total-size\` alone lets it
-  compute proportional blocks--but providing \`showChunkNavigator\` clarifies intent.
-- Returning \`story-byte--active\` from \`cellClassForByte\` is just an example; you
-  can return any CSS class to highlight ranges, diffs, or search matches.
-- Hover payloads are absolute byte indexes (relative to the full file), not the
-  current window offset, which keeps downstream consumers simple.
-`,
-			},
-		},
-	},
 };
 
 export const ThemeDefault = createThemeStory(THEME_VARIANTS[0]!);
@@ -520,48 +427,4 @@ export const CustomTheme: Story = {
 			</div>
 			`,
 	}),
-	parameters: {
-		docs: {
-			description: {
-				story: `
-**Goal**
-
-Ship a totally bespoke art direction while keeping VueHex's structure intact.
-Attach your own stylesheet, target the emitted \`.vuehex-theme-<token>\` class,
-and redefine the CSS custom properties the component consumes.
-
-**How to wire it up**
-
-\`\`\`vue
-<template>
-  <VueHex theme="storybook-custom" v-model="windowData" />
-</template>
-
-<style scoped src="./vuehex-custom-theme.css"></style>
-\`\`\`
-
-**Available CSS variables**
-
-- \`--vuehex-background\`, \`--vuehex-foreground\`, \`--vuehex-border-color\`
-- \`--vuehex-offset-color\`, \`--vuehex-offset-leading-opacity\`
-- \`--vuehex-row-divider\`, \`--vuehex-byte-color\`
-- \`--vuehex-ascii-color\`, \`--vuehex-ascii-non-printable-color\`
-- \`--vuehex-ascii-column-border\`, \`--vuehex-mid-column-gutter\`
-
-**Structural selectors**
-
-\`\`\`css
-.vuehex-theme-your-token .vuehex-byte { /* hex column cells */ }
-.vuehex-theme-your-token .vuehex-ascii-char { /* ASCII column */ }
-.vuehex-theme-your-token .vuehex-byte.vuehex-linked-hover { /* shared hover */ }
-.vuehex-theme-your-token .vuehex-ascii-char.vuehex-linked-hover { /* ASCII hover */ }
-\`\`\`
-
-Pair those hooks with gradients, shadows, or data-URI textures to match your
-brand. Because themes are pure CSS, no recompilation is necessary--just load the
-stylesheet alongside the component.
-`,
-			},
-		},
-	},
 };
