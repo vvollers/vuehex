@@ -14,6 +14,9 @@ const preview: Preview = {
 			},
 		},
 		layout: "fullscreen",
+		docs: {
+			codePanel: true,
+		},
 	},
 };
 

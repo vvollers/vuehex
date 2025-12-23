@@ -16,7 +16,7 @@ export interface ChunkNavigatorOptions {
 	bytesPerRow: ComputedRef<number>;
 	rowHeightValue: ComputedRef<number>;
 	containerEl: Ref<HTMLDivElement | undefined>;
-	maxVirtualHeight: number;
+	maxVirtualHeight: ComputedRef<number>;
 }
 
 export interface ChunkNavigatorResult {
@@ -94,7 +94,7 @@ export function useChunkNavigator(
 			return Number.POSITIVE_INFINITY;
 		}
 
-		const capacity = Math.floor(options.maxVirtualHeight / rowHeight);
+		const capacity = Math.floor(options.maxVirtualHeight.value / rowHeight);
 		if (!Number.isFinite(capacity) || capacity <= 0) {
 			return Number.POSITIVE_INFINITY;
 		}
@@ -129,7 +129,7 @@ export function useChunkNavigator(
 	 */
 	const isChunking = computed(
 		() =>
-			fullContentHeight.value > options.maxVirtualHeight &&
+			fullContentHeight.value > options.maxVirtualHeight.value &&
 			Number.isFinite(chunkRowCapacity.value),
 	);
 

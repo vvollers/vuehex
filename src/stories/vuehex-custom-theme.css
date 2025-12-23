@@ -1,0 +1,20 @@
+.vuehex-theme-storybook-custom {
+	--vuehex-background: radial-gradient(circle at 25% 20%, #312e81, #1e1b4b 55%, #0f0a1f);
+	--vuehex-foreground: #e0e7ff;
+	--vuehex-border-color: rgba(99, 102, 241, 0.5);
+	--vuehex-offset-color: rgba(191, 219, 254, 0.9);
+	--vuehex-offset-leading-opacity: 0.55;
+	--vuehex-row-divider: rgba(99, 102, 241, 0.25);
+	--vuehex-byte-color: #fef9c3;
+	--vuehex-ascii-color: #c7d2fe;
+	--vuehex-ascii-non-printable-color: rgba(199, 210, 254, 0.55);
+	--vuehex-ascii-column-border: rgba(99, 102, 241, 0.35);
+	--vuehex-mid-column-gutter: 2ch;
+	box-shadow: 0 20px 45px rgba(15, 23, 42, 0.55);
+}
+
+.vuehex-theme-storybook-custom .vuehex-byte.vuehex-linked-hover,
+.vuehex-theme-storybook-custom .vuehex-ascii-char.vuehex-linked-hover {
+	background: rgba(251, 191, 36, 0.35);
+	outline-color: rgba(255, 255, 255, 0.4);
+}

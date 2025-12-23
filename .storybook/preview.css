@@ -4,6 +4,12 @@
 	align-items: stretch;
 }
 
+.story-viewport--column {
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+}
+
 .story-viewport--split {
 	flex-wrap: wrap;
 }
@@ -11,6 +17,34 @@
 .story-viewport--grid {
 	flex-wrap: wrap;
 	gap: 1.5rem;
+}
+
+.story-stack {
+	width: min(960px, 100%);
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	align-items: stretch;
+}
+
+.story-demo {
+	border-radius: 1rem;
+	border: 1px solid color-mix(in srgb, var(--sb-color-border) 70%, transparent);
+	background: color-mix(in srgb, var(--sb-color-background) 92%, #050608);
+	box-shadow: 0 20px 42px rgba(5, 10, 20, 0.16);
+	padding: 1rem;
+	min-height: 320px;
+	display: flex;
+	align-items: stretch;
+	justify-content: center;
+}
+
+.story-demo--tall {
+	min-height: 360px;
+}
+
+.story-demo > * {
+	flex: 1 1 auto;
 }
 
 .story-panel {
@@ -34,6 +68,18 @@
 	font-family: "Fira Code", "SFMono-Regular", Consolas, monospace;
 	font-size: 1.1rem;
 	margin: 0;
+}
+
+.story-caption {
+	margin: 0 auto;
+	max-width: 720px;
+	text-align: center;
+	color: color-mix(in srgb, var(--sb-color-text) 80%, #94a3b8);
+	font-size: 0.95rem;
+}
+
+.story-caption--mono {
+	font-family: "Fira Code", "SFMono-Regular", Consolas, monospace;
 }
 
 .story-byte--active {

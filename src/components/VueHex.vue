@@ -47,7 +47,14 @@
 
 <script setup lang="ts">
 import type { CSSProperties } from "vue";
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import {
+	computed,
+	getCurrentInstance,
+	onBeforeUnmount,
+	onMounted,
+	ref,
+	watch,
+} from "vue";
 import { useChunkNavigator } from "./composables/useChunkNavigator";
 import { useHexWindow } from "./composables/useHexWindow";
 import { useHoverLinking } from "./composables/useHoverLinking";
@@ -141,6 +148,40 @@ const totalBytes = computed(() => {
 	return bindingWindow.value.data.length;
 });
 
+const instance = getCurrentInstance();
+const hasUpdateVirtualDataListener = computed(() => {
+	const vnodeProps = instance?.vnode.props as
+		| Record<string, unknown>
+		| undefined;
+	const handler = vnodeProps?.["onUpdateVirtualData"];
+	if (Array.isArray(handler)) {
+		return handler.length > 0;
+	}
+	return Boolean(handler);
+});
+
+const expectsExternalData = computed(() => {
+	const windowInfo = bindingWindow.value;
+	if (windowInfo.offset > 0) {
+		return true;
+	}
+	const providedTotal = props.totalSize;
+	if (
+		typeof providedTotal === "number" &&
+		Number.isFinite(providedTotal) &&
+		providedTotal > windowInfo.data.length
+	) {
+		return true;
+	}
+	return hasUpdateVirtualDataListener.value;
+});
+
+const isSelfManagedData = computed(() => !expectsExternalData.value);
+const shouldRequestVirtualData = computed(() => !isSelfManagedData.value);
+const effectiveMaxVirtualHeight = computed(() =>
+	isSelfManagedData.value ? Number.POSITIVE_INFINITY : MAX_VIRTUAL_HEIGHT,
+);
+
 /** Scroll container ref for virtualization math. */
 const containerEl = ref<HTMLDivElement>();
 /** Table body ref so hover logic can traverse DOM nodes. */
@@ -202,7 +243,7 @@ const {
 	bytesPerRow,
 	rowHeightValue,
 	containerEl,
-	maxVirtualHeight: MAX_VIRTUAL_HEIGHT,
+	maxVirtualHeight: effectiveMaxVirtualHeight,
 });
 
 /** Hover coordination utilities that emit events and apply linked highlights. */
@@ -243,7 +284,12 @@ const {
 	getAsciiRenderer: () => props.renderAscii ?? DEFAULT_ASCII_RENDERER,
 	getCellClassResolver: () => props.cellClassForByte,
 	getNonPrintableChar: () => props.nonPrintableChar ?? ".",
-	requestWindow: (request) => emit("updateVirtualData", request),
+	requestWindow: (request) => {
+		if (!shouldRequestVirtualData.value) {
+			return;
+		}
+		emit("updateVirtualData", request);
+	},
 	clearHoverState,
 });
 
@@ -308,6 +354,14 @@ watch([totalBytes, bytesPerRow, viewportRows, overscanRows], () => {
 	scheduleWindowEvaluation();
 });
 
+watch(
+	() => effectiveMaxVirtualHeight.value,
+	() => {
+		clampChunkStartToBounds();
+		scheduleWindowEvaluation();
+	},
+);
+
 let resizeObserver: ResizeObserver | null = null;
 
 onMounted(() => {
@@ -331,7 +385,6 @@ onMounted(() => {
 		tbody.addEventListener("pointerover", handlePointerOver);
 		tbody.addEventListener("pointerout", handlePointerOut);
 	}
-	console.debug("bindingwindow on mount:", bindingWindow.value);
 	queueScrollToOffset(bindingWindow.value.offset);
 });
 

@@ -68,6 +68,16 @@ function handleUpdateVirtualData(request: VueHexWindowRequest) {
 
 When VueHex needs different bytes it emits `updateVirtualData` with `{ offset, length }`. The component keeps rendering whatever you provide through `v-model` until you feed it a new slice. That means you can back the viewer with disk I/O, HTTP range requests, IndexedDB, or any other storage you control.
 
+### Full data mode
+
+If you already have the entire `Uint8Array`, you can skip the virtual data handshake entirely. Omit `total-size` and don’t listen for `updateVirtualData`; just point `v-model` at the whole buffer. VueHex detects that everything is already in memory, stops emitting `updateVirtualData`, and virtualizes the scroll area on its own:
+
+```vue
+<VueHex v-model="entireFile" :bytes-per-row="32" />
+```
+
+This mode is ideal for small/medium blobs (think editor previews or fixture files). For multi‑gigabyte datasets you’ll still want the virtual data contract so you can keep memory and scroll heights bounded.
+
 ### Asynchronous providers
 
 Responding to `updateVirtualData` can be asynchronous—just update `windowOffset` and `windowData` when the bytes arrive:
