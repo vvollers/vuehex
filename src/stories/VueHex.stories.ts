@@ -113,8 +113,6 @@ function createThemeStory(variant: ThemeVariant): Story {
 		name: `${variant.title} theme`,
 		args: {
 			theme: variant.key,
-			bytesPerRow: 16,
-			overscan: 2,
 		},
 		render: (args) => ({
 			components: { VueHex },
@@ -157,10 +155,7 @@ function createThemeStory(variant: ThemeVariant): Story {
 
 export const VirtualBinding: Story = {
 	name: "Virtual data",
-	args: {
-		bytesPerRow: 16,
-		overscan: 4,
-	},
+	args: {},
 	render: (args) => ({
 		components: { VueHex },
 		setup() {
@@ -199,10 +194,7 @@ export const VirtualBinding: Story = {
 
 export const SelfManagedDataset: Story = {
 	name: "Self-managed data",
-	args: {
-		bytesPerRow: 24,
-		overscan: 2,
-	},
+	args: {},
 	render: (args) => ({
 		components: { VueHex },
 		setup() {
@@ -238,8 +230,6 @@ export const SelfManagedDataset: Story = {
 export const AsciiPrintablePresets: Story = {
 	name: "ASCII printability presets",
 	args: {
-		bytesPerRow: 16,
-		overscan: 2,
 		nonPrintableChar: ".",
 	},
 	render: (args) => ({
@@ -309,8 +299,6 @@ export const AsciiPrintablePresets: Story = {
 export const ChunkNavigatorHover: Story = {
 	name: "Chunk navigator + hover",
 	args: {
-		bytesPerRow: 16,
-		overscan: 3,
 		showChunkNavigator: true,
 		chunkNavigatorPlacement: "left",
 	},
@@ -389,8 +377,6 @@ export const CustomTheme: Story = {
 	name: "Custom theme",
 	args: {
 		theme: "storybook-custom",
-		bytesPerRow: 16,
-		overscan: 2,
 	},
 	render: (args) => ({
 		components: { VueHex },

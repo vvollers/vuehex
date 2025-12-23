@@ -207,29 +207,37 @@
 
 .vuehex-bytes,
 .vuehex-ascii {
-	padding: 0.25rem 0;
 	white-space: nowrap;
 }
 
 .vuehex-bytes {
-	min-width: 15rem;
+	padding-right: 0.75rem;
+	width: 23.1rem;
 }
 
 .vuehex-byte,
 .vuehex-ascii-char {
 	display: inline-block;
-	min-width: 2ch;
 	text-align: center;
-	margin: 0 0.25ch;
 }
 
 .vuehex-byte {
+	min-width: 2ch;
+	margin: 0 0.25ch;
 	color: var(--vuehex-byte-color);
 }
 
-.vuehex-byte--column-start,
-.vuehex-ascii-char--column-start {
+.vuehex-ascii-char {
+	min-width: 1ch;
+	margin: 0;
+}
+
+.vuehex-byte--column-start {
 	margin-left: calc(var(--vuehex-mid-column-gutter) + 0.25ch);
+}
+
+.vuehex-ascii-char--column-start {
+	margin-left: 0;
 }
 
 .vuehex-ascii {
