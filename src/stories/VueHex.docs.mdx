@@ -155,13 +155,17 @@ token sheet. Themes are pure CSS, so switching between them does not trigger
 re-computation inside VueHex. Override individual custom properties (such as
 `--vuehex-byte-color`) when you only need slight tweaks.
 
-### Deep Space
+When you omit the `theme` prop, VueHex automatically chooses between the dark
+and light palettes using `prefers-color-scheme`, so your app matches the
+visitor's OS preference with zero extra code.
+
+### Dark Mode
 
 Perfect for long debugging sessions with high contrast.
 
-<Canvas of={VueHexStories.ThemeDefault} />
+<Canvas of={VueHexStories.ThemeDark} />
 
-### Daylight
+### Light Mode
 
 Soft neutrals that blend into docs or wikis.
 

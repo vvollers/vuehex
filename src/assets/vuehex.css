@@ -287,8 +287,8 @@
 	visibility: hidden;
 }
 
-/* Default theme */
-.vuehex-theme-default {
+/* Dark theme */
+.vuehex-theme-dark {
 	--vuehex-background: #0f172a;
 	--vuehex-foreground: #e2e8f0;
 	--vuehex-border-color: rgba(148, 163, 184, 0.25);
@@ -319,6 +319,57 @@
 
 .vuehex-theme-light [class~="vuehex-ascii-char--non-printable"] {
 	color: rgba(100, 116, 139, 0.35);
+}
+
+/* OS-aware theme */
+.vuehex-theme-auto {
+	--vuehex-background: #0f172a;
+	--vuehex-foreground: #e2e8f0;
+	--vuehex-border-color: rgba(148, 163, 184, 0.25);
+	--vuehex-offset-color: #94a3b8;
+	--vuehex-offset-leading-opacity: 0.35;
+	--vuehex-row-divider: rgba(148, 163, 184, 0.18);
+	--vuehex-byte-color: #f8fafc;
+	--vuehex-ascii-color: #f1f5f9;
+	--vuehex-ascii-non-printable-color: rgba(148, 163, 184, 0.35);
+	--vuehex-ascii-column-border: rgba(148, 163, 184, 0.24);
+	--vuehex-mid-column-gutter: 1.5ch;
+}
+
+@media (prefers-color-scheme: light) {
+	.vuehex-theme-auto {
+		--vuehex-background: #f8fafc;
+		--vuehex-foreground: #0f172a;
+		--vuehex-border-color: rgba(15, 23, 42, 0.12);
+		--vuehex-offset-color: rgba(15, 23, 42, 0.65);
+		--vuehex-offset-leading-opacity: 0.5;
+		--vuehex-row-divider: rgba(15, 23, 42, 0.08);
+		--vuehex-byte-color: #1f2937;
+		--vuehex-ascii-color: #334155;
+		--vuehex-ascii-non-printable-color: rgba(100, 116, 139, 0.5);
+		--vuehex-ascii-column-border: rgba(148, 163, 184, 0.35);
+		--vuehex-mid-column-gutter: 1.5ch;
+	}
+
+	.vuehex-theme-auto [class~="vuehex-ascii-char--non-printable"] {
+		color: rgba(100, 116, 139, 0.35);
+	}
+}
+
+@media (prefers-color-scheme: dark) {
+	.vuehex-theme-auto {
+		--vuehex-background: #0f172a;
+		--vuehex-foreground: #e2e8f0;
+		--vuehex-border-color: rgba(148, 163, 184, 0.25);
+		--vuehex-offset-color: #94a3b8;
+		--vuehex-offset-leading-opacity: 0.35;
+		--vuehex-row-divider: rgba(148, 163, 184, 0.18);
+		--vuehex-byte-color: #f8fafc;
+		--vuehex-ascii-color: #f1f5f9;
+		--vuehex-ascii-non-printable-color: rgba(148, 163, 184, 0.35);
+		--vuehex-ascii-column-border: rgba(148, 163, 184, 0.24);
+		--vuehex-mid-column-gutter: 1.5ch;
+	}
 }
 
 /* Terminal theme */

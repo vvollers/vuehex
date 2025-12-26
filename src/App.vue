@@ -101,7 +101,7 @@
           :non-printable-char="nonPrintableChar"
           :is-printable="activeAsciiPreset.isPrintable"
           :render-ascii="activeAsciiPreset.renderAscii"
-          :theme="themeKey"
+		  :theme="viewerTheme"
           :cell-class-for-byte="activeCellClassResolver"
           :show-chunk-navigator="true"
           :chunk-navigator-placement="chunkNavigatorPlacement"
@@ -250,15 +250,20 @@ type AsciiPresetKey = (typeof asciiPresetOptions)[number]["key"];
 const asciiPresetKey = ref<AsciiPresetKey>("standard");
 
 const themeOptions = [
-	{ key: "default", label: "Midnight (default)" },
-	{ key: "light", label: "Cloud Light" },
+	{ key: "auto", label: "Match OS" },
+	{ key: "dark", label: "Dark Mode" },
+	{ key: "light", label: "Light Mode" },
 	{ key: "terminal", label: "Terminal Green" },
 	{ key: "sunset", label: "Sunset Glow" },
 ] as const;
 
 type ThemeKey = (typeof themeOptions)[number]["key"];
 
-const themeKey = ref<ThemeKey>("default");
+const themeKey = ref<ThemeKey>("auto");
+
+const viewerTheme = computed(() =>
+	themeKey.value === "auto" ? null : themeKey.value,
+);
 
 const highlightOptions = [
 	{ key: "structure", label: "Sample structure" },

@@ -8,7 +8,7 @@ VueHex is a virtualized hex viewer for Vue 3. It renders only the bytes that are
 npm install vuehex
 ```
 
-Optionally register the plugin once to make the `<VueHex>` component available everywhere and load the default theme:
+Optionally register the plugin once to make the `<VueHex>` component available everywhere and load the bundled styles:
 
 ```ts
 import { createApp } from "vue";
@@ -168,7 +168,7 @@ VueHex also exports `VUE_HEX_ASCII_PRESETS` (`standard`, `latin1`, `visibleWhite
 - `uppercase` (default `false`).
 - `nonPrintableChar` (default `'.'`).
 - `isPrintable` / `renderAscii` – customize ASCII rendering.
-- `theme` (default `'default'`) – applies bundled palettes (`default`, `light`, `terminal`, `sunset`).
+- `theme` – pass `'dark'`, `'light'`, `'terminal'`, `'sunset'`, or `'auto'` to lock in a palette; omit it to let VueHex follow `prefers-color-scheme` between dark and light.
 - `cellClassForByte` – `(payload: { kind: 'hex' | 'ascii'; index: number; byte: number }) => string | string[] | void` for custom highlighting.
 - `overscan` (default `2`).
 - `showChunkNavigator` + `chunkNavigatorPlacement` – enable the optional navigator UI.
@@ -176,7 +176,7 @@ VueHex also exports `VUE_HEX_ASCII_PRESETS` (`standard`, `latin1`, `visibleWhite
 ## Styling options
 
 1. Import `vuehex/styles` for the default look.
-2. Pass `theme="light" | "terminal" | "sunset"` to toggle bundled palettes.
+2. Pass `theme="dark" | "light" | "terminal" | "sunset" | "auto"` to toggle bundled palettes explicitly (or skip the prop entirely to stick with OS detection).
 3. Roll your own styles targeting the emitted class names (`.vuehex`, `.vuehex-byte`, `.vuehex-ascii-char`, etc.). The default sheet sets `.vuehex { height: 100%; }`, so remember to give the wrapper a concrete height.
 
 ## Plugin options

@@ -135,7 +135,6 @@ const props = withDefaults(defineProps<VueHexProps>(), {
 	overscan: 2,
 	isPrintable: DEFAULT_PRINTABLE_CHECK,
 	renderAscii: DEFAULT_ASCII_RENDERER,
-	theme: "default",
 	showChunkNavigator: false,
 	chunkNavigatorPlacement: "right",
 });
@@ -230,12 +229,39 @@ const viewportRows = computed(() => {
 const overscanRows = computed(() => Math.max(0, Math.trunc(props.overscan)));
 
 /** Normalized theme key derived from the consumer-specified string. */
-const themeKey = computed(() => normalizeThemeKey(props.theme));
+const themeKey = computed(() => {
+	const normalized = normalizeThemeKey(props.theme);
+	if (!normalized) {
+		return null;
+	}
+
+	if (
+		[
+			"default",
+			"deep-space",
+			"deep_space",
+			"deepspace",
+			"dark-mode",
+			"darkmode",
+		].includes(normalized)
+	) {
+		return "dark";
+	}
+
+	if (["light", "daylight", "light-mode", "lightmode"].includes(normalized)) {
+		return "light";
+	}
+
+	return normalized;
+});
 /** Classes applied to the scroll container, including theme modifiers. */
 const containerClass = computed(() => {
 	const classes = ["vuehex"];
-	if (themeKey.value) {
-		classes.push(`vuehex-theme-${themeKey.value}`);
+	const normalized = themeKey.value;
+	if (!normalized || normalized === "auto") {
+		classes.push("vuehex-theme-auto");
+	} else {
+		classes.push(`vuehex-theme-${normalized}`);
 	}
 	return classes;
 });

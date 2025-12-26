@@ -14,13 +14,13 @@ const THEME_SAMPLE_ROWS = 32;
 
 const THEME_VARIANTS = [
 	{
-		key: "default",
-		title: "Deep Space",
+		key: "dark",
+		title: "Dark Mode",
 		description: "High-contrast midnight palette for long debugging sessions.",
 	},
 	{
 		key: "light",
-		title: "Daylight",
+		title: "Light Mode",
 		description: "Soft neutrals that feel at home inside docs or wikis.",
 	},
 	{
@@ -365,9 +365,10 @@ export const CellClassHighlighting: Story = {
 			const controller = createVirtualDataController(windowLength);
 			const highlightEntries = HIGHLIGHT_PRESETS;
 			const highlightKey = ref<HighlightPresetKey>("asciiCategories");
-			const activeHighlight = computed(() =>
-				highlightEntries.find((entry) => entry.key === highlightKey.value) ??
-				highlightEntries[0]!,
+			const activeHighlight = computed(
+				() =>
+					highlightEntries.find((entry) => entry.key === highlightKey.value) ??
+					highlightEntries[0]!,
 			);
 			const cellClassForByte = computed(() => activeHighlight.value.resolver);
 			return {
@@ -520,7 +521,7 @@ export const ChunkNavigatorHover: Story = {
 	}),
 };
 
-export const ThemeDefault = createThemeStory(THEME_VARIANTS[0]!);
+export const ThemeDark = createThemeStory(THEME_VARIANTS[0]!);
 export const ThemeLight = createThemeStory(THEME_VARIANTS[1]!);
 export const ThemeTerminal = createThemeStory(THEME_VARIANTS[2]!);
 export const ThemeSunset = createThemeStory(THEME_VARIANTS[3]!);
