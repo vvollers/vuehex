@@ -63,6 +63,7 @@ import type {
 	VueHexAsciiRenderer,
 	VueHexCellClassResolver,
 	VueHexPrintableCheck,
+	VueHexSelectionDataProvider,
 	VueHexWindowRequest,
 } from "./vuehex-api";
 import { DEFAULT_ASCII_RENDERER, DEFAULT_PRINTABLE_CHECK } from "./vuehex-api";
@@ -121,6 +122,11 @@ interface VueHexProps {
 	theme?: string | null;
 	/** Hook for assigning classes per cell, useful for highlighting bytes of interest. */
 	cellClassForByte?: VueHexCellClassResolver | null;
+	/**
+	 * Optional selection provider used for clipboard copy.
+	 * Should return the raw bytes between selectionStart and selectionEnd (inclusive).
+	 */
+	getSelectionData?: VueHexSelectionDataProvider;
 	/** Toggles the chunk navigator UI, allowing quick jumps through large files. */
 	showChunkNavigator?: boolean;
 	/** Places the chunk navigator around the viewer to fit various layouts. */
@@ -202,6 +208,33 @@ const shouldRequestVirtualData = computed(() => !isSelfManagedData.value);
 const effectiveMaxVirtualHeight = computed(() =>
 	isSelfManagedData.value ? Number.POSITIVE_INFINITY : MAX_VIRTUAL_HEIGHT,
 );
+
+const selectionDataProvider = computed<VueHexSelectionDataProvider | null>(
+	() => {
+		if (props.getSelectionData) {
+			return props.getSelectionData;
+		}
+		if (!isSelfManagedData.value) {
+			return null;
+		}
+		return (selectionStart, selectionEnd) => {
+			const total = totalBytes.value;
+			if (total <= 0) {
+				return new Uint8Array(0);
+			}
+			const start = Math.max(
+				0,
+				Math.min(Math.trunc(selectionStart), total - 1),
+			);
+			const end = Math.max(0, Math.min(Math.trunc(selectionEnd), total - 1));
+			const from = Math.min(start, end);
+			const to = Math.max(start, end);
+			return bindingWindow.value.data.slice(from, to + 1);
+		};
+	},
+);
+
+const selectionEnabled = computed(() => selectionDataProvider.value !== null);
 
 /** Scroll container ref for virtualization math. */
 const containerEl = ref<HTMLDivElement>();
@@ -428,7 +461,10 @@ function applySelectionHighlight() {
 	});
 
 	const state = selectionState.value;
-	if (!state) {
+	if (!state || !selectionEnabled.value) {
+		if (state) {
+			selectionState.value = null;
+		}
 		return;
 	}
 	const start = Math.min(state.anchor, state.focus);
@@ -528,6 +564,9 @@ function clearSelection() {
 }
 
 function handlePointerDown(event: PointerEvent) {
+	if (!selectionEnabled.value) {
+		return;
+	}
 	if (event.button !== 0) {
 		return;
 	}
@@ -568,6 +607,9 @@ function resolveSelectionPayloadFromEvent(event: PointerEvent) {
 }
 
 function handlePointerMove(event: PointerEvent) {
+	if (!selectionEnabled.value) {
+		return;
+	}
 	if (!isPointerSelecting.value) {
 		return;
 	}
@@ -589,6 +631,9 @@ function handlePointerMove(event: PointerEvent) {
 }
 
 function handlePointerUp(event: PointerEvent) {
+	if (!selectionEnabled.value) {
+		return;
+	}
 	if (
 		activePointerId.value !== null &&
 		activePointerId.value !== event.pointerId
@@ -598,64 +643,38 @@ function handlePointerUp(event: PointerEvent) {
 	finishPointerSelection();
 }
 
-function collectSelectionNodes(
-	mode: "hex" | "ascii",
-	start: number,
-	end: number,
-): HTMLElement[] {
-	const tbody = tbodyEl.value;
-	if (!tbody) {
-		return [];
-	}
-	const selector = mode === "hex" ? "[data-hex-index]" : "[data-ascii-index]";
-	const nodes = Array.from(tbody.querySelectorAll<HTMLElement>(selector));
-	return nodes
-		.filter((node) => {
-			if (node.getAttribute("aria-hidden") === "true") {
-				return false;
-			}
-			const attr =
-				mode === "hex"
-					? node.getAttribute("data-hex-index")
-					: node.getAttribute("data-ascii-index");
-			if (!attr) {
-				return false;
-			}
-			const index = Number.parseInt(attr, 10);
-			return Number.isFinite(index) && index >= start && index <= end;
-		})
-		.sort((a, b) => {
-			const attrA =
-				mode === "hex"
-					? a.getAttribute("data-hex-index")
-					: a.getAttribute("data-ascii-index");
-			const attrB =
-				mode === "hex"
-					? b.getAttribute("data-hex-index")
-					: b.getAttribute("data-ascii-index");
-			const indexA = attrA ? Number.parseInt(attrA, 10) : 0;
-			const indexB = attrB ? Number.parseInt(attrB, 10) : 0;
-			return indexA - indexB;
-		});
-}
-
 function buildSelectionText(state: SelectionState): string | null {
-	const start = Math.min(state.anchor, state.focus);
-	const end = Math.max(state.anchor, state.focus);
-	const nodes = collectSelectionNodes(state.mode, start, end);
-	if (!nodes.length) {
+	const provider = selectionDataProvider.value;
+	if (!provider) {
 		return null;
 	}
-	if (state.mode === "ascii") {
-		return nodes.map((node) => node.textContent ?? "").join("");
+	const start = Math.min(state.anchor, state.focus);
+	const end = Math.max(state.anchor, state.focus);
+	const bytes = provider(start, end);
+	if (!bytes.length) {
+		return null;
 	}
-	return nodes
-		.map((node) => (node.textContent ?? "").trim())
-		.filter(Boolean)
-		.join(" ");
+
+	if (state.mode === "ascii") {
+		const isPrintable = props.isPrintable ?? DEFAULT_PRINTABLE_CHECK;
+		const renderAscii = props.renderAscii ?? DEFAULT_ASCII_RENDERER;
+		const fallback = props.nonPrintableChar ?? ".";
+		return Array.from(bytes, (byte) =>
+			isPrintable(byte) ? renderAscii(byte) : fallback,
+		).join("");
+	}
+
+	const upper = Boolean(props.uppercase);
+	return Array.from(bytes, (byte) => {
+		const hex = byte.toString(16).padStart(2, "0");
+		return upper ? hex.toUpperCase() : hex;
+	}).join(" ");
 }
 
 function handleKeydown(event: KeyboardEvent) {
+	if (!selectionEnabled.value) {
+		return;
+	}
 	const key = event.key.toLowerCase();
 	const isCopy = (event.ctrlKey || event.metaKey) && key === "c";
 	if (isCopy) {

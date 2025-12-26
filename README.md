@@ -170,6 +170,7 @@ VueHex also exports `VUE_HEX_ASCII_PRESETS` (`standard`, `latin1`, `visibleWhite
 - `isPrintable` / `renderAscii` – customize ASCII rendering.
 - `theme` – pass `'dark'`, `'light'`, `'terminal'`, `'sunset'`, or `'auto'` to lock in a palette; omit it to let VueHex follow `prefers-color-scheme` between dark and light.
 - `cellClassForByte` – `(payload: { kind: 'hex' | 'ascii'; index: number; byte: number }) => string | string[] | void` for custom highlighting.
+- `getSelectionData` – `(selectionStart: number, selectionEnd: number) => Uint8Array` used for clipboard copy (required when using virtual windows; auto-implemented in full-data mode).
 - `overscan` (default `2`).
 - `showChunkNavigator` + `chunkNavigatorPlacement` – enable the optional navigator UI.
 

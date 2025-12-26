@@ -24,6 +24,14 @@ export type VueHexPrintableCheck = (byte: number) => boolean;
 export type VueHexAsciiRenderer = (byte: number) => string;
 
 /**
+ * Fetches raw bytes for the given inclusive selection range.
+ */
+export type VueHexSelectionDataProvider = (
+	selectionStart: number,
+	selectionEnd: number,
+) => Uint8Array;
+
+/**
  * Identifies which table column a cell represents when resolving custom classes.
  */
 export type VueHexCellKind = "hex" | "ascii";

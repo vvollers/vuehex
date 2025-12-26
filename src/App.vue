@@ -96,6 +96,7 @@
 					v-model="viewerWindowData"
 					:window-offset="viewerWindowOffset"
 					:total-size="totalBytes"
+					:get-selection-data="getSelectionData"
           :bytes-per-row="bytesPerRow"
           :uppercase="uppercase"
           :non-printable-char="nonPrintableChar"
@@ -479,6 +480,19 @@ function handleRequestWindow(request: VueHexWindowRequest) {
 			: new Uint8Array(0);
 	viewerWindowOffset.value = offset;
 	viewerWindowData.value = slice;
+}
+
+function getSelectionData(selectionStart: number, selectionEnd: number) {
+	const data = backingData.value;
+	const total = data.length;
+	if (total <= 0) {
+		return new Uint8Array(0);
+	}
+	const start = Math.max(0, Math.min(Math.trunc(selectionStart), total - 1));
+	const end = Math.max(0, Math.min(Math.trunc(selectionEnd), total - 1));
+	const from = Math.min(start, end);
+	const to = Math.max(start, end);
+	return data.slice(from, to + 1);
 }
 
 function handleRowHoverOn(payload: { offset: number }) {
