@@ -46,6 +46,65 @@ const ASCII_PRESET_OPTIONS = (
 	label: VUE_HEX_ASCII_PRESETS[key]!.label,
 }));
 
+type HighlightPresetKey = "asciiCategories" | "none";
+
+interface HighlightLegendEntry {
+	text: string;
+	swatchClass?: string;
+}
+
+const asciiCategoryHighlight: VueHexCellClassResolver = ({ byte }) => {
+	if (byte >= 0x30 && byte <= 0x39) {
+		return "vuehex-demo-byte--digit";
+	}
+	if (byte >= 0x41 && byte <= 0x5a) {
+		return "vuehex-demo-byte--uppercase";
+	}
+	if (byte >= 0x61 && byte <= 0x7a) {
+		return "vuehex-demo-byte--lowercase";
+	}
+	if (byte === 0x00) {
+		return "vuehex-demo-byte--null";
+	}
+	return undefined;
+};
+
+const HIGHLIGHT_PRESETS: ReadonlyArray<{
+	key: HighlightPresetKey;
+	label: string;
+	legend: HighlightLegendEntry[];
+	resolver?: VueHexCellClassResolver;
+}> = [
+	{
+		key: "asciiCategories",
+		label: "ASCII categories (default)",
+		resolver: asciiCategoryHighlight,
+		legend: [
+			{
+				text: "Digits 0-9",
+				swatchClass: "story-highlight-swatch--digit",
+			},
+			{
+				text: "Uppercase ASCII",
+				swatchClass: "story-highlight-swatch--uppercase",
+			},
+			{
+				text: "Lowercase ASCII",
+				swatchClass: "story-highlight-swatch--lowercase",
+			},
+			{
+				text: "Null bytes",
+				swatchClass: "story-highlight-swatch--null",
+			},
+		],
+	},
+	{
+		key: "none",
+		label: "None (disable highlighting)",
+		legend: [],
+	},
+];
+
 function clamp(value: number, min: number, max: number): number {
 	if (value < min) {
 		return min;
@@ -289,6 +348,99 @@ export const AsciiPrintablePresets: Story = {
 			    </div>
 			    <p class="story-caption">
 			      Lookups receive a raw byte value, so you can treat control codes, Latin-1, or even domain-specific tokens as printable characters.
+			    </p>
+			  </section>
+			</div>
+			`,
+	}),
+};
+
+export const CellClassHighlighting: Story = {
+	name: "Highlight bytes with cellClassForByte",
+	args: {},
+	render: (args) => ({
+		components: { VueHex },
+		setup() {
+			const windowLength = Math.max(1, (args.bytesPerRow ?? 16) * 40);
+			const controller = createVirtualDataController(windowLength);
+			const highlightEntries = HIGHLIGHT_PRESETS;
+			const highlightKey = ref<HighlightPresetKey>("asciiCategories");
+			const activeHighlight = computed(() =>
+				highlightEntries.find((entry) => entry.key === highlightKey.value) ??
+				highlightEntries[0]!,
+			);
+			const cellClassForByte = computed(() => activeHighlight.value.resolver);
+			return {
+				args,
+				...controller,
+				highlightEntries,
+				highlightKey,
+				activeHighlight,
+				cellClassForByte,
+			};
+		},
+		template: `
+			<div class="story-viewport story-viewport--column">
+			  <section class="story-stack">
+			    <header class="story-card__header">
+			      <p class="story-card__eyebrow">Highlighting</p>
+			      <h3 class="story-card__title">Style bytes by category</h3>
+			      <p class="story-card__subtitle">
+			        Drive custom classes through <code>cellClassForByte</code> to colorize ASCII groups or surface search hits.
+			      </p>
+			    </header>
+			    <div class="story-panel">
+			      <label class="story-label" for="highlight-preset">Highlight preset</label>
+			      <select
+			        id="highlight-preset"
+			        v-model="highlightKey"
+			        style="width: 100%; padding: 0.4rem 0.5rem;"
+			      >
+			        <option
+			          v-for="option in highlightEntries"
+			          :key="option.key"
+			          :value="option.key"
+			        >
+			          {{ option.label }}
+			        </option>
+			      </select>
+			      <div class="story-highlight-legend">
+			        <h4 class="story-highlight-legend__title">Legend</h4>
+			        <ul
+			          v-if="activeHighlight.legend.length"
+			          class="story-highlight-legend__list"
+			        >
+			          <li
+			            v-for="entry in activeHighlight.legend"
+			            :key="entry.text"
+			            class="story-highlight-legend__item"
+			          >
+			            <span
+			              class="story-highlight-legend__swatch"
+			              :class="entry.swatchClass"
+			              aria-hidden="true"
+			            ></span>
+			            {{ entry.text }}
+			          </li>
+			        </ul>
+			        <p v-else class="story-highlight-legend__empty">
+			          Highlighting disabled. Select "ASCII categories" to restore the default colors.
+			        </p>
+			      </div>
+			    </div>
+			    <div class="story-demo">
+			      <VueHex
+			        v-bind="args"
+			        v-model="windowData"
+			        :window-offset="windowOffset"
+			        :total-size="totalBytes"
+			        :cell-class-for-byte="cellClassForByte"
+			        style="height: 320px"
+			        @updateVirtualData="handleUpdateVirtualData"
+			      />
+			    </div>
+			    <p class="story-caption">
+			      Swap presets to show how <code>cellClassForByte</code> can toggle between live categorization and plain output.
 			    </p>
 			  </section>
 			</div>

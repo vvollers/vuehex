@@ -254,6 +254,26 @@
 	color: var(--vuehex-ascii-non-printable-color);
 }
 
+.vuehex-byte.vuehex-category-digit,
+.vuehex-ascii-char.vuehex-category-digit {
+	color: #facc15;
+}
+
+.vuehex-byte.vuehex-category-uppercase,
+.vuehex-ascii-char.vuehex-category-uppercase {
+	color: #38bdf8;
+}
+
+.vuehex-byte.vuehex-category-lowercase,
+.vuehex-ascii-char.vuehex-category-lowercase {
+	color: #c084fc;
+}
+
+.vuehex-byte.vuehex-category-null,
+.vuehex-ascii-char.vuehex-category-null {
+	opacity: 0.55;
+}
+
 .vuehex-byte.vuehex-linked-hover,
 .vuehex-ascii-char.vuehex-linked-hover {
 	background: rgba(96, 165, 250, 0.25);

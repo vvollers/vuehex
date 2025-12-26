@@ -76,6 +76,27 @@ const DEFAULT_ROW_HEIGHT = 24;
 /** Maximum height allowed before chunking kicks in to avoid huge scroll containers. */
 const MAX_VIRTUAL_HEIGHT = 8_000_000;
 
+const CATEGORY_DIGIT_CLASS = "vuehex-category-digit";
+const CATEGORY_UPPERCASE_CLASS = "vuehex-category-uppercase";
+const CATEGORY_LOWERCASE_CLASS = "vuehex-category-lowercase";
+const CATEGORY_NULL_CLASS = "vuehex-category-null";
+
+const defaultAsciiCategoryResolver: VueHexCellClassResolver = ({ byte }) => {
+	if (byte >= 0x30 && byte <= 0x39) {
+		return CATEGORY_DIGIT_CLASS;
+	}
+	if (byte >= 0x41 && byte <= 0x5a) {
+		return CATEGORY_UPPERCASE_CLASS;
+	}
+	if (byte >= 0x61 && byte <= 0x7a) {
+		return CATEGORY_LOWERCASE_CLASS;
+	}
+	if (byte === 0x00) {
+		return CATEGORY_NULL_CLASS;
+	}
+	return undefined;
+};
+
 interface VueHexProps {
 	/** v-model binding containing the currently visible window bytes. */
 	modelValue: Uint8Array;
@@ -98,7 +119,7 @@ interface VueHexProps {
 	/** Theme token appended to classes, enabling consumer-provided styling. */
 	theme?: string | null;
 	/** Hook for assigning classes per cell, useful for highlighting bytes of interest. */
-	cellClassForByte?: VueHexCellClassResolver;
+	cellClassForByte?: VueHexCellClassResolver | null;
 	/** Toggles the chunk navigator UI, allowing quick jumps through large files. */
 	showChunkNavigator?: boolean;
 	/** Places the chunk navigator around the viewer to fit various layouts. */
@@ -253,6 +274,15 @@ const { handlePointerOver, handlePointerOut, clearHoverState } =
 		tbodyEl,
 	});
 
+const effectiveCellClassResolver = computed<
+	VueHexCellClassResolver | undefined
+>(() => {
+	if (props.cellClassForByte !== undefined) {
+		return props.cellClassForByte ?? undefined;
+	}
+	return defaultAsciiCategoryResolver;
+});
+
 /** Virtual window utilities that coordinate data requests and markup rendering. */
 const {
 	markup,
@@ -282,7 +312,7 @@ const {
 	getUppercase: () => Boolean(props.uppercase),
 	getPrintableChecker: () => props.isPrintable ?? DEFAULT_PRINTABLE_CHECK,
 	getAsciiRenderer: () => props.renderAscii ?? DEFAULT_ASCII_RENDERER,
-	getCellClassResolver: () => props.cellClassForByte,
+	getCellClassResolver: () => effectiveCellClassResolver.value,
 	getNonPrintableChar: () => props.nonPrintableChar ?? ".",
 	requestWindow: (request) => {
 		if (!shouldRequestVirtualData.value) {
@@ -341,7 +371,7 @@ watch(
 		nonPrintableChar: props.nonPrintableChar,
 		isPrintable: props.isPrintable,
 		renderAscii: props.renderAscii,
-		cellClassForByte: props.cellClassForByte,
+		cellClassForByte: effectiveCellClassResolver.value,
 	}),
 	() => {
 		updateFromWindowState();
