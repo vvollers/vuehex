@@ -170,6 +170,7 @@
 	position: relative;
 	height: 100%;
 	box-sizing: border-box;
+	user-select: none;
 }
 
 .vuehex-table {
@@ -225,6 +226,17 @@
 	min-width: 2ch;
 	margin: 0 0.25ch;
 	color: var(--vuehex-byte-color);
+}
+
+.vuehex-byte.vuehex-selected,
+.vuehex-ascii-char.vuehex-selected {
+	background: rgba(59, 130, 246, 0.3);
+	outline: 1px solid rgba(59, 130, 246, 0.65);
+	outline-offset: -1px;
+}
+
+.vuehex-ascii-char.vuehex-selected--ascii {
+	outline-style: dashed;
 }
 
 .vuehex-ascii-char {

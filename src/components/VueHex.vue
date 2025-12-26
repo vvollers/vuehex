@@ -33,6 +33,7 @@
         :class="containerClass"
         role="table"
         aria-label="Hex viewer"
+		tabindex="0"
         @scroll="handleScroll"
       >
         <div class="vuehex-inner" :style="innerStyle" role="presentation">
@@ -206,6 +207,19 @@ const effectiveMaxVirtualHeight = computed(() =>
 const containerEl = ref<HTMLDivElement>();
 /** Table body ref so hover logic can traverse DOM nodes. */
 const tbodyEl = ref<HTMLTableSectionElement>();
+
+interface SelectionState {
+	mode: "hex" | "ascii";
+	anchor: number;
+	focus: number;
+}
+
+const selectionState = ref<SelectionState | null>(null);
+const isPointerSelecting = ref(false);
+const activePointerId = ref<number | null>(null);
+let selectionSyncHandle: number | null = null;
+const SELECTED_CLASS = "vuehex-selected";
+const SELECTED_ASCII_CLASS = "vuehex-selected--ascii";
 
 /** Measured row height in pixels; set once rows render. */
 const rowHeight = ref<number | null>(null);
@@ -388,6 +402,290 @@ function handleChunkSelect(index: number) {
 	scheduleWindowEvaluation();
 }
 
+function scheduleSelectionSync() {
+	if (typeof window === "undefined") {
+		return;
+	}
+	if (selectionSyncHandle !== null) {
+		cancelAnimationFrame(selectionSyncHandle);
+	}
+	selectionSyncHandle = requestAnimationFrame(() => {
+		selectionSyncHandle = null;
+		applySelectionHighlight();
+	});
+}
+
+function applySelectionHighlight() {
+	const tbody = tbodyEl.value;
+	if (!tbody) {
+		return;
+	}
+	const allNodes = tbody.querySelectorAll<HTMLElement>(
+		"[data-hex-index], [data-ascii-index]",
+	);
+	allNodes.forEach((node) => {
+		node.classList.remove(SELECTED_CLASS, SELECTED_ASCII_CLASS);
+	});
+
+	const state = selectionState.value;
+	if (!state) {
+		return;
+	}
+	const start = Math.min(state.anchor, state.focus);
+	const end = Math.max(state.anchor, state.focus);
+	const selector =
+		state.mode === "hex" ? "[data-hex-index]" : "[data-ascii-index]";
+	const classNames =
+		state.mode === "hex"
+			? [SELECTED_CLASS]
+			: [SELECTED_CLASS, SELECTED_ASCII_CLASS];
+	const nodes = tbody.querySelectorAll<HTMLElement>(selector);
+	nodes.forEach((node) => {
+		if (node.getAttribute("aria-hidden") === "true") {
+			return;
+		}
+		const attr =
+			state.mode === "hex"
+				? node.getAttribute("data-hex-index")
+				: node.getAttribute("data-ascii-index");
+		if (!attr) {
+			return;
+		}
+		const index = Number.parseInt(attr, 10);
+		if (!Number.isFinite(index)) {
+			return;
+		}
+		if (index < start || index > end) {
+			return;
+		}
+		for (const className of classNames) {
+			node.classList.add(className);
+		}
+	});
+}
+
+function getSelectionPayloadFromElement(
+	element: Element | null,
+): { mode: "hex" | "ascii"; index: number } | null {
+	if (!(element instanceof HTMLElement)) {
+		return null;
+	}
+	const cell = element.closest<HTMLElement>(
+		"[data-hex-index], [data-ascii-index]",
+	);
+	if (!cell || cell.getAttribute("aria-hidden") === "true") {
+		return null;
+	}
+	if (cell.hasAttribute("data-hex-index")) {
+		const attr = cell.getAttribute("data-hex-index");
+		const index = attr ? Number.parseInt(attr, 10) : NaN;
+		return Number.isFinite(index) ? { mode: "hex", index } : null;
+	}
+	if (cell.hasAttribute("data-ascii-index")) {
+		const attr = cell.getAttribute("data-ascii-index");
+		const index = attr ? Number.parseInt(attr, 10) : NaN;
+		return Number.isFinite(index) ? { mode: "ascii", index } : null;
+	}
+	return null;
+}
+
+function beginManualSelection(
+	mode: "hex" | "ascii",
+	index: number,
+	pointerId: number,
+) {
+	selectionState.value = { mode, anchor: index, focus: index };
+	isPointerSelecting.value = true;
+	activePointerId.value = pointerId;
+	scheduleSelectionSync();
+}
+
+function updateManualSelection(index: number) {
+	if (!selectionState.value) {
+		return;
+	}
+	if (selectionState.value.focus === index) {
+		return;
+	}
+	selectionState.value = {
+		...selectionState.value,
+		focus: index,
+	};
+	scheduleSelectionSync();
+}
+
+function finishPointerSelection() {
+	isPointerSelecting.value = false;
+	activePointerId.value = null;
+}
+
+function clearSelection() {
+	if (!selectionState.value) {
+		return;
+	}
+	selectionState.value = null;
+	scheduleSelectionSync();
+}
+
+function handlePointerDown(event: PointerEvent) {
+	if (event.button !== 0) {
+		return;
+	}
+	const payload = getSelectionPayloadFromElement(
+		event.target as Element | null,
+	);
+	const existing = selectionState.value;
+	if (!payload) {
+		if (!event.shiftKey) {
+			clearSelection();
+		}
+		finishPointerSelection();
+		return;
+	}
+	event.preventDefault();
+	containerEl.value?.focus();
+	if (event.shiftKey && existing && existing.mode === payload.mode) {
+		selectionState.value = {
+			mode: existing.mode,
+			anchor: existing.anchor,
+			focus: payload.index,
+		};
+		isPointerSelecting.value = false;
+		activePointerId.value = null;
+		scheduleSelectionSync();
+		return;
+	}
+	beginManualSelection(payload.mode, payload.index, event.pointerId);
+}
+
+function resolveSelectionPayloadFromEvent(event: PointerEvent) {
+	const direct = getSelectionPayloadFromElement(event.target as Element | null);
+	if (direct) {
+		return direct;
+	}
+	const fallback = document.elementFromPoint(event.clientX, event.clientY);
+	return getSelectionPayloadFromElement(fallback);
+}
+
+function handlePointerMove(event: PointerEvent) {
+	if (!isPointerSelecting.value) {
+		return;
+	}
+	if (
+		activePointerId.value !== null &&
+		activePointerId.value !== event.pointerId
+	) {
+		return;
+	}
+	const payload = resolveSelectionPayloadFromEvent(event);
+	if (!payload) {
+		return;
+	}
+	const state = selectionState.value;
+	if (!state || payload.mode !== state.mode) {
+		return;
+	}
+	updateManualSelection(payload.index);
+}
+
+function handlePointerUp(event: PointerEvent) {
+	if (
+		activePointerId.value !== null &&
+		activePointerId.value !== event.pointerId
+	) {
+		return;
+	}
+	finishPointerSelection();
+}
+
+function collectSelectionNodes(
+	mode: "hex" | "ascii",
+	start: number,
+	end: number,
+): HTMLElement[] {
+	const tbody = tbodyEl.value;
+	if (!tbody) {
+		return [];
+	}
+	const selector = mode === "hex" ? "[data-hex-index]" : "[data-ascii-index]";
+	const nodes = Array.from(tbody.querySelectorAll<HTMLElement>(selector));
+	return nodes
+		.filter((node) => {
+			if (node.getAttribute("aria-hidden") === "true") {
+				return false;
+			}
+			const attr =
+				mode === "hex"
+					? node.getAttribute("data-hex-index")
+					: node.getAttribute("data-ascii-index");
+			if (!attr) {
+				return false;
+			}
+			const index = Number.parseInt(attr, 10);
+			return Number.isFinite(index) && index >= start && index <= end;
+		})
+		.sort((a, b) => {
+			const attrA =
+				mode === "hex"
+					? a.getAttribute("data-hex-index")
+					: a.getAttribute("data-ascii-index");
+			const attrB =
+				mode === "hex"
+					? b.getAttribute("data-hex-index")
+					: b.getAttribute("data-ascii-index");
+			const indexA = attrA ? Number.parseInt(attrA, 10) : 0;
+			const indexB = attrB ? Number.parseInt(attrB, 10) : 0;
+			return indexA - indexB;
+		});
+}
+
+function buildSelectionText(state: SelectionState): string | null {
+	const start = Math.min(state.anchor, state.focus);
+	const end = Math.max(state.anchor, state.focus);
+	const nodes = collectSelectionNodes(state.mode, start, end);
+	if (!nodes.length) {
+		return null;
+	}
+	if (state.mode === "ascii") {
+		return nodes.map((node) => node.textContent ?? "").join("");
+	}
+	return nodes
+		.map((node) => (node.textContent ?? "").trim())
+		.filter(Boolean)
+		.join(" ");
+}
+
+function handleKeydown(event: KeyboardEvent) {
+	const key = event.key.toLowerCase();
+	const isCopy = (event.ctrlKey || event.metaKey) && key === "c";
+	if (isCopy) {
+		const state = selectionState.value;
+		if (!state) {
+			return;
+		}
+		const text = buildSelectionText(state);
+		if (!text) {
+			return;
+		}
+		event.preventDefault();
+		writeTextToClipboard(text);
+		return;
+	}
+	if (event.key === "Escape") {
+		event.preventDefault();
+		clearSelection();
+	}
+}
+
+function writeTextToClipboard(text: string) {
+	if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+		navigator.clipboard.writeText(text).catch(() => {
+			console.error("Failed to write text to clipboard.");
+		});
+		return;
+	}
+}
+
 watch(
 	() => ({
 		data: bindingWindow.value.data,
@@ -418,6 +716,10 @@ watch(
 	},
 );
 
+watch(markup, () => {
+	scheduleSelectionSync();
+});
+
 let resizeObserver: ResizeObserver | null = null;
 
 onMounted(() => {
@@ -434,12 +736,20 @@ onMounted(() => {
 			measureRowHeight();
 		});
 		resizeObserver.observe(container);
+		container.addEventListener("keydown", handleKeydown);
+		container.addEventListener("pointerdown", handlePointerDown);
 	}
 
 	const tbody = tbodyEl.value;
 	if (tbody) {
 		tbody.addEventListener("pointerover", handlePointerOver);
 		tbody.addEventListener("pointerout", handlePointerOut);
+	}
+
+	if (typeof window !== "undefined") {
+		window.addEventListener("pointermove", handlePointerMove);
+		window.addEventListener("pointerup", handlePointerUp);
+		window.addEventListener("pointercancel", handlePointerUp);
 	}
 	queueScrollToOffset(bindingWindow.value.offset);
 });
@@ -452,6 +762,23 @@ onBeforeUnmount(() => {
 	if (tbody) {
 		tbody.removeEventListener("pointerover", handlePointerOver);
 		tbody.removeEventListener("pointerout", handlePointerOut);
+		tbody.removeEventListener("pointerdown", handlePointerDown);
+	}
+	const container = containerEl.value;
+	if (container) {
+		container.removeEventListener("keydown", handleKeydown);
+		container.removeEventListener("pointerdown", handlePointerDown);
+	}
+
+	if (typeof window !== "undefined") {
+		window.removeEventListener("pointermove", handlePointerMove);
+		window.removeEventListener("pointerup", handlePointerUp);
+		window.removeEventListener("pointercancel", handlePointerUp);
+	}
+
+	if (selectionSyncHandle !== null) {
+		cancelAnimationFrame(selectionSyncHandle);
+		selectionSyncHandle = null;
 	}
 
 	clearHoverState();
