@@ -33,7 +33,8 @@
         :class="containerClass"
         role="table"
         aria-label="Hex viewer"
-		tabindex="0"
+		:aria-disabled="selectionEnabled ? undefined : 'true'"
+		:tabindex="selectionEnabled ? 0 : undefined"
         @scroll="handleScroll"
       >
         <div class="vuehex-inner" :style="innerStyle" role="presentation">
@@ -180,7 +181,7 @@ const hasUpdateVirtualDataListener = computed(() => {
 	const vnodeProps = instance?.vnode.props as
 		| Record<string, unknown>
 		| undefined;
-	const handler = vnodeProps?.["onUpdateVirtualData"];
+	const handler = vnodeProps?.onUpdateVirtualData;
 	if (Array.isArray(handler)) {
 		return handler.length > 0;
 	}
@@ -309,6 +310,9 @@ const containerClass = computed(() => {
 		classes.push("vuehex-theme-auto");
 	} else {
 		classes.push(`vuehex-theme-${normalized}`);
+	}
+	if (!selectionEnabled.value) {
+		classes.push("vuehex-selection-disabled");
 	}
 	return classes;
 });
@@ -781,7 +785,6 @@ onBeforeUnmount(() => {
 	if (tbody) {
 		tbody.removeEventListener("pointerover", handlePointerOver);
 		tbody.removeEventListener("pointerout", handlePointerOut);
-		tbody.removeEventListener("pointerdown", handlePointerDown);
 	}
 	const container = containerEl.value;
 	if (container) {

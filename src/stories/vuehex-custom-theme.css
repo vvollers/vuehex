@@ -1,5 +1,10 @@
 .vuehex-theme-storybook-custom {
-	--vuehex-background: radial-gradient(circle at 25% 20%, #312e81, #1e1b4b 55%, #0f0a1f);
+	--vuehex-background: radial-gradient(
+		circle at 25% 20%,
+		#312e81,
+		#1e1b4b 55%,
+		#0f0a1f
+	);
 	--vuehex-foreground: #e0e7ff;
 	--vuehex-border-color: rgba(99, 102, 241, 0.5);
 	--vuehex-offset-color: rgba(191, 219, 254, 0.9);

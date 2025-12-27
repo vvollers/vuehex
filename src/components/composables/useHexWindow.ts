@@ -129,7 +129,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 	 */
 	function scheduleWindowEvaluation() {
 		if (pendingScrollCheck.value) {
-	const windowData = options.getWindowState();
+			return;
 		}
 
 		pendingScrollCheck.value = true;

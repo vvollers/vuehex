@@ -34,6 +34,7 @@ type VueHexWindowRequest = {
     v-model="windowData"
     :window-offset="windowOffset"
     :total-size="fileSize"
+    :get-selection-data="getSelectionData"
     @updateVirtualData="handleUpdateVirtualData"
   />
 </template>
@@ -46,12 +47,19 @@ function handleUpdateVirtualData(payload: VueHexWindowRequest) {
   windowOffset.value = payload.offset;
   windowData.value = readBytes(payload.offset, payload.length ?? 0x4000);
 }
+
+function getSelectionData(selectionStart: number, selectionEnd: number) {
+  const from = Math.min(selectionStart, selectionEnd);
+  const to = Math.max(selectionStart, selectionEnd);
+  return readBytes(from, to - from + 1);
+}
 </script>
 ```
 
 Notes:
 
 - Always provide `total-size` (or `:total-size` in Vue) even when streaming from a socket; VueHex uses it to size the scroll rails.
+- When using `updateVirtualData`, also provide `getSelectionData` so selection/copy can fetch bytes outside the current window.
 - You may debounce expensive fetches, but resolve them in order so a slower response cannot overwrite a newer one.
 - Reuse buffers inside `windowData` when possible to reduce garbage collection pressure; the story keeps things explicit for clarity.
 

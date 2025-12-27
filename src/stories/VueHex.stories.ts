@@ -43,7 +43,7 @@ const ASCII_PRESET_OPTIONS = (
 	Object.keys(VUE_HEX_ASCII_PRESETS) as AsciiPresetKey[]
 ).map((key) => ({
 	key,
-	label: VUE_HEX_ASCII_PRESETS[key]!.label,
+	label: VUE_HEX_ASCII_PRESETS[key].label,
 }));
 
 type HighlightPresetKey = "asciiCategories" | "none";
@@ -136,6 +136,14 @@ function createVirtualDataController(windowLength: number) {
 	const windowData = ref(sliceDemoData(0, fallbackLength));
 	const windowOffset = ref(0);
 
+	const getSelectionData = (selectionStart: number, selectionEnd: number) => {
+		const start = Math.max(0, Math.trunc(selectionStart));
+		const end = Math.max(0, Math.trunc(selectionEnd));
+		const from = Math.min(start, end);
+		const to = Math.max(start, end);
+		return sliceDemoData(from, to - from + 1);
+	};
+
 	const handleUpdateVirtualData = (payload: VueHexWindowRequest) => {
 		const normalizedOffset = clamp(Math.trunc(payload.offset), 0, totalBytes);
 		const requestedLength = Math.max(
@@ -146,7 +154,13 @@ function createVirtualDataController(windowLength: number) {
 		windowData.value = sliceDemoData(normalizedOffset, requestedLength);
 	};
 
-	return { totalBytes, windowData, windowOffset, handleUpdateVirtualData };
+	return {
+		totalBytes,
+		windowData,
+		windowOffset,
+		handleUpdateVirtualData,
+		getSelectionData,
+	};
 }
 
 const meta: Meta<typeof VueHex> = {
@@ -198,6 +212,7 @@ function createThemeStory(variant: ThemeVariant): Story {
 				        v-model="windowData"
 				        :window-offset="windowOffset"
 				        :total-size="totalBytes"
+				        :get-selection-data="getSelectionData"
 				        style="height: 300px"
 				        @updateVirtualData="handleUpdateVirtualData"
 				      />
@@ -238,6 +253,7 @@ export const VirtualBinding: Story = {
 			        v-model="windowData"
 			        :window-offset="windowOffset"
 			        :total-size="totalBytes"
+			        :get-selection-data="getSelectionData"
 			        style="height: 320px"
 			        @updateVirtualData="handleUpdateVirtualData"
 			      />
@@ -340,6 +356,7 @@ export const AsciiPrintablePresets: Story = {
 			        v-model="windowData"
 			        :window-offset="windowOffset"
 			        :total-size="totalBytes"
+			        :get-selection-data="getSelectionData"
 			        :is-printable="activePreset.isPrintable"
 			        :render-ascii="activePreset.renderAscii"
 			        style="height: 320px"
@@ -368,7 +385,12 @@ export const CellClassHighlighting: Story = {
 			const activeHighlight = computed(
 				() =>
 					highlightEntries.find((entry) => entry.key === highlightKey.value) ??
-					highlightEntries[0]!,
+					highlightEntries[0] ?? {
+						key: "none",
+						label: "None (disable highlighting)",
+						legend: [],
+						resolver: () => "",
+					},
 			);
 			const cellClassForByte = computed(() => activeHighlight.value.resolver);
 			return {
@@ -435,6 +457,7 @@ export const CellClassHighlighting: Story = {
 			        v-model="windowData"
 			        :window-offset="windowOffset"
 			        :total-size="totalBytes"
+			        :get-selection-data="getSelectionData"
 			        :cell-class-for-byte="cellClassForByte"
 			        style="height: 320px"
 			        @updateVirtualData="handleUpdateVirtualData"
@@ -502,6 +525,7 @@ export const ChunkNavigatorHover: Story = {
 			        v-model="windowData"
 			        :window-offset="windowOffset"
 			        :total-size="totalBytes"
+			        :get-selection-data="getSelectionData"
 			        :cell-class-for-byte="cellClassForByte"
 			        style="height: 360px"
 			        @updateVirtualData="handleUpdateVirtualData"
@@ -521,10 +545,10 @@ export const ChunkNavigatorHover: Story = {
 	}),
 };
 
-export const ThemeDark = createThemeStory(THEME_VARIANTS[0]!);
-export const ThemeLight = createThemeStory(THEME_VARIANTS[1]!);
-export const ThemeTerminal = createThemeStory(THEME_VARIANTS[2]!);
-export const ThemeSunset = createThemeStory(THEME_VARIANTS[3]!);
+export const ThemeDark = createThemeStory(THEME_VARIANTS[0]);
+export const ThemeLight = createThemeStory(THEME_VARIANTS[1]);
+export const ThemeTerminal = createThemeStory(THEME_VARIANTS[2]);
+export const ThemeSunset = createThemeStory(THEME_VARIANTS[3]);
 
 export const CustomTheme: Story = {
 	name: "Custom theme",
@@ -555,6 +579,7 @@ export const CustomTheme: Story = {
 			        v-model="windowData"
 			        :window-offset="windowOffset"
 			        :total-size="totalBytes"
+			        :get-selection-data="getSelectionData"
 			        style="height: 300px"
 			        @updateVirtualData="handleUpdateVirtualData"
 			      />
