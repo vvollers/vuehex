@@ -103,6 +103,13 @@ const defaultAsciiCategoryResolver: VueHexCellClassResolver = ({ byte }) => {
 interface VueHexProps {
 	/** v-model binding containing the currently visible window bytes. */
 	modelValue: Uint8Array;
+	/**
+	 * When true, disables internal scrolling/virtualization and expands the component height
+	 * to fit the entire dataset.
+	 *
+	 * In this mode, VueHex expects the full data buffer in `v-model` (windowing is not used).
+	 */
+	expandToContent?: boolean;
 	/** Absolute offset that the provided window data represents. */
 	windowOffset?: number;
 	/** Total bytes available in the backing source; defaults to modelValue length. */
@@ -136,6 +143,7 @@ interface VueHexProps {
 
 const props = withDefaults(defineProps<VueHexProps>(), {
 	modelValue: () => new Uint8Array(0),
+	expandToContent: false,
 	windowOffset: 0,
 	bytesPerRow: 16,
 	uppercase: false,
@@ -158,10 +166,15 @@ const emit = defineEmits<{
 	(event: "ascii-hover-off", payload: { index: number; byte: number }): void;
 }>();
 
+const isExpandToContent = computed(() => Boolean(props.expandToContent));
+
 /** Normalized window offset used for table alignment. */
-const normalizedWindowOffset = computed(() =>
-	Math.max(0, Math.trunc(props.windowOffset ?? 0)),
-);
+const normalizedWindowOffset = computed(() => {
+	if (isExpandToContent.value) {
+		return 0;
+	}
+	return Math.max(0, Math.trunc(props.windowOffset ?? 0));
+});
 /** Provides easy access to the currently supplied window data. */
 const bindingWindow = computed(() => ({
 	offset: normalizedWindowOffset.value,
@@ -169,6 +182,9 @@ const bindingWindow = computed(() => ({
 }));
 /** Total bytes in the backing data; feeds navigation decisions. */
 const totalBytes = computed(() => {
+	if (isExpandToContent.value) {
+		return bindingWindow.value.data.length;
+	}
 	const provided = props.totalSize;
 	if (typeof provided === "number" && Number.isFinite(provided)) {
 		return Math.max(0, Math.trunc(provided));
@@ -189,6 +205,9 @@ const hasUpdateVirtualDataListener = computed(() => {
 });
 
 const expectsExternalData = computed(() => {
+	if (isExpandToContent.value) {
+		return false;
+	}
 	const windowInfo = bindingWindow.value;
 	if (windowInfo.offset > 0) {
 		return true;
@@ -206,9 +225,14 @@ const expectsExternalData = computed(() => {
 
 const isSelfManagedData = computed(() => !expectsExternalData.value);
 const shouldRequestVirtualData = computed(() => !isSelfManagedData.value);
-const effectiveMaxVirtualHeight = computed(() =>
-	isSelfManagedData.value ? Number.POSITIVE_INFINITY : MAX_VIRTUAL_HEIGHT,
-);
+const effectiveMaxVirtualHeight = computed(() => {
+	if (isExpandToContent.value) {
+		return Number.POSITIVE_INFINITY;
+	}
+	return isSelfManagedData.value
+		? Number.POSITIVE_INFINITY
+		: MAX_VIRTUAL_HEIGHT;
+});
 
 const selectionDataProvider = computed<VueHexSelectionDataProvider | null>(
 	() => {
@@ -267,6 +291,9 @@ const rowHeightValue = computed(() => rowHeight.value ?? DEFAULT_ROW_HEIGHT);
 
 /** Number of rows visible in the viewport, guiding overscan math. */
 const viewportRows = computed(() => {
+	if (isExpandToContent.value) {
+		return 0;
+	}
 	if (containerHeight.value <= 0) {
 		return 0;
 	}
@@ -311,6 +338,9 @@ const containerClass = computed(() => {
 	} else {
 		classes.push(`vuehex-theme-${normalized}`);
 	}
+	if (isExpandToContent.value) {
+		classes.push("vuehex--expand-to-content");
+	}
 	if (!selectionEnabled.value) {
 		classes.push("vuehex-selection-disabled");
 	}
@@ -327,9 +357,9 @@ const {
 	chunkCount,
 	activeChunkIndex,
 	shouldShowChunkNavigator,
-	rootClass,
-	chunkNavigatorClass,
-	viewerClass,
+	rootClass: rootClassBase,
+	chunkNavigatorClass: chunkNavigatorClassBase,
+	viewerClass: viewerClassBase,
 	chunkItems,
 	chunkButtonClass,
 	moveToChunk,
@@ -343,6 +373,17 @@ const {
 	containerEl,
 	maxVirtualHeight: effectiveMaxVirtualHeight,
 });
+
+const rootClass = computed(() => {
+	const classes = [...rootClassBase.value];
+	if (isExpandToContent.value) {
+		classes.push("vuehex-root--expand-to-content");
+	}
+	return classes;
+});
+
+const chunkNavigatorClass = computed(() => [...chunkNavigatorClassBase.value]);
+const viewerClass = computed(() => [...viewerClassBase.value]);
 
 /** Hover coordination utilities that emit events and apply linked highlights. */
 const { handlePointerOver, handlePointerOut, clearHoverState } =
@@ -365,7 +406,7 @@ const {
 	markup,
 	renderStartRow,
 	scheduleWindowEvaluation,
-	handleScroll,
+	handleScroll: handleVirtualScroll,
 	scrollToByte,
 	queueScrollToOffset,
 	updateFromWindowState,
@@ -400,8 +441,18 @@ const {
 	clearHoverState,
 });
 
+function handleScroll() {
+	if (isExpandToContent.value) {
+		return;
+	}
+	handleVirtualScroll();
+}
+
 /** Pixel offset applied to translate the table to the rendered slice. */
 const tableOffset = computed(() => {
+	if (isExpandToContent.value) {
+		return 0;
+	}
 	const offsetRows = renderStartRow.value - chunkStartRow.value;
 	const offset = offsetRows * rowHeightValue.value;
 	return Math.max(offset, 0);
@@ -411,11 +462,20 @@ const tableOffset = computed(() => {
 const innerStyle = computed<CSSProperties>(() => ({
 	position: "relative",
 	width: "100%",
-	height: `${Math.max(chunkHeight.value, 0)}px`,
+	...(isExpandToContent.value
+		? {}
+		: { height: `${Math.max(chunkHeight.value, 0)}px` }),
 }));
 
 /** Table styles that apply translation and positioning within the inner wrapper. */
 const tableStyle = computed<CSSProperties>(() => {
+	if (isExpandToContent.value) {
+		return {
+			position: "static",
+			width: "100%",
+			transform: "none",
+		};
+	}
 	const offset = tableOffset.value;
 	const transformValue = Number.isFinite(offset)
 		? `translateY(${offset}px)`

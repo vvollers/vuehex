@@ -10,6 +10,7 @@ import { VUE_HEX_ASCII_PRESETS } from "@/components/vuehex-api";
 
 const DEMO_TOTAL_BYTES = 4 * 1024 * 1024; // 4 MiB of procedurally generated data
 const SELF_MANAGED_BYTES = 64 * 1024; // 64 KiB sample for the full-data demo
+const EXPAND_TO_CONTENT_ROWS = 120;
 const THEME_SAMPLE_ROWS = 32;
 
 const THEME_VARIANTS = [
@@ -168,6 +169,10 @@ const meta: Meta<typeof VueHex> = {
 	component: VueHex,
 	argTypes: {
 		modelValue: { control: false },
+		expandToContent: {
+			name: "expand-to-content",
+			control: { type: "boolean" },
+		},
 		windowOffset: { control: false },
 		totalSize: { control: false },
 		cellClassForByte: { control: false },
@@ -295,6 +300,46 @@ export const SelfManagedDataset: Story = {
 			    </div>
 			    <p class="story-caption">
 			      No <code>total-size</code> or <code>updateVirtualData</code> handler required -- ideal for fixtures or editor previews.
+			    </p>
+			  </section>
+			</div>
+			`,
+	}),
+};
+
+export const ExpandToContent: Story = {
+	name: "Expand to content (no internal scroll)",
+	args: {
+		expandToContent: true,
+	},
+	render: (args) => ({
+		components: { VueHex },
+		setup() {
+			const dataLength = Math.max(
+				1,
+				(args.bytesPerRow ?? 16) * EXPAND_TO_CONTENT_ROWS,
+			);
+			const fullData = ref(sliceDemoData(0, dataLength));
+			return { args, fullData, dataLength };
+		},
+		template: `
+			<div class="story-viewport story-viewport--column">
+			  <section class="story-stack">
+			    <header class="story-card__header">
+			      <p class="story-card__eyebrow">Layout</p>
+			      <h3 class="story-card__title">Expand to content</h3>
+			      <p class="story-card__subtitle">
+			        Disable internal scrolling/virtualization and let the component grow to fit <code>v-model</code>.
+			      </p>
+			    </header>
+			    <div class="story-demo" style="min-height: unset; align-items: flex-start;">
+			      <VueHex
+			        v-bind="args"
+			        v-model="fullData"
+			      />
+			    </div>
+			    <p class="story-caption">
+			      This story renders {{ dataLength.toLocaleString() }} bytes without a fixed height. The page scrolls; the component does not.
 			    </p>
 			  </section>
 			</div>

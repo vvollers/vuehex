@@ -78,6 +78,20 @@ If you already have the entire `Uint8Array`, you can skip the virtual data hands
 
 This mode is ideal for small/medium blobs (think editor previews or fixture files). For multi‑gigabyte datasets you’ll still want the virtual data contract so you can keep memory and scroll heights bounded.
 
+### Expand-to-content mode
+
+If you don’t want VueHex to create its own scroll container, enable `expand-to-content`. In this mode the component grows to fit the rendered rows, so scrolling happens in the parent/page instead.
+
+- No internal scrolling
+- No virtualization / window requests
+- `v-model` must contain the full `Uint8Array`
+
+```vue
+<VueHex v-model="entireFile" expand-to-content :bytes-per-row="16" />
+```
+
+This is useful for docs pages or print-style layouts, but avoid it for very large buffers.
+
 ### Asynchronous providers
 
 Responding to `updateVirtualData` can be asynchronous—just update `windowOffset` and `windowData` when the bytes arrive:
@@ -107,6 +121,8 @@ The static build lives in `storybook-static/` when you run `npm run storybook:bu
 ## Viewport sizing
 
 VueHex virtualizes DOM rows, so make sure the component has a bounded height. Set `height`, `max-height`, or place it inside a flex/grid cell with a defined size. Without a viewport the table expands indefinitely and virtualization is effectively disabled.
+
+If you explicitly want the component to expand with its content (no internal scroll), enable `expand-to-content` and provide the full buffer via `v-model`.
 
 ## Imperative scrolling
 
@@ -162,6 +178,7 @@ VueHex also exports `VUE_HEX_ASCII_PRESETS` (`standard`, `latin1`, `visibleWhite
 ## Props
 
 - `modelValue` (**required via `v-model`**) – the currently visible `Uint8Array`.
+- `expandToContent` / `expand-to-content` (default `false`) – disables internal scrolling/virtualization and expands the component height to fit the full buffer (expects the full data in `v-model`).
 - `windowOffset` (default `0`) – absolute start offset represented by `modelValue`.
 - `totalSize` – total bytes available; defaults to `modelValue.length` if omitted.
 - `bytesPerRow` (default `16`).

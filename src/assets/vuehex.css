@@ -5,6 +5,10 @@
 	gap: 0.75rem;
 }
 
+.vuehex-root--expand-to-content {
+	height: auto;
+}
+
 .vuehex-root--horizontal {
 	flex-direction: row;
 	align-items: stretch;
@@ -171,6 +175,11 @@
 	height: 100%;
 	box-sizing: border-box;
 	user-select: none;
+}
+
+.vuehex.vuehex--expand-to-content {
+	height: auto;
+	overflow: visible;
 }
 
 .vuehex-table {
