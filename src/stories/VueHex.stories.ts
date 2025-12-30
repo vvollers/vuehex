@@ -4,6 +4,7 @@ import VueHex from "@/components/VueHex.vue";
 import "./vuehex-custom-theme.css";
 import type {
 	VueHexCellClassResolver,
+	VueHexStatusBarLayout,
 	VueHexWindowRequest,
 } from "@/components/vuehex-api";
 import { VUE_HEX_ASCII_PRESETS } from "@/components/vuehex-api";
@@ -173,6 +174,11 @@ const meta: Meta<typeof VueHex> = {
 			name: "expand-to-content",
 			control: { type: "boolean" },
 		},
+		statusbar: {
+			name: "statusbar",
+			control: { type: "radio" },
+			options: [null, "top", "bottom"],
+		},
 		windowOffset: { control: false },
 		totalSize: { control: false },
 		cellClassForByte: { control: false },
@@ -300,6 +306,183 @@ export const SelfManagedDataset: Story = {
 			    </div>
 			    <p class="story-caption">
 			      No <code>total-size</code> or <code>updateVirtualData</code> handler required -- ideal for fixtures or editor previews.
+			    </p>
+			  </section>
+			</div>
+			`,
+	}),
+};
+
+export const StatusBar: Story = {
+	name: "Status bar",
+	args: {
+		statusbar: "bottom",
+	},
+	render: (args) => ({
+		components: { VueHex },
+		setup() {
+			const fullData = ref(sliceDemoData(0, SELF_MANAGED_BYTES));
+			return { args, fullData };
+		},
+		template: `
+			<div class="story-viewport story-viewport--column">
+			  <section class="story-stack">
+			    <header class="story-card__header">
+			      <p class="story-card__eyebrow">UI</p>
+			      <h3 class="story-card__title">Status bar</h3>
+			      <p class="story-card__subtitle">
+			        Hover bytes to see offset/hex/ASCII, or drag to select a range.
+			      </p>
+			    </header>
+			    <div class="story-demo">
+			      <VueHex
+			        v-bind="args"
+			        v-model="fullData"
+			        style="height: 320px"
+			      />
+			    </div>
+			    <p class="story-caption">
+			      Tip: shift-click extends the selection; <code>Esc</code> clears it; <code>Ctrl/Cmd+C</code> copies.
+			    </p>
+			  </section>
+			</div>
+			`,
+	}),
+};
+
+export const StatusBarLayouts: Story = {
+	name: "Status bar layouts",
+	args: {
+		statusbar: "bottom",
+	},
+	render: (args) => ({
+		components: { VueHex },
+		setup() {
+			const fullData = ref(sliceDemoData(0, SELF_MANAGED_BYTES));
+			const layoutCenteredAscii: VueHexStatusBarLayout = {
+				left: [
+					{ name: "offset", config: { format: "hex", pad: 8, prefix: true } },
+					{ name: "hex", config: { prefix: false } },
+				],
+				middle: [{ name: "ascii", config: { quote: true } }],
+				right: [{ name: "selection", config: { label: "Sel" } }],
+			};
+
+			const layoutRightHeavy: VueHexStatusBarLayout = {
+				left: ["selection"],
+				middle: [],
+				right: ["offset", "hex", "ascii"],
+			};
+
+			return {
+				args,
+				fullData,
+				layoutCenteredAscii,
+				layoutRightHeavy,
+			};
+		},
+		template: `
+			<div class="story-viewport story-viewport--column">
+			  <section class="story-stack">
+			    <header class="story-card__header">
+			      <p class="story-card__eyebrow">UI</p>
+			      <h3 class="story-card__title">Status bar layouts</h3>
+			      <p class="story-card__subtitle">
+			        Compare default status bar placement vs custom left/middle/right layouts.
+			      </p>
+			    </header>
+			    <div class="story-demo" style="flex-direction: column; gap: 1.25rem;">
+			      <div style="width: 100%;">
+			        <p class="story-caption" style="margin-bottom: 0.5rem;">
+			          Default layout (no <code>statusbarLayout</code>)
+			        </p>
+			        <VueHex v-bind="args" v-model="fullData" style="height: 220px" />
+			      </div>
+			      <div style="width: 100%;">
+			        <p class="story-caption" style="margin-bottom: 0.5rem;">
+			          Center ASCII + formatted offset
+			        </p>
+			        <VueHex
+			          v-bind="args"
+			          v-model="fullData"
+			          :statusbar-layout="layoutCenteredAscii"
+			          style="height: 220px"
+			        />
+			      </div>
+			      <div style="width: 100%;">
+			        <p class="story-caption" style="margin-bottom: 0.5rem;">
+			          Selection on the left, cursor details on the right
+			        </p>
+			        <VueHex
+			          v-bind="args"
+			          v-model="fullData"
+			          :statusbar-layout="layoutRightHeavy"
+			          style="height: 220px"
+			        />
+			      </div>
+			    </div>
+			  </section>
+			</div>
+			`,
+	}),
+};
+
+export const StatusBarSlots: Story = {
+	name: "Status bar slots",
+	args: {
+		statusbar: "bottom",
+	},
+	render: (args) => ({
+		components: { VueHex },
+		setup() {
+			const fullData = ref(sliceDemoData(0, SELF_MANAGED_BYTES));
+			const layoutWithSlots: VueHexStatusBarLayout = {
+				left: ["offset", "slot", "hex"],
+				middle: ["ascii", "slot"],
+				right: ["selection", "slot"],
+			};
+			return { args, fullData, layoutWithSlots };
+		},
+		template: `
+			<div class="story-viewport story-viewport--column">
+			  <section class="story-stack">
+			    <header class="story-card__header">
+			      <p class="story-card__eyebrow">UI</p>
+			      <h3 class="story-card__title">Status bar slots</h3>
+			      <p class="story-card__subtitle">
+			        Provide custom content via <code>#statusbar-left</code>, <code>#statusbar-middle</code>, and <code>#statusbar-right</code>.
+			        Use <code>statusbarLayout</code> with the <code>"slot"</code> component name to position them.
+			      </p>
+			    </header>
+			    <div class="story-demo">
+			      <VueHex
+			        v-bind="args"
+			        v-model="fullData"
+			        :statusbar-layout="layoutWithSlots"
+			        style="height: 260px"
+			      >
+			        <template #statusbar-left>
+			          <span style="display: inline-flex; gap: 0.4rem; white-space: nowrap;">
+			            <span style="opacity: 0.75;">Mode</span>
+			            <span style="font-weight: 600;">RO</span>
+			          </span>
+			        </template>
+			        <template #statusbar-middle>
+			          <span style="display: inline-flex; gap: 0.4rem; white-space: nowrap;">
+			            <span style="opacity: 0.75;">View</span>
+			            <span style="font-weight: 600;">Hex</span>
+			          </span>
+			        </template>
+			        <template #statusbar-right>
+			          <span style="display: inline-flex; gap: 0.4rem; white-space: nowrap;">
+			            <span style="opacity: 0.75;">Endian</span>
+			            <span style="font-weight: 600;">LE</span>
+			          </span>
+			        </template>
+			      </VueHex>
+			    </div>
+			    <p class="story-caption">
+			      The <code>"slot"</code> entry can be placed anywhere inside each section array to control its relative position.
 			    </p>
 			  </section>
 			</div>

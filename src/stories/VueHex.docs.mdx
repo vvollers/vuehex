@@ -191,6 +191,105 @@ A playful gradient backdrop with warm highlights.
 
 <Canvas of={VueHexStories.ThemeSunset} />
 
+## Status bar layout
+
+When `statusbar` is set to `"top"` or `"bottom"`, you can choose where each
+status bar item renders by providing `statusbarLayout`. The status bar is split
+into three sections:
+
+- `left` (left-aligned)
+- `middle` (centered)
+- `right` (right-aligned)
+
+Each section is an array of **status bar components**:
+
+```ts
+import type { VueHexStatusBarLayout } from "@/components/vuehex-api";
+
+const layout: VueHexStatusBarLayout = {
+  left: ["offset", "hex"],
+  middle: ["ascii"],
+  right: ["selection"],
+};
+```
+
+Components can be provided as strings (component name) or as objects when you
+also want to attach configuration:
+
+```ts
+const layout: VueHexStatusBarLayout = {
+  left: [
+    { name: "offset", config: { format: "hex", pad: 8 } },
+    { name: "hex", config: { prefix: true } },
+  ],
+  middle: [{ name: "ascii", config: { quote: true } }],
+  right: [
+    { name: "selection", config: { label: "Sel", showWhenEmpty: false } },
+  ],
+};
+```
+
+Built-in component names:
+
+- `offset`
+- `hex`
+- `ascii`
+- `selection`
+- `slot`
+
+Notes:
+
+- Unknown component names are ignored.
+- When omitted, `statusbarLayout` defaults to `left: ["offset", "hex", "ascii"], right: ["selection"]`.
+
+### Custom slot components
+
+Use the built-in `slot` component name to render your own custom content inside the status bar.
+
+VueHex exposes three named slots:
+
+- `#statusbar-left`
+- `#statusbar-middle`
+- `#statusbar-right`
+
+To control where your slot content appears relative to built-in items, place `"slot"` in the corresponding `statusbarLayout` section:
+
+```vue
+<VueHex
+  statusbar="bottom"
+  :statusbar-layout="{ left: ['offset', 'slot', 'hex'], middle: ['ascii'], right: ['selection'] }"
+  v-model="data"
+>
+  <template #statusbar-left>
+    <span>Mode: RO</span>
+  </template>
+</VueHex>
+```
+
+### Label configuration
+
+All built-in status bar components support overriding their label text via
+`config.label`:
+
+```ts
+const layout: VueHexStatusBarLayout = {
+  left: [
+    { name: "offset", config: { label: "Addr" } },
+    { name: "hex", config: { label: "Byte" } },
+    { name: "ascii", config: { label: "Char" } },
+  ],
+  right: [{ name: "selection", config: { label: "Sel" } }],
+};
+```
+
+### Supported config keys
+
+- Common: `label`, `valueMinWidth` (CSS length), `valueWidth` (CSS length)
+- `offset`: `format` ("hex"), `pad` (number), `prefix` (boolean)
+- `hex`: `prefix` (boolean)
+- `ascii`: `quote` (boolean)
+- `selection`: `showWhenEmpty` (boolean)
+
 ## Custom themes
 
 Target the emitted `.vuehex-theme-<token>` selector to ship your own art

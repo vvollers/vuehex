@@ -28,6 +28,61 @@
       </div>
     </nav>
     <div :class="viewerClass">
+			<div
+				v-if="showStatusBar && statusBarPlacement === 'top'"
+				:class="statusBarClass"
+				role="status"
+				aria-live="polite"
+			>
+				<div class="vuehex-statusbar__section vuehex-statusbar__section--left">
+					<span
+						v-for="item in statusBarItems.left"
+						:key="item.key"
+						v-show="item.visible"
+						class="vuehex-statusbar__item"
+					>
+						<template v-if="item.kind === 'slot'">
+							<slot :name="item.slotName" />
+						</template>
+						<template v-else>
+							<span class="vuehex-statusbar__label">{{ item.label }}</span>
+							<span class="vuehex-statusbar__value" :style="item.valueStyle">{{ item.value }}</span>
+						</template>
+					</span>
+				</div>
+				<div class="vuehex-statusbar__section vuehex-statusbar__section--middle">
+					<span
+						v-for="item in statusBarItems.middle"
+						:key="item.key"
+						v-show="item.visible"
+						class="vuehex-statusbar__item"
+					>
+						<template v-if="item.kind === 'slot'">
+							<slot :name="item.slotName" />
+						</template>
+						<template v-else>
+							<span class="vuehex-statusbar__label">{{ item.label }}</span>
+							<span class="vuehex-statusbar__value" :style="item.valueStyle">{{ item.value }}</span>
+						</template>
+					</span>
+				</div>
+				<div class="vuehex-statusbar__section vuehex-statusbar__section--right">
+					<span
+						v-for="item in statusBarItems.right"
+						:key="item.key"
+						v-show="item.visible"
+						class="vuehex-statusbar__item"
+					>
+						<template v-if="item.kind === 'slot'">
+							<slot :name="item.slotName" />
+						</template>
+						<template v-else>
+							<span class="vuehex-statusbar__label">{{ item.label }}</span>
+							<span class="vuehex-statusbar__value" :style="item.valueStyle">{{ item.value }}</span>
+						</template>
+					</span>
+				</div>
+			</div>
       <div
         ref="containerEl"
         :class="containerClass"
@@ -43,6 +98,62 @@
           </table>
         </div>
       </div>
+
+			<div
+				v-if="showStatusBar && statusBarPlacement === 'bottom'"
+				:class="statusBarClass"
+				role="status"
+				aria-live="polite"
+			>
+				<div class="vuehex-statusbar__section vuehex-statusbar__section--left">
+					<span
+						v-for="item in statusBarItems.left"
+						:key="item.key"
+						v-show="item.visible"
+						class="vuehex-statusbar__item"
+					>
+						<template v-if="item.kind === 'slot'">
+							<slot :name="item.slotName" />
+						</template>
+						<template v-else>
+							<span class="vuehex-statusbar__label">{{ item.label }}</span>
+							<span class="vuehex-statusbar__value" :style="item.valueStyle">{{ item.value }}</span>
+						</template>
+					</span>
+				</div>
+				<div class="vuehex-statusbar__section vuehex-statusbar__section--middle">
+					<span
+						v-for="item in statusBarItems.middle"
+						:key="item.key"
+						v-show="item.visible"
+						class="vuehex-statusbar__item"
+					>
+						<template v-if="item.kind === 'slot'">
+							<slot :name="item.slotName" />
+						</template>
+						<template v-else>
+							<span class="vuehex-statusbar__label">{{ item.label }}</span>
+							<span class="vuehex-statusbar__value" :style="item.valueStyle">{{ item.value }}</span>
+						</template>
+					</span>
+				</div>
+				<div class="vuehex-statusbar__section vuehex-statusbar__section--right">
+					<span
+						v-for="item in statusBarItems.right"
+						:key="item.key"
+						v-show="item.visible"
+						class="vuehex-statusbar__item"
+					>
+						<template v-if="item.kind === 'slot'">
+							<slot :name="item.slotName" />
+						</template>
+						<template v-else>
+							<span class="vuehex-statusbar__label">{{ item.label }}</span>
+							<span class="vuehex-statusbar__value" :style="item.valueStyle">{{ item.value }}</span>
+						</template>
+					</span>
+				</div>
+			</div>
     </div>
   </div>
 </template>
@@ -55,16 +166,21 @@ import {
 	onBeforeUnmount,
 	onMounted,
 	ref,
+	useSlots,
 	watch,
 } from "vue";
 import { useChunkNavigator } from "./composables/useChunkNavigator";
 import { useHexWindow } from "./composables/useHexWindow";
 import { useHoverLinking } from "./composables/useHoverLinking";
 import { useSelection } from "./composables/useSelection";
+import { useStatusBar } from "./composables/useStatusBar";
 import type {
 	VueHexAsciiRenderer,
 	VueHexCellClassResolver,
 	VueHexPrintableCheck,
+	VueHexStatusBarComponent,
+	VueHexStatusBarComponentName,
+	VueHexStatusBarLayout,
 	VueHexWindowRequest,
 } from "./vuehex-api";
 import { DEFAULT_ASCII_RENDERER, DEFAULT_PRINTABLE_CHECK } from "./vuehex-api";
@@ -139,6 +255,19 @@ interface VueHexProps {
 	showChunkNavigator?: boolean;
 	/** Places the chunk navigator around the viewer to fit various layouts. */
 	chunkNavigatorPlacement?: "left" | "right" | "top" | "bottom";
+	/**
+	 * Optional status bar placement.
+	 *
+	 * When set to "top" or "bottom", the status bar is shown.
+	 * When omitted/null, the status bar is hidden.
+	 */
+	statusbar?: "top" | "bottom" | null;
+	/**
+	 * Configures which items appear in the status bar and where they render.
+	 *
+	 * The status bar is split into three sections: left, middle, right.
+	 */
+	statusbarLayout?: VueHexStatusBarLayout | null;
 }
 
 const props = withDefaults(defineProps<VueHexProps>(), {
@@ -153,6 +282,8 @@ const props = withDefaults(defineProps<VueHexProps>(), {
 	renderAscii: DEFAULT_ASCII_RENDERER,
 	showChunkNavigator: false,
 	chunkNavigatorPlacement: "right",
+	statusbar: null,
+	statusbarLayout: null,
 });
 
 const emit = defineEmits<{
@@ -193,6 +324,8 @@ const totalBytes = computed(() => {
 });
 
 const instance = getCurrentInstance();
+
+const slots = useSlots();
 const hasUpdateVirtualDataListener = computed(() => {
 	const vnodeProps = instance?.vnode.props as
 		| Record<string, unknown>
@@ -343,12 +476,38 @@ const rootClass = computed(() => {
 });
 
 const chunkNavigatorClass = computed(() => [...chunkNavigatorClassBase.value]);
-const viewerClass = computed(() => [...viewerClassBase.value]);
+
+const showStatusBar = computed(
+	() => props.statusbar === "top" || props.statusbar === "bottom",
+);
+
+const statusBarPlacement = computed(() =>
+	props.statusbar === "top" ? "top" : "bottom",
+);
+
+const viewerClass = computed(() => {
+	const classes = [...viewerClassBase.value];
+	if (showStatusBar.value) {
+		classes.push("vuehex-viewer--with-statusbar");
+		classes.push(
+			statusBarPlacement.value === "top"
+				? "vuehex-viewer--statusbar-top"
+				: "vuehex-viewer--statusbar-bottom",
+		);
+	}
+	return classes;
+});
 
 /** Hover coordination utilities that emit events and apply linked highlights. */
+let handleStatusHoverEvent: ((event: string, payload: unknown) => void) | null =
+	null;
+
 const { handlePointerOver, handlePointerOut, clearHoverState } =
 	useHoverLinking({
-		emit: (event, payload) => emit(event as never, payload as never),
+		emit: (event, payload) => {
+			handleStatusHoverEvent?.(event, payload);
+			emit(event as never, payload as never);
+		},
 		tbodyEl,
 	});
 
@@ -401,7 +560,7 @@ const {
 	clearHoverState,
 });
 
-const { selectionEnabled } = useSelection({
+const { selectionEnabled, selectionRange, selectionCount } = useSelection({
 	containerEl,
 	tbodyEl,
 	markup,
@@ -414,6 +573,328 @@ const { selectionEnabled } = useSelection({
 	getAsciiRenderer: () => props.renderAscii ?? DEFAULT_ASCII_RENDERER,
 	getNonPrintableChar: () => props.nonPrintableChar ?? ".",
 });
+
+const {
+	cursorOffset,
+	cursorHex,
+	cursorAscii,
+	selectionSummary,
+	handleHoverEvent,
+} = useStatusBar({
+	getUppercase: () => Boolean(props.uppercase),
+	getPrintableChecker: () => props.isPrintable ?? DEFAULT_PRINTABLE_CHECK,
+	getAsciiRenderer: () => props.renderAscii ?? DEFAULT_ASCII_RENDERER,
+	getNonPrintableChar: () => props.nonPrintableChar ?? ".",
+	selectionRange,
+	selectionCount,
+});
+
+handleStatusHoverEvent = (event, payload) =>
+	handleHoverEvent(event as never, payload);
+
+const statusBarClass = computed(() => {
+	const classes = ["vuehex-statusbar"];
+	classes.push(
+		statusBarPlacement.value === "top"
+			? "vuehex-statusbar--top"
+			: "vuehex-statusbar--bottom",
+	);
+	return classes;
+});
+
+type NormalizedStatusBarComponent = { name: string; config?: unknown };
+type StatusBarSectionKey = "left" | "middle" | "right";
+
+function normalizeStatusBarComponent(
+	component: VueHexStatusBarComponent,
+): NormalizedStatusBarComponent | null {
+	if (typeof component === "string") {
+		const name = component.trim();
+		return name ? { name } : null;
+	}
+	if (!component || typeof component !== "object") {
+		return null;
+	}
+	const record = component as { name?: unknown; config?: unknown };
+	const name = typeof record.name === "string" ? record.name.trim() : "";
+	return name ? { name, config: record.config } : null;
+}
+
+function normalizeStatusBarSection(
+	layout: VueHexStatusBarLayout | null | undefined,
+	key: StatusBarSectionKey,
+): VueHexStatusBarComponent[] {
+	const value = layout?.[key];
+	return Array.isArray(value) ? value : [];
+}
+
+const effectiveStatusBarLayout = computed<VueHexStatusBarLayout>(() => {
+	const provided = props.statusbarLayout;
+	if (!provided) {
+		return {
+			left: ["offset", "hex", "ascii"],
+			middle: [],
+			right: ["selection"],
+		};
+	}
+	return {
+		left: normalizeStatusBarSection(provided, "left"),
+		middle: normalizeStatusBarSection(provided, "middle"),
+		right: normalizeStatusBarSection(provided, "right"),
+	};
+});
+
+function isBuiltInStatusBarName(
+	name: string,
+): name is VueHexStatusBarComponentName {
+	return (
+		name === "offset" ||
+		name === "hex" ||
+		name === "ascii" ||
+		name === "selection" ||
+		name === "slot"
+	);
+}
+
+function getConfigString(config: unknown, key: string): string | null {
+	if (!config || typeof config !== "object") {
+		return null;
+	}
+	const record = config as Record<string, unknown>;
+	const value = record[key];
+	return typeof value === "string" ? value : null;
+}
+
+function getConfigBoolean(config: unknown, key: string): boolean | null {
+	if (!config || typeof config !== "object") {
+		return null;
+	}
+	const record = config as Record<string, unknown>;
+	const value = record[key];
+	return typeof value === "boolean" ? value : null;
+}
+
+function getConfigNumber(config: unknown, key: string): number | null {
+	if (!config || typeof config !== "object") {
+		return null;
+	}
+	const record = config as Record<string, unknown>;
+	const value = record[key];
+	return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function formatOffsetValue(offset: number | null, config: unknown): string {
+	if (offset === null) {
+		return "";
+	}
+	const format = getConfigString(config, "format");
+	if (format === "hex") {
+		const upper = Boolean(props.uppercase);
+		const pad = Math.max(0, Math.trunc(getConfigNumber(config, "pad") ?? 0));
+		const raw = Math.max(0, Math.trunc(offset)).toString(16);
+		const value = (upper ? raw.toUpperCase() : raw).padStart(pad, "0");
+		const prefix = getConfigBoolean(config, "prefix") ?? true;
+		return prefix ? `0x${value}` : value;
+	}
+	return String(Math.max(0, Math.trunc(offset)));
+}
+
+function formatHexValue(hex: string, config: unknown): string {
+	if (!hex) {
+		return "";
+	}
+	const prefix = getConfigBoolean(config, "prefix");
+	return prefix ? `0x${hex}` : hex;
+}
+
+function formatAsciiValue(ascii: string, config: unknown): string {
+	if (!ascii) {
+		return "";
+	}
+	const quote = getConfigBoolean(config, "quote");
+	return quote ? `'${ascii}'` : ascii;
+}
+
+type RenderedStatusBarItem = {
+	key: string;
+	visible: boolean;
+} & (
+	| {
+			kind: "builtin";
+			name: Exclude<VueHexStatusBarComponentName, "slot">;
+			label: string;
+			value: string;
+			valueStyle?: CSSProperties;
+	  }
+	| {
+			kind: "slot";
+			slotName: "statusbar-left" | "statusbar-middle" | "statusbar-right";
+	  }
+);
+
+function resolveStatusBarSlotName(
+	section: StatusBarSectionKey,
+): "statusbar-left" | "statusbar-middle" | "statusbar-right" {
+	if (section === "left") {
+		return "statusbar-left";
+	}
+	if (section === "middle") {
+		return "statusbar-middle";
+	}
+	return "statusbar-right";
+}
+
+function resolveDefaultValueMinWidth(
+	name: VueHexStatusBarComponentName,
+): string | null {
+	// Reserve space for hover-driven values so the status bar doesn't jump.
+	// These defaults are intentionally conservative and can be overridden per item.
+	if (name === "slot") {
+		return null;
+	}
+	if (name === "offset") {
+		return "10ch";
+	}
+	if (name === "hex") {
+		return "4ch";
+	}
+	if (name === "ascii") {
+		return "3ch";
+	}
+	return null;
+}
+
+function resolveValueStyle(
+	name: VueHexStatusBarComponentName,
+	config: unknown,
+): CSSProperties | undefined {
+	if (name === "slot") {
+		return undefined;
+	}
+	const width = getConfigString(config, "valueWidth");
+	const minWidth = getConfigString(config, "valueMinWidth");
+	const defaultMinWidth = resolveDefaultValueMinWidth(name);
+
+	const style: CSSProperties = {};
+	if (width) {
+		style.width = width;
+	}
+	if (minWidth) {
+		style.minWidth = minWidth;
+	} else if (!width && defaultMinWidth) {
+		style.minWidth = defaultMinWidth;
+	}
+
+	if (style.width || style.minWidth) {
+		style.whiteSpace = "nowrap";
+		style.overflow = "hidden";
+		style.textOverflow = "ellipsis";
+	}
+
+	return Object.keys(style).length ? style : undefined;
+}
+
+function renderStatusBarItem(
+	component: NormalizedStatusBarComponent,
+	section: StatusBarSectionKey,
+	key: string,
+): RenderedStatusBarItem | null {
+	const name = component.name.trim();
+	if (!isBuiltInStatusBarName(name)) {
+		return null;
+	}
+	if (name === "slot") {
+		const slotName = resolveStatusBarSlotName(section);
+		return {
+			kind: "slot",
+			key,
+			slotName,
+			visible: Boolean(slots[slotName]),
+		};
+	}
+	const labelOverride = getConfigString(component.config, "label");
+	const label =
+		labelOverride ??
+		(name === "offset"
+			? "Offset"
+			: name === "hex"
+				? "Hex"
+				: name === "ascii"
+					? "ASCII"
+					: "Selection");
+
+	if (name === "offset") {
+		return {
+			kind: "builtin",
+			key,
+			name,
+			label,
+			value: formatOffsetValue(cursorOffset.value, component.config),
+			visible: true,
+			valueStyle: resolveValueStyle(name, component.config),
+		};
+	}
+	if (name === "hex") {
+		return {
+			kind: "builtin",
+			key,
+			name,
+			label,
+			value: formatHexValue(cursorHex.value, component.config),
+			visible: true,
+			valueStyle: resolveValueStyle(name, component.config),
+		};
+	}
+	if (name === "ascii") {
+		return {
+			kind: "builtin",
+			key,
+			name,
+			label,
+			value: formatAsciiValue(cursorAscii.value, component.config),
+			visible: true,
+			valueStyle: resolveValueStyle(name, component.config),
+		};
+	}
+
+	const summary = selectionSummary.value;
+	const showWhenEmpty = getConfigBoolean(component.config, "showWhenEmpty");
+	const visible = showWhenEmpty ? true : Boolean(summary);
+	return {
+		kind: "builtin",
+		key,
+		name,
+		label,
+		value: summary,
+		visible,
+		valueStyle: resolveValueStyle(name, component.config),
+	};
+}
+
+function renderStatusBarSection(
+	section: StatusBarSectionKey,
+): RenderedStatusBarItem[] {
+	const items = effectiveStatusBarLayout.value[section] ?? [];
+	const rendered: RenderedStatusBarItem[] = [];
+	items.forEach((entry, index) => {
+		const normalized = normalizeStatusBarComponent(entry);
+		if (!normalized) {
+			return;
+		}
+		const key = `${section}-${index}-${normalized.name}`;
+		const item = renderStatusBarItem(normalized, section, key);
+		if (item) {
+			rendered.push(item);
+		}
+	});
+	return rendered;
+}
+
+const statusBarItems = computed(() => ({
+	left: renderStatusBarSection("left"),
+	middle: renderStatusBarSection("middle"),
+	right: renderStatusBarSection("right"),
+}));
 
 function handleScroll() {
 	if (isExpandToContent.value) {

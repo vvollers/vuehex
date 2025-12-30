@@ -25,6 +25,8 @@ export interface SelectionOptions {
 export interface SelectionResult {
 	selectionDataProvider: ComputedRef<VueHexSelectionDataProvider | null>;
 	selectionEnabled: ComputedRef<boolean>;
+	selectionRange: ComputedRef<{ start: number; end: number } | null>;
+	selectionCount: ComputedRef<number>;
 }
 
 interface SelectionState {
@@ -69,6 +71,27 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 	);
 
 	const selectionEnabled = computed(() => selectionDataProvider.value !== null);
+
+	const selectionRange = computed<{ start: number; end: number } | null>(() => {
+		if (!selectionEnabled.value) {
+			return null;
+		}
+		const state = selectionState.value;
+		if (!state) {
+			return null;
+		}
+		const start = Math.min(state.anchor, state.focus);
+		const end = Math.max(state.anchor, state.focus);
+		return { start, end };
+	});
+
+	const selectionCount = computed(() => {
+		const range = selectionRange.value;
+		if (!range) {
+			return 0;
+		}
+		return Math.max(0, range.end - range.start + 1);
+	});
 
 	const selectionState = ref<SelectionState | null>(null);
 	const isPointerSelecting = ref(false);
@@ -390,5 +413,10 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 		}
 	});
 
-	return { selectionDataProvider, selectionEnabled };
+	return {
+		selectionDataProvider,
+		selectionEnabled,
+		selectionRange,
+		selectionCount,
+	};
 }

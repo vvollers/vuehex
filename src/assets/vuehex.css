@@ -25,9 +25,84 @@
 	display: flex;
 }
 
+.vuehex-viewer--with-statusbar {
+	flex-direction: column;
+}
+
 .vuehex-viewer > .vuehex {
 	flex: 1 1 auto;
 	min-height: 0;
+}
+
+.vuehex-statusbar {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.5rem 0.75rem;
+	border: 1px solid var(--vuehex-border-color);
+	background: var(--vuehex-background);
+	color: var(--vuehex-foreground);
+	font-size: 0.8rem;
+}
+
+.vuehex-statusbar__section {
+	flex: 1 1 0;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+
+.vuehex-statusbar__section--left {
+	justify-content: flex-start;
+}
+
+.vuehex-statusbar__section--middle {
+	justify-content: center;
+}
+
+.vuehex-statusbar__section--right {
+	justify-content: flex-end;
+}
+
+.vuehex-statusbar__item {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 0.4rem;
+	white-space: nowrap;
+}
+
+.vuehex-statusbar__label {
+	opacity: 0.75;
+}
+
+.vuehex-statusbar__value {
+	display: inline-block;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-weight: 600;
+}
+
+.vuehex-statusbar__item--selection {
+	margin-left: auto;
+}
+
+.vuehex-statusbar--top {
+	border-bottom: none;
+}
+
+.vuehex-viewer--statusbar-top > .vuehex {
+	border-top: none;
+}
+
+.vuehex-statusbar--bottom {
+	border-top: none;
+}
+
+.vuehex-viewer--statusbar-bottom > .vuehex {
+	border-bottom: none;
 }
 
 .vuehex-viewer--with-nav.vuehex-viewer--nav-left,

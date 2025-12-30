@@ -32,6 +32,49 @@ export type VueHexSelectionDataProvider = (
 ) => Uint8Array;
 
 /**
+ * Built-in status bar component identifiers.
+ *
+ * - "offset": cursor offset (absolute byte index)
+ * - "hex": current byte rendered as hex
+ * - "ascii": current byte rendered as ASCII (or nonPrintableChar)
+ * - "selection": selection summary text
+ * - "slot": renders a named Vue slot in the status bar section
+ */
+export type VueHexStatusBarComponentName =
+	| "offset"
+	| "hex"
+	| "ascii"
+	| "selection"
+	| "slot";
+
+/**
+ * Declares a component that can appear in the VueHex status bar.
+ *
+ * A string is treated as the component name. The object form allows
+ * attaching per-component configuration.
+ */
+export type VueHexStatusBarComponent =
+	| string
+	| {
+			name: string;
+			config?: unknown;
+	  };
+
+/**
+ * Controls where status bar components render.
+ *
+ * The status bar is split into three sections:
+ * - left (left-aligned)
+ * - middle (centered)
+ * - right (right-aligned)
+ */
+export interface VueHexStatusBarLayout {
+	left?: VueHexStatusBarComponent[];
+	middle?: VueHexStatusBarComponent[];
+	right?: VueHexStatusBarComponent[];
+}
+
+/**
  * Identifies which table column a cell represents when resolving custom classes.
  */
 export type VueHexCellKind = "hex" | "ascii";
