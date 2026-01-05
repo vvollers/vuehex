@@ -543,7 +543,6 @@ const effectiveCellClassResolver = computed<
 			return merged.flat();
 		};
 	}
-	return input;
 });
 
 /** Virtual window utilities that coordinate data requests and markup rendering. */
