@@ -198,6 +198,49 @@ function createThemeStory(variant: ThemeVariant): Story {
 		args: {
 			theme: variant.key,
 		},
+		parameters: {
+			docs: {
+				source: {
+					language: "vue",
+					code: `<template>
+  <VueHex
+    v-model="windowData"
+    :window-offset="windowOffset"
+    :total-size="fileSize"
+    :get-selection-data="getSelectionData"
+    theme="${variant.key}"
+    style="height: 300px"
+    @updateVirtualData="handleUpdateVirtualData"
+  />
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import VueHex from "vuehex";
+import type { VueHexWindowRequest } from "vuehex";
+
+const fileSize = 4 * 1024 * 1024;
+const windowData = ref(new Uint8Array());
+const windowOffset = ref(0);
+
+function readBytes(offset: number, length: number): Uint8Array {
+  return new Uint8Array(length);
+}
+
+function handleUpdateVirtualData(payload: VueHexWindowRequest) {
+  windowOffset.value = payload.offset;
+  windowData.value = readBytes(payload.offset, payload.length ?? 0x4000);
+}
+
+function getSelectionData(selectionStart: number, selectionEnd: number) {
+  const from = Math.min(selectionStart, selectionEnd);
+  const to = Math.max(selectionStart, selectionEnd);
+  return readBytes(from, to - from + 1);
+}
+</script>`,
+				},
+			},
+		},
 		render: (args) => ({
 			components: { VueHex },
 			setup() {
@@ -379,6 +422,23 @@ export const StatusBar: Story = {
 	args: {
 		statusbar: "bottom",
 	},
+	parameters: {
+		docs: {
+			source: {
+				language: "vue",
+				code: `<template>
+  <VueHex v-model="data" statusbar="bottom" style="height: 320px" />
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import VueHex from "vuehex";
+
+const data = ref(new Uint8Array(await file.arrayBuffer()));
+</script>`,
+			},
+		},
+	},
 	render: (args) => ({
 		components: { VueHex },
 		setup() {
@@ -415,6 +475,35 @@ export const Cursor: Story = {
 	name: "Cursor",
 	args: {
 		cursor: true,
+	},
+	parameters: {
+		docs: {
+			source: {
+				language: "vue",
+				code: `<template>
+  <VueHex
+    v-model="data"
+    cursor
+    v-model:cursorLocation="cursorLocation"
+    style="height: 320px"
+    @cursor-change="handleCursorChange"
+  />
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import VueHex from "vuehex";
+
+const data = ref(new Uint8Array(await file.arrayBuffer()));
+const cursorLocation = ref<number | null>(0);
+
+function handleCursorChange(payload: { index: number | null }) {
+  // Persist cursor updates (or treat as a transient navigation aid).
+  cursorLocation.value = payload.index;
+}
+</script>`,
+			},
+		},
 	},
 	render: (args) => ({
 		components: { VueHex },
@@ -685,6 +774,23 @@ export const ExpandToContent: Story = {
 	args: {
 		expandToContent: true,
 	},
+	parameters: {
+		docs: {
+			source: {
+				language: "vue",
+				code: `<template>
+  <VueHex v-model="data" expand-to-content />
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import VueHex from "vuehex";
+
+const data = ref(new Uint8Array(await file.arrayBuffer()));
+</script>`,
+			},
+		},
+	},
 	render: (args) => ({
 		components: { VueHex },
 		setup() {
@@ -724,6 +830,59 @@ export const AsciiPrintablePresets: Story = {
 	name: "ASCII printability presets",
 	args: {
 		nonPrintableChar: ".",
+	},
+	parameters: {
+		docs: {
+			source: {
+				language: "vue",
+				code: `<template>
+	<VueHex
+		v-model="windowData"
+		:window-offset="windowOffset"
+		:total-size="fileSize"
+		:get-selection-data="getSelectionData"
+		:is-printable="isPrintable"
+		:render-ascii="renderAscii"
+		non-printable-char="."
+		style="height: 320px"
+		@updateVirtualData="handleUpdateVirtualData"
+	/>
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import VueHex from "vuehex";
+import type { VueHexWindowRequest } from "vuehex";
+
+const fileSize = 4 * 1024 * 1024;
+const windowData = ref(new Uint8Array());
+const windowOffset = ref(0);
+
+function readBytes(offset: number, length: number): Uint8Array {
+	return new Uint8Array(length);
+}
+
+function handleUpdateVirtualData(payload: VueHexWindowRequest) {
+	windowOffset.value = payload.offset;
+	windowData.value = readBytes(payload.offset, payload.length ?? 0x4000);
+}
+
+function getSelectionData(selectionStart: number, selectionEnd: number) {
+	const from = Math.min(selectionStart, selectionEnd);
+	const to = Math.max(selectionStart, selectionEnd);
+	return readBytes(from, to - from + 1);
+}
+
+function isPrintable(byte: number) {
+	return byte >= 0x20 && byte <= 0x7e;
+}
+
+function renderAscii(byte: number) {
+	return String.fromCharCode(byte);
+}
+</script>`,
+			},
+		},
 	},
 	render: (args) => ({
 		components: { VueHex },
@@ -793,6 +952,52 @@ export const AsciiPrintablePresets: Story = {
 export const CellClassHighlighting: Story = {
 	name: "Highlight bytes with cellClassForByte",
 	args: {},
+	parameters: {
+		docs: {
+			source: {
+				language: "vue",
+				code: `<template>
+	<VueHex
+		v-model="windowData"
+		:window-offset="windowOffset"
+		:total-size="fileSize"
+		:get-selection-data="getSelectionData"
+		:cell-class-for-byte="cellClassForByte"
+		style="height: 320px"
+		@updateVirtualData="handleUpdateVirtualData"
+	/>
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import VueHex from "vuehex";
+import type { VueHexCellClassResolver, VueHexWindowRequest } from "vuehex";
+
+const fileSize = 4 * 1024 * 1024;
+const windowData = ref(new Uint8Array());
+const windowOffset = ref(0);
+
+function readBytes(offset: number, length: number): Uint8Array {
+	return new Uint8Array(length);
+}
+
+function handleUpdateVirtualData(payload: VueHexWindowRequest) {
+	windowOffset.value = payload.offset;
+	windowData.value = readBytes(payload.offset, payload.length ?? 0x4000);
+}
+
+function getSelectionData(selectionStart: number, selectionEnd: number) {
+	const from = Math.min(selectionStart, selectionEnd);
+	const to = Math.max(selectionStart, selectionEnd);
+	return readBytes(from, to - from + 1);
+}
+
+const cellClassForByte: VueHexCellClassResolver = ({ byte }) =>
+	byte === 0x00 ? "my-null-byte" : undefined;
+</script>`,
+			},
+		},
+	},
 	render: (args) => ({
 		components: { VueHex },
 		setup() {
@@ -1033,6 +1238,53 @@ export const CustomTheme: Story = {
 	name: "Custom theme",
 	args: {
 		theme: "storybook-custom",
+	},
+	parameters: {
+		docs: {
+			source: {
+				language: "vue",
+				code: `<template>
+  <VueHex
+    v-model="windowData"
+    :window-offset="windowOffset"
+    :total-size="fileSize"
+    :get-selection-data="getSelectionData"
+    theme="my-theme"
+    style="height: 300px"
+    @updateVirtualData="handleUpdateVirtualData"
+  />
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import VueHex from "vuehex";
+import type { VueHexWindowRequest } from "vuehex";
+
+const fileSize = 4 * 1024 * 1024;
+const windowData = ref(new Uint8Array());
+const windowOffset = ref(0);
+
+function readBytes(offset: number, length: number): Uint8Array {
+  return new Uint8Array(length);
+}
+
+function handleUpdateVirtualData(payload: VueHexWindowRequest) {
+  windowOffset.value = payload.offset;
+  windowData.value = readBytes(payload.offset, payload.length ?? 0x4000);
+}
+
+function getSelectionData(selectionStart: number, selectionEnd: number) {
+  const from = Math.min(selectionStart, selectionEnd);
+  const to = Math.max(selectionStart, selectionEnd);
+  return readBytes(from, to - from + 1);
+}
+</script>
+
+<style>
+/* Provide CSS for .vuehex-theme-my-theme (see docs for tokens). */
+</style>`,
+			},
+		},
 	},
 	render: (args) => ({
 		components: { VueHex },
