@@ -48,7 +48,7 @@ const ASCII_PRESET_OPTIONS = (
 	label: VUE_HEX_ASCII_PRESETS[key].label,
 }));
 
-type HighlightPresetKey = "asciiCategories" | "none";
+type HighlightPresetKey = "asciiCategories" | "offsetStripes" | "none";
 
 interface HighlightLegendEntry {
 	text: string;
@@ -67,6 +67,16 @@ const asciiCategoryHighlight: VueHexCellClassResolver = ({ byte }) => {
 	}
 	if (byte === 0x00) {
 		return "vuehex-demo-byte--null";
+	}
+	return undefined;
+};
+
+const offsetStripeHighlight: VueHexCellClassResolver = ({ index }) => {
+	if (index % 16 === 0) {
+		return "vuehex-demo-byte--uppercase";
+	}
+	if (index % 16 === 15) {
+		return "vuehex-demo-byte--lowercase";
 	}
 	return undefined;
 };
@@ -101,9 +111,25 @@ const HIGHLIGHT_PRESETS: ReadonlyArray<{
 		],
 	},
 	{
+		key: "offsetStripes",
+		label: "Offset stripes (custom example)",
+		resolver: offsetStripeHighlight,
+		legend: [
+			{
+				text: "Row start (index % 16 = 0)",
+				swatchClass: "story-highlight-swatch--uppercase",
+			},
+			{
+				text: "Row end (index % 16 = 15)",
+				swatchClass: "story-highlight-swatch--lowercase",
+			},
+		],
+	},
+	{
 		key: "none",
 		label: "None (disable highlighting)",
 		legend: [],
+		resolver: () => undefined,
 	},
 ];
 
@@ -992,8 +1018,19 @@ function getSelectionData(selectionStart: number, selectionEnd: number) {
 	return readBytes(from, to - from + 1);
 }
 
-const cellClassForByte: VueHexCellClassResolver = ({ byte }) =>
-	byte === 0x00 ? "my-null-byte" : undefined;
+// Disable highlighting completely.
+// const cellClassForByte: VueHexCellClassResolver = () => undefined;
+
+// Or: customize freely (example highlights row start/end bytes).
+const cellClassForByte: VueHexCellClassResolver = ({ index }) => {
+	if (index % 16 === 0) {
+		return "my-row-start";
+	}
+	if (index % 16 === 15) {
+		return "my-row-end";
+	}
+	return undefined;
+};
 </script>`,
 			},
 		},
