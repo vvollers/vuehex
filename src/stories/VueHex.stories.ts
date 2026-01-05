@@ -411,6 +411,64 @@ export const StatusBar: Story = {
 	}),
 };
 
+export const Cursor: Story = {
+	name: "Cursor",
+	args: {
+		cursor: true,
+	},
+	render: (args) => ({
+		components: { VueHex },
+		setup() {
+			const dataLength = Math.max(1, (args.bytesPerRow ?? 16) * 80);
+			const fullData = ref(sliceDemoData(0, dataLength));
+			const cursorLocation = ref<number | null>(0);
+			const lastCursorEvent = ref<number | null>(null);
+			function handleCursorChange(payload: { index: number | null }) {
+				lastCursorEvent.value = payload.index;
+			}
+			return {
+				args,
+				fullData,
+				dataLength,
+				cursorLocation,
+				lastCursorEvent,
+				handleCursorChange,
+			};
+		},
+		template: `
+			<div class="story-viewport story-viewport--column">
+			  <section class="story-stack">
+			    <header class="story-card__header">
+			      <p class="story-card__eyebrow">Interaction</p>
+			      <h3 class="story-card__title">Cursor navigation</h3>
+			      <p class="story-card__subtitle">
+			        Enable <code>cursor</code> to navigate with arrow keys (when focused) or click a byte to move the cursor.
+			      </p>
+			    </header>
+			    <div class="story-panel">
+			      <p class="story-label">Controlled state</p>
+			      <p class="story-value">cursorLocation: {{ cursorLocation === null ? 'null' : cursorLocation.toLocaleString() }}</p>
+			      <p class="story-label" style="margin-top: 0.75rem;">Last cursor-change event</p>
+			      <p class="story-value">{{ lastCursorEvent === null ? 'null' : lastCursorEvent.toLocaleString() }}</p>
+			    </div>
+			    <div class="story-demo">
+			      <VueHex
+			        v-bind="args"
+			        v-model="fullData"
+			        v-model:cursorLocation="cursorLocation"
+			        style="height: 320px"
+			        @cursor-change="handleCursorChange"
+			      />
+			    </div>
+			    <p class="story-caption">
+			      Click inside the viewer to focus it, then use <code>↑ ↓ ← →</code>. The cursor is rendered in both the hex and ASCII columns.
+			    </p>
+			  </section>
+			</div>
+			`,
+	}),
+};
+
 export const StatusBarLayouts: Story = {
 	name: "Status bar layouts",
 	args: {

@@ -199,6 +199,38 @@ into three sections:
 
 - `left` (left-aligned)
 - `middle` (centered)
+
+## Cursor
+
+Enable the optional cursor to move around the dataset with the keyboard.
+
+- Set the boolean `cursor` prop to enable the feature.
+- Press arrow keys while the viewer is focused to move the cursor.
+- Click any hex/ASCII byte to set the cursor.
+- Use `cursorLocation` (and `update:cursorLocation`) to control the location from the parent.
+- Listen to `cursor-change` to react when the cursor moves.
+
+```vue
+<template>
+  <VueHex
+    v-model="data"
+    cursor
+    v-model:cursorLocation="cursorLocation"
+    style="height: 320px"
+    @cursor-change="({ index }) => console.log('cursor moved', index)"
+  />
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import VueHex from "vuehex";
+
+const data = ref(new Uint8Array(1024));
+const cursorLocation = ref<number | null>(0);
+</script>
+```
+
+<Canvas of={VueHexStories.Cursor} />
 - `right` (right-aligned)
 
 Each section is an array of **status bar components**:

@@ -319,6 +319,12 @@
 	outline-offset: -1px;
 }
 
+.vuehex-byte.vuehex-cursor,
+.vuehex-ascii-char.vuehex-cursor {
+	outline: 2px solid rgba(59, 130, 246, 0.85);
+	outline-offset: -2px;
+}
+
 .vuehex-ascii-char.vuehex-selected--ascii {
 	outline-style: dashed;
 }

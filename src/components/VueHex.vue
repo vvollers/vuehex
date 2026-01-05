@@ -88,8 +88,8 @@
         :class="containerClass"
         role="table"
         aria-label="Hex viewer"
-		:aria-disabled="selectionEnabled ? undefined : 'true'"
-		:tabindex="selectionEnabled ? 0 : undefined"
+		:aria-disabled="isInteractive ? undefined : 'true'"
+		:tabindex="isInteractive ? 0 : undefined"
         @scroll="handleScroll"
       >
         <div class="vuehex-inner" :style="innerStyle" role="presentation">
@@ -170,6 +170,7 @@ import {
 	watch,
 } from "vue";
 import { useChunkNavigator } from "./composables/useChunkNavigator";
+import { useCursor } from "./composables/useCursor";
 import { useHexWindow } from "./composables/useHexWindow";
 import { useHoverLinking } from "./composables/useHoverLinking";
 import { useSelection } from "./composables/useSelection";
@@ -262,6 +263,10 @@ interface VueHexProps {
 	 * When omitted/null, the status bar is hidden.
 	 */
 	statusbar?: "top" | "bottom" | null;
+	/** When true, enables keyboard/click cursor navigation and rendering. */
+	cursor?: boolean;
+	/** Optional controlled cursor location (absolute byte index). */
+	cursorLocation?: number | null;
 	/**
 	 * Configures which items appear in the status bar and where they render.
 	 *
@@ -283,12 +288,15 @@ const props = withDefaults(defineProps<VueHexProps>(), {
 	showChunkNavigator: false,
 	chunkNavigatorPlacement: "right",
 	statusbar: null,
+	cursor: false,
 	statusbarLayout: null,
 });
 
 const emit = defineEmits<{
 	(event: "update:modelValue", value: Uint8Array): void;
 	(event: "updateVirtualData", payload: VueHexWindowRequest): void;
+	(event: "update:cursorLocation", value: number | null): void;
+	(event: "cursor-change", payload: { index: number | null }): void;
 	(event: "row-hover-on", payload: { offset: number }): void;
 	(event: "row-hover-off", payload: { offset: number }): void;
 	(event: "hex-hover-on", payload: { index: number; byte: number }): void;
@@ -573,6 +581,31 @@ const { selectionEnabled, selectionRange, selectionCount } = useSelection({
 	getAsciiRenderer: () => props.renderAscii ?? DEFAULT_ASCII_RENDERER,
 	getNonPrintableChar: () => props.nonPrintableChar ?? ".",
 });
+
+const cursorEnabled = computed(() => Boolean(props.cursor));
+
+useCursor({
+	enabled: cursorEnabled,
+	isExpandToContent,
+	containerEl,
+	tbodyEl,
+	markup,
+	totalBytes,
+	bytesPerRow,
+	rowHeightValue,
+	viewportRows,
+	chunkStartRow,
+	ensureChunkForRow,
+	scheduleWindowEvaluation,
+	getCursorLocationProp: () => props.cursorLocation,
+	emitCursorLocationUpdate: (value) => emit("update:cursorLocation", value),
+	emitCursorChange: (payload) => emit("cursor-change", payload),
+	scrollToByte,
+});
+
+const isInteractive = computed(
+	() => selectionEnabled.value || cursorEnabled.value,
+);
 
 const {
 	cursorOffset,
