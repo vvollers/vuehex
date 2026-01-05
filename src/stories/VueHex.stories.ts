@@ -4,10 +4,14 @@ import VueHex from "@/components/VueHex.vue";
 import "./vuehex-custom-theme.css";
 import type {
 	VueHexCellClassResolver,
+	VueHexCellClassResolverInput,
 	VueHexStatusBarLayout,
 	VueHexWindowRequest,
 } from "@/components/vuehex-api";
-import { VUE_HEX_ASCII_PRESETS } from "@/components/vuehex-api";
+import {
+	DEFAULT_ASCII_CATEGORY_CELL_CLASS_RESOLVER,
+	VUE_HEX_ASCII_PRESETS,
+} from "@/components/vuehex-api";
 
 const DEMO_TOTAL_BYTES = 4 * 1024 * 1024; // 4 MiB of procedurally generated data
 const SELF_MANAGED_BYTES = 64 * 1024; // 64 KiB sample for the full-data demo
@@ -48,30 +52,18 @@ const ASCII_PRESET_OPTIONS = (
 	label: VUE_HEX_ASCII_PRESETS[key].label,
 }));
 
-type HighlightPresetKey = "asciiCategories" | "offsetStripes" | "none";
+type HighlightPresetKey =
+	| "defaultCategories"
+	| "customOnly"
+	| "defaultPlusCustom"
+	| "none";
 
 interface HighlightLegendEntry {
 	text: string;
 	swatchClass?: string;
 }
 
-const asciiCategoryHighlight: VueHexCellClassResolver = ({ byte }) => {
-	if (byte >= 0x30 && byte <= 0x39) {
-		return "vuehex-demo-byte--digit";
-	}
-	if (byte >= 0x41 && byte <= 0x5a) {
-		return "vuehex-demo-byte--uppercase";
-	}
-	if (byte >= 0x61 && byte <= 0x7a) {
-		return "vuehex-demo-byte--lowercase";
-	}
-	if (byte === 0x00) {
-		return "vuehex-demo-byte--null";
-	}
-	return undefined;
-};
-
-const offsetStripeHighlight: VueHexCellClassResolver = ({ index }) => {
+const customStripeHighlight: VueHexCellClassResolver = ({ index }) => {
 	if (index % 16 === 0) {
 		return "vuehex-demo-byte--uppercase";
 	}
@@ -85,12 +77,12 @@ const HIGHLIGHT_PRESETS: ReadonlyArray<{
 	key: HighlightPresetKey;
 	label: string;
 	legend: HighlightLegendEntry[];
-	resolver?: VueHexCellClassResolver;
+	resolver?: VueHexCellClassResolverInput | null;
 }> = [
 	{
-		key: "asciiCategories",
-		label: "ASCII categories (default)",
-		resolver: asciiCategoryHighlight,
+		key: "defaultCategories",
+		label: "Default ASCII categories",
+		resolver: undefined,
 		legend: [
 			{
 				text: "Digits 0-9",
@@ -111,9 +103,9 @@ const HIGHLIGHT_PRESETS: ReadonlyArray<{
 		],
 	},
 	{
-		key: "offsetStripes",
-		label: "Offset stripes (custom example)",
-		resolver: offsetStripeHighlight,
+		key: "customOnly",
+		label: "Custom only (no defaults)",
+		resolver: customStripeHighlight,
 		legend: [
 			{
 				text: "Row start (index % 16 = 0)",
@@ -126,10 +118,22 @@ const HIGHLIGHT_PRESETS: ReadonlyArray<{
 		],
 	},
 	{
+		key: "defaultPlusCustom",
+		label: "Default + custom (layered)",
+		resolver: [
+			DEFAULT_ASCII_CATEGORY_CELL_CLASS_RESOLVER,
+			customStripeHighlight,
+		],
+		legend: [
+			{ text: "ASCII categories (built-in)" },
+			{ text: "Row start/end stripes (custom)" },
+		],
+	},
+	{
 		key: "none",
 		label: "None (disable highlighting)",
 		legend: [],
-		resolver: () => undefined,
+		resolver: null,
 	},
 ];
 
@@ -997,7 +1001,12 @@ export const CellClassHighlighting: Story = {
 <script setup lang="ts">
 import { ref } from "vue";
 import VueHex from "vuehex";
-import type { VueHexCellClassResolver, VueHexWindowRequest } from "vuehex";
+import {
+	DEFAULT_ASCII_CATEGORY_CELL_CLASS_RESOLVER,
+	type VueHexCellClassResolver,
+	type VueHexCellClassResolverInput,
+	type VueHexWindowRequest,
+} from "vuehex";
 
 const fileSize = 4 * 1024 * 1024;
 const windowData = ref(new Uint8Array());
@@ -1018,11 +1027,11 @@ function getSelectionData(selectionStart: number, selectionEnd: number) {
 	return readBytes(from, to - from + 1);
 }
 
-// Disable highlighting completely.
-// const cellClassForByte: VueHexCellClassResolver = () => undefined;
+// Disable all highlighting (including the built-in ASCII categories).
+// const cellClassForByte: VueHexCellClassResolverInput | null = null;
 
-// Or: customize freely (example highlights row start/end bytes).
-const cellClassForByte: VueHexCellClassResolver = ({ index }) => {
+// Keep the built-in ASCII categories AND add custom classes.
+const customHighlight: VueHexCellClassResolver = ({ index }) => {
 	if (index % 16 === 0) {
 		return "my-row-start";
 	}
@@ -1031,6 +1040,12 @@ const cellClassForByte: VueHexCellClassResolver = ({ index }) => {
 	}
 	return undefined;
 };
+
+const cellClassForByte: VueHexCellClassResolverInput = [
+	DEFAULT_ASCII_CATEGORY_CELL_CLASS_RESOLVER,
+	customHighlight,
+];
+
 </script>`,
 			},
 		},
@@ -1041,7 +1056,7 @@ const cellClassForByte: VueHexCellClassResolver = ({ index }) => {
 			const windowLength = Math.max(1, (args.bytesPerRow ?? 16) * 40);
 			const controller = createVirtualDataController(windowLength);
 			const highlightEntries = HIGHLIGHT_PRESETS;
-			const highlightKey = ref<HighlightPresetKey>("asciiCategories");
+			const highlightKey = ref<HighlightPresetKey>("defaultCategories");
 			const activeHighlight = computed(
 				() =>
 					highlightEntries.find((entry) => entry.key === highlightKey.value) ??
@@ -1049,7 +1064,7 @@ const cellClassForByte: VueHexCellClassResolver = ({ index }) => {
 						key: "none",
 						label: "None (disable highlighting)",
 						legend: [],
-						resolver: () => "",
+						resolver: null,
 					},
 			);
 			const cellClassForByte = computed(() => activeHighlight.value.resolver);
@@ -1107,7 +1122,7 @@ const cellClassForByte: VueHexCellClassResolver = ({ index }) => {
 			          </li>
 			        </ul>
 			        <p v-else class="story-highlight-legend__empty">
-			          Highlighting disabled. Select "ASCII categories" to restore the default colors.
+					  Highlighting disabled. Select "Default ASCII categories" to restore the built-in colors.
 			        </p>
 			      </div>
 			    </div>

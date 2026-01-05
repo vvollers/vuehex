@@ -96,6 +96,43 @@ export type VueHexCellClassResolver = (
 ) => string | string[] | null | undefined;
 
 /**
+ * Accepts either a single cell class resolver or an ordered list of resolvers.
+ *
+ * When multiple resolvers are supplied, VueHex will call each resolver and merge
+ * the returned class names.
+ */
+export type VueHexCellClassResolverInput =
+	| VueHexCellClassResolver
+	| ReadonlyArray<VueHexCellClassResolver>;
+
+const VUEHEX_CATEGORY_DIGIT_CLASS = "vuehex-category-digit";
+const VUEHEX_CATEGORY_UPPERCASE_CLASS = "vuehex-category-uppercase";
+const VUEHEX_CATEGORY_LOWERCASE_CLASS = "vuehex-category-lowercase";
+const VUEHEX_CATEGORY_NULL_CLASS = "vuehex-category-null";
+
+/**
+ * Default per-byte cell classifier used by VueHex when `cellClassForByte` is not provided.
+ *
+ * Returns built-in category classes (`vuehex-category-*`) based on ASCII ranges.
+ */
+export const DEFAULT_ASCII_CATEGORY_CELL_CLASS_RESOLVER: VueHexCellClassResolver =
+	({ byte }) => {
+		if (byte >= 0x30 && byte <= 0x39) {
+			return VUEHEX_CATEGORY_DIGIT_CLASS;
+		}
+		if (byte >= 0x41 && byte <= 0x5a) {
+			return VUEHEX_CATEGORY_UPPERCASE_CLASS;
+		}
+		if (byte >= 0x61 && byte <= 0x7a) {
+			return VUEHEX_CATEGORY_LOWERCASE_CLASS;
+		}
+		if (byte === 0x00) {
+			return VUEHEX_CATEGORY_NULL_CLASS;
+		}
+		return undefined;
+	};
+
+/**
  * Default printable check for standard ASCII range (0x20-0x7E).
  */
 export const DEFAULT_PRINTABLE_CHECK: VueHexPrintableCheck = (byte) =>

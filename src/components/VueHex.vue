@@ -178,13 +178,18 @@ import { useStatusBar } from "./composables/useStatusBar";
 import type {
 	VueHexAsciiRenderer,
 	VueHexCellClassResolver,
+	VueHexCellClassResolverInput,
 	VueHexPrintableCheck,
 	VueHexStatusBarComponent,
 	VueHexStatusBarComponentName,
 	VueHexStatusBarLayout,
 	VueHexWindowRequest,
 } from "./vuehex-api";
-import { DEFAULT_ASCII_RENDERER, DEFAULT_PRINTABLE_CHECK } from "./vuehex-api";
+import {
+	DEFAULT_ASCII_CATEGORY_CELL_CLASS_RESOLVER,
+	DEFAULT_ASCII_RENDERER,
+	DEFAULT_PRINTABLE_CHECK,
+} from "./vuehex-api";
 import {
 	buildHexTableMarkup,
 	clampBytesPerRow,
@@ -195,27 +200,6 @@ import {
 const DEFAULT_ROW_HEIGHT = 24;
 /** Maximum height allowed before chunking kicks in to avoid huge scroll containers. */
 const MAX_VIRTUAL_HEIGHT = 8_000_000;
-
-const CATEGORY_DIGIT_CLASS = "vuehex-category-digit";
-const CATEGORY_UPPERCASE_CLASS = "vuehex-category-uppercase";
-const CATEGORY_LOWERCASE_CLASS = "vuehex-category-lowercase";
-const CATEGORY_NULL_CLASS = "vuehex-category-null";
-
-const defaultAsciiCategoryResolver: VueHexCellClassResolver = ({ byte }) => {
-	if (byte >= 0x30 && byte <= 0x39) {
-		return CATEGORY_DIGIT_CLASS;
-	}
-	if (byte >= 0x41 && byte <= 0x5a) {
-		return CATEGORY_UPPERCASE_CLASS;
-	}
-	if (byte >= 0x61 && byte <= 0x7a) {
-		return CATEGORY_LOWERCASE_CLASS;
-	}
-	if (byte === 0x00) {
-		return CATEGORY_NULL_CLASS;
-	}
-	return undefined;
-};
 
 interface VueHexProps {
 	/** v-model binding containing the currently visible window bytes. */
@@ -245,8 +229,15 @@ interface VueHexProps {
 	renderAscii?: VueHexAsciiRenderer;
 	/** Theme token appended to classes, enabling consumer-provided styling. */
 	theme?: string | null;
-	/** Hook for assigning classes per cell, useful for highlighting bytes of interest. */
-	cellClassForByte?: VueHexCellClassResolver | null;
+	/**
+	 * Hook for assigning classes per cell, useful for highlighting bytes of interest.
+	 *
+	 * Pass an array to layer multiple resolvers; results are merged in order.
+	 *
+	 * When omitted/undefined, VueHex applies the built-in ASCII category highlighting.
+	 * To disable all highlighting, pass null.
+	 */
+	cellClassForByte?: VueHexCellClassResolverInput | null;
 	/**
 	 * Optional selection provider used for clipboard copy.
 	 * Should return the raw bytes between selectionStart and selectionEnd (inclusive).
@@ -522,10 +513,37 @@ const { handlePointerOver, handlePointerOut, clearHoverState } =
 const effectiveCellClassResolver = computed<
 	VueHexCellClassResolver | undefined
 >(() => {
-	if (props.cellClassForByte !== undefined) {
-		return props.cellClassForByte ?? undefined;
+	const input = props.cellClassForByte;
+	if (input === undefined) {
+		return DEFAULT_ASCII_CATEGORY_CELL_CLASS_RESOLVER;
 	}
-	return defaultAsciiCategoryResolver;
+	if (input === null) {
+		return undefined;
+	}
+	if (Array.isArray(input)) {
+		const resolvers = input.filter(
+			(resolver): resolver is VueHexCellClassResolver =>
+				typeof resolver === "function",
+		);
+		if (resolvers.length === 0) {
+			return undefined;
+		}
+		return (payload) => {
+			const merged: Array<string | string[]> = [];
+			for (const resolver of resolvers) {
+				const resolved = resolver(payload);
+				if (resolved == null) {
+					continue;
+				}
+				merged.push(resolved);
+			}
+			if (merged.length === 0) {
+				return undefined;
+			}
+			return merged.flat();
+		};
+	}
+	return input;
 });
 
 /** Virtual window utilities that coordinate data requests and markup rendering. */

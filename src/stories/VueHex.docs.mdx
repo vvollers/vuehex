@@ -118,8 +118,31 @@ type HoverPayload = { index: number };
 Tips:
 
 - `total-size` alone is enough for proportional chunk bars, but setting `showChunkNavigator` makes your intent explicit.
-- Return any class name from `cellClassForByte` to highlight ranges, search hits, or diffs. The story uses `story-byte--active` as an example.
+- Return any class name from `cellClassForByte` to highlight ranges, search hits, or diffs.
+- `cellClassForByte` can also be an array of resolvers, allowing you to layer multiple rules without re-implementing existing ones.
 - Hover payloads are absolute file offsets, so consumers never have to add the current `windowOffset`.
+
+### Layered highlighting
+
+VueHex ships with a default ASCII category highlighter (digits/uppercase/lowercase/null) that is used when you omit `cellClassForByte`.
+When you want to keep those defaults *and* add your own rules, pass an array:
+
+```ts
+import {
+  DEFAULT_ASCII_CATEGORY_CELL_CLASS_RESOLVER,
+  type VueHexCellClassResolver,
+} from "@/components/vuehex-api";
+
+const customHighlight: VueHexCellClassResolver = ({ index }) =>
+  index % 16 === 0 ? "my-row-start" : undefined;
+
+const cellClassForByte = [
+  DEFAULT_ASCII_CATEGORY_CELL_CLASS_RESOLVER,
+  customHighlight,
+];
+```
+
+To disable all highlighting (including the defaults), pass `null`.
 
 <Canvas of={VueHexStories.ChunkNavigatorHover} />
 
