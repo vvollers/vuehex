@@ -241,6 +241,49 @@ function createThemeStory(variant: ThemeVariant): Story {
 export const VirtualBinding: Story = {
 	name: "Virtual data",
 	args: {},
+	parameters: {
+		docs: {
+			source: {
+				language: "vue",
+				code: `<template>
+  <VueHex
+    v-model="windowData"
+    :window-offset="windowOffset"
+    :total-size="fileSize"
+    :get-selection-data="getSelectionData"
+    style="height: 320px"
+    @updateVirtualData="handleUpdateVirtualData"
+  />
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import VueHex from "vuehex";
+import type { VueHexWindowRequest } from "vuehex";
+
+const fileSize = 4 * 1024 * 1024;
+const windowData = ref(new Uint8Array());
+const windowOffset = ref(0);
+
+function readBytes(offset: number, length: number): Uint8Array {
+  // Load bytes from disk / HTTP range / IndexedDB...
+  return new Uint8Array(length);
+}
+
+function handleUpdateVirtualData(payload: VueHexWindowRequest) {
+  windowOffset.value = payload.offset;
+  windowData.value = readBytes(payload.offset, payload.length ?? 0x4000);
+}
+
+function getSelectionData(selectionStart: number, selectionEnd: number) {
+  const from = Math.min(selectionStart, selectionEnd);
+  const to = Math.max(selectionStart, selectionEnd);
+  return readBytes(from, to - from + 1);
+}
+</script>`,
+			},
+		},
+	},
 	render: (args) => ({
 		components: { VueHex },
 		setup() {
@@ -281,6 +324,24 @@ export const VirtualBinding: Story = {
 export const SelfManagedDataset: Story = {
 	name: "Self-managed data",
 	args: {},
+	parameters: {
+		docs: {
+			source: {
+				language: "vue",
+				code: `<template>
+  <VueHex v-model="fullData" style="height: 320px" />
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import VueHex from "vuehex";
+
+// Provide the full buffer; VueHex will virtualize rows internally.
+const fullData = ref(new Uint8Array(await file.arrayBuffer()));
+</script>`,
+			},
+		},
+	},
 	render: (args) => ({
 		components: { VueHex },
 		setup() {
@@ -354,6 +415,35 @@ export const StatusBarLayouts: Story = {
 	name: "Status bar layouts",
 	args: {
 		statusbar: "bottom",
+	},
+	parameters: {
+		docs: {
+			source: {
+				language: "vue",
+				code: `<template>
+  <VueHex
+    v-model="data"
+    statusbar="bottom"
+    :statusbar-layout="layout"
+    style="height: 260px"
+  />
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import VueHex from "vuehex";
+import type { VueHexStatusBarLayout } from "vuehex";
+
+const data = ref(new Uint8Array(await file.arrayBuffer()));
+
+const layout: VueHexStatusBarLayout = {
+  left: [{ name: "offset", config: { format: "hex", pad: 8 } }, "hex"],
+  middle: [{ name: "ascii", config: { quote: true } }],
+  right: [{ name: "selection", config: { label: "Sel" } }],
+};
+</script>`,
+			},
+		},
 	},
 	render: (args) => ({
 		components: { VueHex },
@@ -431,6 +521,48 @@ export const StatusBarSlots: Story = {
 	name: "Status bar slots",
 	args: {
 		statusbar: "bottom",
+	},
+	parameters: {
+		docs: {
+			source: {
+				language: "vue",
+				code: `<template>
+	<VueHex
+		v-model="data"
+		statusbar="bottom"
+		:statusbar-layout="layout"
+		style="height: 260px"
+	>
+		<template #statusbar-left>
+			<span>Mode: RO</span>
+		</template>
+
+		<template #statusbar-middle>
+			<span>View: Hex</span>
+		</template>
+
+		<template #statusbar-right>
+			<span>Endian: LE</span>
+		</template>
+	</VueHex>
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import VueHex from "vuehex";
+import type { VueHexStatusBarLayout } from "vuehex";
+
+const data = ref(new Uint8Array(await file.arrayBuffer()));
+
+// Place "slot" anywhere in the arrays to control relative order.
+const layout: VueHexStatusBarLayout = {
+	left: ["offset", "slot", "hex"],
+	middle: ["ascii", "slot"],
+	right: ["selection", "slot"],
+};
+</script>`,
+			},
+		},
 	},
 	render: (args) => ({
 		components: { VueHex },
@@ -705,6 +837,67 @@ export const ChunkNavigatorHover: Story = {
 	args: {
 		showChunkNavigator: true,
 		chunkNavigatorPlacement: "left",
+	},
+	parameters: {
+		docs: {
+			source: {
+				language: "vue",
+				code: `<template>
+	<VueHex
+		v-model="windowData"
+		:window-offset="windowOffset"
+		:total-size="fileSize"
+		:get-selection-data="getSelectionData"
+		:show-chunk-navigator="true"
+		chunk-navigator-placement="left"
+		:cell-class-for-byte="cellClassForByte"
+		style="height: 360px"
+		@updateVirtualData="handleUpdateVirtualData"
+		@hex-hover-on="handleHover"
+		@hex-hover-off="clearHover"
+		@ascii-hover-on="handleHover"
+		@ascii-hover-off="clearHover"
+	/>
+</template>
+
+<script setup lang="ts">
+import { computed, ref } from "vue";
+import VueHex from "vuehex";
+import type { VueHexCellClassResolver, VueHexWindowRequest } from "vuehex";
+
+const fileSize = 4 * 1024 * 1024;
+const windowData = ref(new Uint8Array());
+const windowOffset = ref(0);
+const hoverIndex = ref<number | null>(null);
+
+function readBytes(offset: number, length: number): Uint8Array {
+	return new Uint8Array(length);
+}
+
+function handleUpdateVirtualData(payload: VueHexWindowRequest) {
+	windowOffset.value = payload.offset;
+	windowData.value = readBytes(payload.offset, payload.length ?? 0x4000);
+}
+
+function getSelectionData(selectionStart: number, selectionEnd: number) {
+	const from = Math.min(selectionStart, selectionEnd);
+	const to = Math.max(selectionStart, selectionEnd);
+	return readBytes(from, to - from + 1);
+}
+
+function handleHover(payload: { index: number }) {
+	hoverIndex.value = payload.index;
+}
+
+function clearHover() {
+	hoverIndex.value = null;
+}
+
+const cellClassForByte: VueHexCellClassResolver = ({ index }) =>
+	hoverIndex.value === index ? "my-active-byte" : undefined;
+</script>`,
+			},
+		},
 	},
 	render: (args) => ({
 		components: { VueHex },
