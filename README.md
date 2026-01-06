@@ -27,6 +27,7 @@ app.mount("#app");
 VueHex now follows the familiar Vue data model pattern:
 
 - `v-model` carries the currently visible `Uint8Array` window.
+- `data-mode` controls whether `v-model` is a full buffer or a window (`auto` | `buffer` | `window`).
 - `window-offset` tells VueHex where that window belongs in the full file.
 - `total-size` declares the total byte length (defaults to the current window length).
 - `updateVirtualData` is emitted whenever VueHex needs a new slice.
@@ -35,6 +36,7 @@ VueHex now follows the familiar Vue data model pattern:
 <template>
   <VueHex
     v-model="windowData"
+		data-mode="window"
     :window-offset="windowOffset"
     :total-size="totalBytes"
     :bytes-per-row="16"
@@ -70,10 +72,10 @@ When VueHex needs different bytes it emits `updateVirtualData` with `{ offset, l
 
 ### Full data mode
 
-If you already have the entire `Uint8Array`, you can skip the virtual data handshake entirely. Omit `total-size` and don’t listen for `updateVirtualData`; just point `v-model` at the whole buffer. VueHex detects that everything is already in memory, stops emitting `updateVirtualData`, and virtualizes the scroll area on its own:
+If you already have the entire `Uint8Array`, you can skip the virtual data handshake entirely. Set `data-mode="buffer"` and point `v-model` at the whole buffer (or leave `data-mode` as `auto` and keep `window-offset` at 0 with the full buffer).
 
 ```vue
-<VueHex v-model="entireFile" :bytes-per-row="32" />
+<VueHex v-model="entireFile" data-mode="buffer" :bytes-per-row="32" />
 ```
 
 This mode is ideal for small/medium blobs (think editor previews or fixture files). For multi‑gigabyte datasets you’ll still want the virtual data contract so you can keep memory and scroll heights bounded.
@@ -178,6 +180,7 @@ VueHex also exports `VUE_HEX_ASCII_PRESETS` (`standard`, `latin1`, `visibleWhite
 ## Props
 
 - `modelValue` (**required via `v-model`**) – the currently visible `Uint8Array`.
+- `dataMode` / `data-mode` (default `auto`) – `auto | buffer | window`.
 - `expandToContent` / `expand-to-content` (default `false`) – disables internal scrolling/virtualization and expands the component height to fit the full buffer (expects the full data in `v-model`).
 - `windowOffset` (default `0`) – absolute start offset represented by `modelValue`.
 - `totalSize` – total bytes available; defaults to `modelValue.length` if omitted.

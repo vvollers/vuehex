@@ -8,11 +8,11 @@
 		>
 			<header class="vuehex-chunk-nav__header">
 				<span class="vuehex-chunk-nav__title">Chunks</span>
-				<span class="vuehex-chunk-nav__summary">{{ chunks.length }} chunks</span>
+				<span class="vuehex-chunk-nav__summary">{{ props.chunks.length }} chunks</span>
 			</header>
 			<div class="vuehex-chunk-list" role="listbox">
 				<button
-					v-for="chunk in chunks"
+					v-for="chunk in props.chunks"
 					:key="chunk.index"
 					type="button"
 					role="option"
@@ -63,7 +63,6 @@ const props = withDefaults(defineProps<VueHexChunkNavigatorProps>(), {
 
 const emit = defineEmits<(event: "select", index: number) => void>();
 
-const chunks = computed(() => props.chunks ?? []);
 const activeIndex = computed(() => Math.max(0, Math.trunc(props.activeIndex)));
 
 const placement = computed<ChunkNavigatorPlacement>(() => {
@@ -86,8 +85,8 @@ const isNavigatorVertical = computed(
 const shouldShow = computed(
 	() =>
 		Boolean(props.show) &&
-		Array.isArray(chunks.value) &&
-		chunks.value.length > 1,
+		Array.isArray(props.chunks) &&
+		props.chunks.length > 1,
 );
 
 const rootClass = computed(() => {
@@ -137,9 +136,4 @@ function handleChunkSelect(index: number) {
 	}
 	emit("select", Math.trunc(index));
 }
-
-defineExpose({
-	shouldShow,
-	chunkButtonClass,
-} satisfies Record<string, unknown>);
 </script>

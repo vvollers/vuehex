@@ -175,7 +175,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 		const targetRow = Math.floor(
 			normalized / Math.max(options.bytesPerRow.value, 1),
 		);
-		const chunkChanged = options.ensureChunkForRow(targetRow);
+		options.ensureChunkForRow(targetRow);
 
 		const relativeRow = targetRow - options.chunkStartRow.value;
 		const rowHeightPx = options.rowHeightValue.value;
@@ -184,11 +184,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 		}
 
 		pendingScrollByte.value = null;
-		if (chunkChanged) {
-			scheduleWindowEvaluation();
-		} else {
-			scheduleWindowEvaluation();
-		}
+		scheduleWindowEvaluation();
 	}
 
 	/**

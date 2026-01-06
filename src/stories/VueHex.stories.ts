@@ -200,6 +200,11 @@ const meta: Meta<typeof VueHex> = {
 	component: VueHex,
 	argTypes: {
 		modelValue: { control: false },
+		dataMode: {
+			name: "data-mode",
+			control: { type: "select" },
+			options: ["auto", "buffer", "window"],
+		},
 		expandToContent: {
 			name: "expand-to-content",
 			control: { type: "boolean" },
@@ -313,7 +318,7 @@ function getSelectionData(selectionStart: number, selectionEnd: number) {
 
 export const VirtualBinding: Story = {
 	name: "Virtual data",
-	args: {},
+	args: { dataMode: "window" },
 	parameters: {
 		docs: {
 			source: {
@@ -321,6 +326,7 @@ export const VirtualBinding: Story = {
 				code: `<template>
   <VueHex
     v-model="windowData"
+		data-mode="window"
     :window-offset="windowOffset"
     :total-size="fileSize"
     :get-selection-data="getSelectionData"
@@ -396,13 +402,13 @@ function getSelectionData(selectionStart: number, selectionEnd: number) {
 
 export const SelfManagedDataset: Story = {
 	name: "Self-managed data",
-	args: {},
+	args: { dataMode: "buffer" },
 	parameters: {
 		docs: {
 			source: {
 				language: "vue",
 				code: `<template>
-  <VueHex v-model="fullData" style="height: 320px" />
+  <VueHex v-model="fullData" data-mode="buffer" style="height: 320px" />
 </template>
 
 <script setup lang="ts">

@@ -53,12 +53,12 @@
 import type { CSSProperties } from "vue";
 import {
 	computed,
-	getCurrentInstance,
 	onBeforeUnmount,
 	onMounted,
 	ref,
 	watch,
 } from "vue";
+import { useChunking } from "./composables/useChunking";
 import { useCursor } from "./composables/useCursor";
 import { useHexWindow } from "./composables/useHexWindow";
 import { useHoverLinking } from "./composables/useHoverLinking";
@@ -80,9 +80,7 @@ import {
 } from "./vuehex-api";
 import {
 	buildHexTableMarkup,
-	clamp,
 	clampBytesPerRow,
-	formatOffsetPlain,
 	normalizeThemeKey,
 } from "./vuehex-utils";
 
@@ -94,6 +92,14 @@ const MAX_VIRTUAL_HEIGHT = 8_000_000;
 interface VueHexProps {
 	/** v-model binding containing the currently visible window bytes. */
 	modelValue: Uint8Array;
+	/**
+	 * Controls whether VueHex treats `v-model` as the full buffer or as a virtual window.
+	 *
+	 * - `auto` (default): infer based on `windowOffset` / `totalSize` vs `modelValue.length`.
+	 * - `buffer`: `v-model` is the entire dataset (no window requests).
+	 * - `window`: `v-model` is a slice; VueHex may emit `updateVirtualData`.
+	 */
+	dataMode?: "auto" | "buffer" | "window";
 	/**
 	 * When true, disables internal scrolling/virtualization and expands the component height
 	 * to fit the entire dataset.
@@ -158,6 +164,7 @@ interface VueHexProps {
 
 const props = withDefaults(defineProps<VueHexProps>(), {
 	modelValue: () => new Uint8Array(0),
+	dataMode: "auto",
 	expandToContent: false,
 	windowOffset: 0,
 	bytesPerRow: 16,
@@ -212,22 +219,23 @@ const totalBytes = computed(() => {
 	return bindingWindow.value.data.length;
 });
 
-const instance = getCurrentInstance();
-
-const hasUpdateVirtualDataListener = computed(() => {
-	const vnodeProps = instance?.vnode.props as
-		| Record<string, unknown>
-		| undefined;
-	const handler = vnodeProps?.onUpdateVirtualData;
-	if (Array.isArray(handler)) {
-		return handler.length > 0;
+const normalizedDataMode = computed<"auto" | "buffer" | "window">(() => {
+	const requested = props.dataMode ?? "auto";
+	if (requested === "buffer" || requested === "window" || requested === "auto") {
+		return requested;
 	}
-	return Boolean(handler);
+	return "auto";
 });
 
 const expectsExternalData = computed(() => {
 	if (isExpandToContent.value) {
 		return false;
+	}
+	if (normalizedDataMode.value === "buffer") {
+		return false;
+	}
+	if (normalizedDataMode.value === "window") {
+		return true;
 	}
 	const windowInfo = bindingWindow.value;
 	if (windowInfo.offset > 0) {
@@ -241,7 +249,7 @@ const expectsExternalData = computed(() => {
 	) {
 		return true;
 	}
-	return hasUpdateVirtualDataListener.value;
+	return false;
 });
 
 const isSelfManagedData = computed(() => !expectsExternalData.value);
@@ -333,118 +341,22 @@ const containerClass = computed(() => {
 /** Static class list for the table element. */
 const tableClass = computed(() => ["vuehex-table"]);
 
-/** Chunking state is owned by VueHex (navigator is UI-only). */
-const chunkStartRow = ref(0);
-
-const totalRows = computed(() => {
-	const total = totalBytes.value;
-	if (total <= 0) {
-		return 0;
-	}
-	return Math.ceil(total / Math.max(bytesPerRow.value, 1));
-});
-
-const chunkRowCapacity = computed(() => {
-	const maxHeight = effectiveMaxVirtualHeight.value;
-	if (!Number.isFinite(maxHeight) || maxHeight <= 0) {
-		return Number.POSITIVE_INFINITY;
-	}
-	const rowHeightPx = rowHeightValue.value;
-	if (!Number.isFinite(rowHeightPx) || rowHeightPx <= 0) {
-		return Number.POSITIVE_INFINITY;
-	}
-	const capacity = Math.floor(maxHeight / rowHeightPx);
-	return capacity > 0 ? capacity : Number.POSITIVE_INFINITY;
-});
-
-const isChunking = computed(() => {
-	const capacity = chunkRowCapacity.value;
-	return (
-		Number.isFinite(capacity) && capacity > 0 && totalRows.value > capacity
-	);
-});
-
-const chunkCount = computed(() => {
-	if (!isChunking.value) {
-		return 1;
-	}
-	return Math.max(1, Math.ceil(totalRows.value / chunkRowCapacity.value));
-});
-
-const activeChunkIndex = computed(() => {
-	if (!isChunking.value) {
-		return 0;
-	}
-	const capacity = chunkRowCapacity.value;
-	if (!Number.isFinite(capacity) || capacity <= 0) {
-		return 0;
-	}
-	return clamp(
-		Math.floor(Math.max(0, chunkStartRow.value) / capacity),
-		0,
-		Math.max(chunkCount.value - 1, 0),
-	);
-});
-
-const chunkRowCount = computed(() => {
-	const rows = totalRows.value;
-	if (rows <= 0) {
-		return 0;
-	}
-	if (!isChunking.value) {
-		return rows;
-	}
-	const capacity = chunkRowCapacity.value;
-	if (!Number.isFinite(capacity) || capacity <= 0) {
-		return rows;
-	}
-	const remaining = Math.max(rows - Math.max(0, chunkStartRow.value), 0);
-	return Math.min(remaining, capacity);
-});
-
-const chunkHeight = computed(() => {
-	const count = chunkRowCount.value;
-	if (count <= 0) {
-		return 0;
-	}
-	return count * rowHeightValue.value;
-});
-
-const chunkItems = computed(() => {
-	if (!props.showChunkNavigator || !isChunking.value) {
-		return [];
-	}
-	const rows = totalRows.value;
-	const capacity = chunkRowCapacity.value;
-	if (rows <= 0 || !Number.isFinite(capacity) || capacity <= 0) {
-		return [];
-	}
-	const bytesPer = Math.max(bytesPerRow.value, 1);
-	const totalByteCount = totalBytes.value;
-	const uppercase = Boolean(props.uppercase);
-	const items: Array<{ index: number; label: string; range: string }> = [];
-	for (let index = 0; index < chunkCount.value; index += 1) {
-		const startRow = index * capacity;
-		if (startRow >= rows) {
-			break;
-		}
-		const rowSpan = Math.min(capacity, rows - startRow);
-		const startByte = startRow * bytesPer;
-		const byteSpan = Math.min(
-			rowSpan * bytesPer,
-			Math.max(totalByteCount - startByte, 0),
-		);
-		const endByte = byteSpan > 0 ? startByte + byteSpan - 1 : startByte;
-		items.push({
-			index,
-			label: `Chunk ${index + 1}`,
-			range: `${formatOffsetPlain(
-				startByte,
-				uppercase,
-			)} – ${formatOffsetPlain(endByte, uppercase)}`,
-		});
-	}
-	return items;
+const {
+	chunkStartRow,
+	activeChunkIndex,
+	chunkRowCount,
+	chunkHeight,
+	chunkItems,
+	clampChunkStartToBounds,
+	ensureChunkForRow,
+	selectChunk,
+} = useChunking({
+	showNavigator: computed(() => Boolean(props.showChunkNavigator)),
+	totalBytes,
+	bytesPerRow,
+	rowHeightValue,
+	maxVirtualHeight: effectiveMaxVirtualHeight,
+	uppercase: computed(() => Boolean(props.uppercase)),
 });
 
 const rootClassExtra = computed(() => [...themeClass.value]);
@@ -469,64 +381,6 @@ const viewerClassExtra = computed(() => {
 	}
 	return classes;
 });
-
-function clampChunkStartToBounds() {
-	const rows = totalRows.value;
-	if (rows <= 0) {
-		chunkStartRow.value = 0;
-		return;
-	}
-	if (!isChunking.value) {
-		chunkStartRow.value = 0;
-		return;
-	}
-	const capacity = chunkRowCapacity.value;
-	const maxRowIndex = Math.max(rows - 1, 0);
-	const within = clamp(
-		Math.max(0, Math.trunc(chunkStartRow.value)),
-		0,
-		maxRowIndex,
-	);
-	if (!Number.isFinite(capacity) || capacity <= 0) {
-		chunkStartRow.value = within;
-		return;
-	}
-	chunkStartRow.value = clamp(
-		Math.floor(within / capacity) * capacity,
-		0,
-		maxRowIndex,
-	);
-}
-
-function ensureChunkForRow(row: number): boolean {
-	if (!Number.isFinite(row)) {
-		row = 0;
-	}
-	clampChunkStartToBounds();
-	if (!isChunking.value) {
-		return false;
-	}
-	const capacity = chunkRowCapacity.value;
-	if (!Number.isFinite(capacity) || capacity <= 0) {
-		return false;
-	}
-	const rows = totalRows.value;
-	if (rows <= 0) {
-		return false;
-	}
-	const maxRowIndex = Math.max(rows - 1, 0);
-	const normalizedRow = clamp(Math.floor(row), 0, maxRowIndex);
-	const desiredStart = clamp(
-		Math.floor(normalizedRow / capacity) * capacity,
-		0,
-		maxRowIndex,
-	);
-	if (desiredStart === chunkStartRow.value) {
-		return false;
-	}
-	chunkStartRow.value = desiredStart;
-	return true;
-}
 
 type VueHexStatusBarHandle = {
 	handleHoverEvent: (event: string, payload: unknown) => void;
@@ -710,24 +564,9 @@ const tableStyle = computed<CSSProperties>(() => {
 });
 
 function handleChunkSelect(index: number) {
-	if (!Number.isFinite(index)) {
+	if (!selectChunk(index)) {
 		return;
 	}
-	if (!isChunking.value) {
-		return;
-	}
-	const capacity = chunkRowCapacity.value;
-	if (!Number.isFinite(capacity) || capacity <= 0) {
-		return;
-	}
-	const rows = totalRows.value;
-	if (rows <= 0) {
-		return;
-	}
-	const maxRowIndex = Math.max(rows - 1, 0);
-	const maxChunkIndex = Math.max(chunkCount.value - 1, 0);
-	const nextIndex = clamp(Math.floor(index), 0, maxChunkIndex);
-	chunkStartRow.value = clamp(nextIndex * capacity, 0, maxRowIndex);
 	const container = containerEl.value;
 	if (container) {
 		container.scrollTop = 0;
@@ -752,26 +591,17 @@ watch(
 	{ immediate: true },
 );
 
-watch([totalBytes, bytesPerRow, viewportRows, overscanRows], () => {
+watch(
+	[totalBytes, bytesPerRow, viewportRows, overscanRows, effectiveMaxVirtualHeight],
+	() => {
 	clampChunkStartToBounds();
 	scheduleWindowEvaluation();
-});
+	},
+);
 
 watch(chunkStartRow, () => {
 	scheduleWindowEvaluation();
 });
-
-watch(chunkRowCount, () => {
-	scheduleWindowEvaluation();
-});
-
-watch(
-	() => effectiveMaxVirtualHeight.value,
-	() => {
-		clampChunkStartToBounds();
-		scheduleWindowEvaluation();
-	},
-);
 
 let resizeObserver: ResizeObserver | null = null;
 
@@ -808,9 +638,6 @@ onBeforeUnmount(() => {
 	if (tbody) {
 		tbody.removeEventListener("pointerover", handlePointerOver);
 		tbody.removeEventListener("pointerout", handlePointerOut);
-	}
-	const container = containerEl.value;
-	if (container) {
 	}
 
 	clearHoverState();
