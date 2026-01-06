@@ -1,33 +1,14 @@
 <template>
-  <div :class="rootClass">
-    <nav
-      v-if="shouldShowChunkNavigator"
-      :class="chunkNavigatorClass"
-      role="navigation"
-      aria-label="Chunk navigator"
-    >
-      <header class="vuehex-chunk-nav__header">
-        <span class="vuehex-chunk-nav__title">Chunks</span>
-        <span class="vuehex-chunk-nav__summary">
-          {{ chunkCount }} × {{ bytesPerRow }} bytes/row
-        </span>
-      </header>
-      <div class="vuehex-chunk-list" role="listbox">
-        <button
-          v-for="chunk in chunkItems"
-          :key="chunk.index"
-          type="button"
-          role="option"
-          :aria-selected="chunk.index === activeChunkIndex"
-          :class="chunkButtonClass(chunk.index)"
-          @click="handleChunkSelect(chunk.index)"
-        >
-          <span class="vuehex-chunk-item__label">{{ chunk.label }}</span>
-          <span class="vuehex-chunk-item__range">{{ chunk.range }}</span>
-        </button>
-      </div>
-    </nav>
-    <div :class="viewerClass">
+	<VueHexChunkNavigator
+		:show="props.showChunkNavigator"
+		:placement="props.chunkNavigatorPlacement"
+		:chunks="chunkItems"
+		:active-index="activeChunkIndex"
+		:root-class-extra="rootClassExtra"
+		:viewer-class-extra="viewerClassExtra"
+		:expand-to-content="isExpandToContent"
+		@select="handleChunkSelect"
+	>
 			<VueHexStatusBar
 				v-if="showStatusBar"
 				ref="statusBarRef"
@@ -65,8 +46,7 @@
           </table>
         </div>
       </div>
-    </div>
-  </div>
+	</VueHexChunkNavigator>
 </template>
 
 <script setup lang="ts">
@@ -79,11 +59,11 @@ import {
 	ref,
 	watch,
 } from "vue";
-import { useChunkNavigator } from "./composables/useChunkNavigator";
 import { useCursor } from "./composables/useCursor";
 import { useHexWindow } from "./composables/useHexWindow";
 import { useHoverLinking } from "./composables/useHoverLinking";
 import { useSelection } from "./composables/useSelection";
+import VueHexChunkNavigator from "./VueHexChunkNavigator.vue";
 import VueHexStatusBar from "./VueHexStatusBar.vue";
 import type {
 	VueHexAsciiRenderer,
@@ -100,7 +80,9 @@ import {
 } from "./vuehex-api";
 import {
 	buildHexTableMarkup,
+	clamp,
 	clampBytesPerRow,
+	formatOffsetPlain,
 	normalizeThemeKey,
 } from "./vuehex-utils";
 
@@ -351,41 +333,123 @@ const containerClass = computed(() => {
 /** Static class list for the table element. */
 const tableClass = computed(() => ["vuehex-table"]);
 
-/** Chunk navigation helpers that keep oversized datasets scrollable. */
-const {
-	chunkStartRow,
-	chunkRowCount,
-	chunkHeight,
-	chunkCount,
-	activeChunkIndex,
-	shouldShowChunkNavigator,
-	rootClass: rootClassBase,
-	chunkNavigatorClass: chunkNavigatorClassBase,
-	viewerClass: viewerClassBase,
-	chunkItems,
-	chunkButtonClass,
-	moveToChunk,
-	ensureChunkForRow,
-	clampChunkStartToBounds,
-} = useChunkNavigator({
-	props,
-	totalBytes,
-	bytesPerRow,
-	rowHeightValue,
-	containerEl,
-	maxVirtualHeight: effectiveMaxVirtualHeight,
-});
+/** Chunking state is owned by VueHex (navigator is UI-only). */
+const chunkStartRow = ref(0);
 
-const rootClass = computed(() => {
-	const classes = [...rootClassBase.value];
-	classes.push(...themeClass.value);
-	if (isExpandToContent.value) {
-		classes.push("vuehex-root--expand-to-content");
+const totalRows = computed(() => {
+	const total = totalBytes.value;
+	if (total <= 0) {
+		return 0;
 	}
-	return classes;
+	return Math.ceil(total / Math.max(bytesPerRow.value, 1));
 });
 
-const chunkNavigatorClass = computed(() => [...chunkNavigatorClassBase.value]);
+const chunkRowCapacity = computed(() => {
+	const maxHeight = effectiveMaxVirtualHeight.value;
+	if (!Number.isFinite(maxHeight) || maxHeight <= 0) {
+		return Number.POSITIVE_INFINITY;
+	}
+	const rowHeightPx = rowHeightValue.value;
+	if (!Number.isFinite(rowHeightPx) || rowHeightPx <= 0) {
+		return Number.POSITIVE_INFINITY;
+	}
+	const capacity = Math.floor(maxHeight / rowHeightPx);
+	return capacity > 0 ? capacity : Number.POSITIVE_INFINITY;
+});
+
+const isChunking = computed(() => {
+	const capacity = chunkRowCapacity.value;
+	return (
+		Number.isFinite(capacity) &&
+		capacity > 0 &&
+		totalRows.value > capacity
+	);
+});
+
+const chunkCount = computed(() => {
+	if (!isChunking.value) {
+		return 1;
+	}
+	return Math.max(1, Math.ceil(totalRows.value / chunkRowCapacity.value));
+});
+
+const activeChunkIndex = computed(() => {
+	if (!isChunking.value) {
+		return 0;
+	}
+	const capacity = chunkRowCapacity.value;
+	if (!Number.isFinite(capacity) || capacity <= 0) {
+		return 0;
+	}
+	return clamp(
+		Math.floor(Math.max(0, chunkStartRow.value) / capacity),
+		0,
+		Math.max(chunkCount.value - 1, 0),
+	);
+});
+
+const chunkRowCount = computed(() => {
+	const rows = totalRows.value;
+	if (rows <= 0) {
+		return 0;
+	}
+	if (!isChunking.value) {
+		return rows;
+	}
+	const capacity = chunkRowCapacity.value;
+	if (!Number.isFinite(capacity) || capacity <= 0) {
+		return rows;
+	}
+	const remaining = Math.max(rows - Math.max(0, chunkStartRow.value), 0);
+	return Math.min(remaining, capacity);
+});
+
+const chunkHeight = computed(() => {
+	const count = chunkRowCount.value;
+	if (count <= 0) {
+		return 0;
+	}
+	return count * rowHeightValue.value;
+});
+
+const chunkItems = computed(() => {
+	if (!props.showChunkNavigator || !isChunking.value) {
+		return [];
+	}
+	const rows = totalRows.value;
+	const capacity = chunkRowCapacity.value;
+	if (rows <= 0 || !Number.isFinite(capacity) || capacity <= 0) {
+		return [];
+	}
+	const bytesPer = Math.max(bytesPerRow.value, 1);
+	const totalByteCount = totalBytes.value;
+	const uppercase = Boolean(props.uppercase);
+	const items: Array<{ index: number; label: string; range: string }> = [];
+	for (let index = 0; index < chunkCount.value; index += 1) {
+		const startRow = index * capacity;
+		if (startRow >= rows) {
+			break;
+		}
+		const rowSpan = Math.min(capacity, rows - startRow);
+		const startByte = startRow * bytesPer;
+		const byteSpan = Math.min(
+			rowSpan * bytesPer,
+			Math.max(totalByteCount - startByte, 0),
+		);
+		const endByte = byteSpan > 0 ? startByte + byteSpan - 1 : startByte;
+		items.push({
+			index,
+			label: `Chunk ${index + 1}`,
+			range: `${formatOffsetPlain(
+				startByte,
+				uppercase,
+			)} – ${formatOffsetPlain(endByte, uppercase)}`,
+		});
+	}
+	return items;
+});
+
+const rootClassExtra = computed(() => [...themeClass.value]);
 
 const showStatusBar = computed(
 	() => props.statusbar === "top" || props.statusbar === "bottom",
@@ -395,8 +459,8 @@ const statusBarPlacement = computed(() =>
 	props.statusbar === "top" ? "top" : "bottom",
 );
 
-const viewerClass = computed(() => {
-	const classes = [...viewerClassBase.value];
+const viewerClassExtra = computed(() => {
+	const classes: string[] = [];
 	if (showStatusBar.value) {
 		classes.push("vuehex-viewer--with-statusbar");
 		classes.push(
@@ -407,6 +471,64 @@ const viewerClass = computed(() => {
 	}
 	return classes;
 });
+
+function clampChunkStartToBounds() {
+	const rows = totalRows.value;
+	if (rows <= 0) {
+		chunkStartRow.value = 0;
+		return;
+	}
+	if (!isChunking.value) {
+		chunkStartRow.value = 0;
+		return;
+	}
+	const capacity = chunkRowCapacity.value;
+	const maxRowIndex = Math.max(rows - 1, 0);
+	const within = clamp(
+		Math.max(0, Math.trunc(chunkStartRow.value)),
+		0,
+		maxRowIndex,
+	);
+	if (!Number.isFinite(capacity) || capacity <= 0) {
+		chunkStartRow.value = within;
+		return;
+	}
+	chunkStartRow.value = clamp(
+		Math.floor(within / capacity) * capacity,
+		0,
+		maxRowIndex,
+	);
+}
+
+function ensureChunkForRow(row: number): boolean {
+	if (!Number.isFinite(row)) {
+		row = 0;
+	}
+	clampChunkStartToBounds();
+	if (!isChunking.value) {
+		return false;
+	}
+	const capacity = chunkRowCapacity.value;
+	if (!Number.isFinite(capacity) || capacity <= 0) {
+		return false;
+	}
+	const rows = totalRows.value;
+	if (rows <= 0) {
+		return false;
+	}
+	const maxRowIndex = Math.max(rows - 1, 0);
+	const normalizedRow = clamp(Math.floor(row), 0, maxRowIndex);
+	const desiredStart = clamp(
+		Math.floor(normalizedRow / capacity) * capacity,
+		0,
+		maxRowIndex,
+	);
+	if (desiredStart === chunkStartRow.value) {
+		return false;
+	}
+	chunkStartRow.value = desiredStart;
+	return true;
+}
 
 type VueHexStatusBarHandle = {
 	handleHoverEvent: (event: string, payload: unknown) => void;
@@ -589,12 +711,29 @@ const tableStyle = computed<CSSProperties>(() => {
 	};
 });
 
-/** Responds to navigator button clicks by moving to the chosen chunk. */
 function handleChunkSelect(index: number) {
 	if (!Number.isFinite(index)) {
 		return;
 	}
-	moveToChunk(index);
+	if (!isChunking.value) {
+		return;
+	}
+	const capacity = chunkRowCapacity.value;
+	if (!Number.isFinite(capacity) || capacity <= 0) {
+		return;
+	}
+	const rows = totalRows.value;
+	if (rows <= 0) {
+		return;
+	}
+	const maxRowIndex = Math.max(rows - 1, 0);
+	const maxChunkIndex = Math.max(chunkCount.value - 1, 0);
+	const nextIndex = clamp(Math.floor(index), 0, maxChunkIndex);
+	chunkStartRow.value = clamp(nextIndex * capacity, 0, maxRowIndex);
+	const container = containerEl.value;
+	if (container) {
+		container.scrollTop = 0;
+	}
 	scheduleWindowEvaluation();
 }
 
@@ -617,6 +756,14 @@ watch(
 
 watch([totalBytes, bytesPerRow, viewportRows, overscanRows], () => {
 	clampChunkStartToBounds();
+	scheduleWindowEvaluation();
+});
+
+watch(chunkStartRow, () => {
+	scheduleWindowEvaluation();
+});
+
+watch(chunkRowCount, () => {
 	scheduleWindowEvaluation();
 });
 

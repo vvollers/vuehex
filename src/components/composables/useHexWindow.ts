@@ -248,7 +248,6 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 		if (data.length === 0) {
 			markup.value = "";
 			renderStartRow.value = Math.floor(windowStart / bytesPerRowValue);
-			options.chunkStartRow.value = 0;
 			options.clearHoverState();
 			return;
 		}
