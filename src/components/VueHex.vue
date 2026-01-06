@@ -360,9 +360,7 @@ const chunkRowCapacity = computed(() => {
 const isChunking = computed(() => {
 	const capacity = chunkRowCapacity.value;
 	return (
-		Number.isFinite(capacity) &&
-		capacity > 0 &&
-		totalRows.value > capacity
+		Number.isFinite(capacity) && capacity > 0 && totalRows.value > capacity
 	);
 });
 

@@ -61,9 +61,7 @@ const props = withDefaults(defineProps<VueHexChunkNavigatorProps>(), {
 	expandToContent: false,
 });
 
-const emit = defineEmits<{
-	(event: "select", index: number): void;
-}>();
+const emit = defineEmits<(event: "select", index: number) => void>();
 
 const chunks = computed(() => props.chunks ?? []);
 const activeIndex = computed(() => Math.max(0, Math.trunc(props.activeIndex)));
@@ -86,7 +84,10 @@ const isNavigatorVertical = computed(
 );
 
 const shouldShow = computed(
-	() => Boolean(props.show) && Array.isArray(chunks.value) && chunks.value.length > 1,
+	() =>
+		Boolean(props.show) &&
+		Array.isArray(chunks.value) &&
+		chunks.value.length > 1,
 );
 
 const rootClass = computed(() => {
