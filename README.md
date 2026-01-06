@@ -2,6 +2,56 @@
 
 VueHex is a virtualized hex viewer for Vue 3. It renders only the bytes that are currently visible and asks your application for new slices as people scroll, which keeps memory usage predictable even for multi‑gigabyte files.
 
+## How VueHex handles large files
+
+### Virtualization: Rendering what you see
+
+Traditional hex viewers render **all** rows in the DOM, which works fine for small files but quickly becomes unusable for large datasets. A 1 MB file with 16 bytes per row produces over 65,000 DOM nodes. A 100 MB file? 6.5 million nodes. Browsers slow to a crawl when manipulating or even keeping these trees in memory.
+
+VueHex solves this with **virtual scrolling**:
+
+1. **Calculate the full height** – VueHex computes how tall the entire table *would* be if every row were rendered (e.g., 65,000 rows × 24px = 1,560,000px).
+2. **Create a container of that height** – The scroll container's inner wrapper is sized to the full calculated height, so the scrollbar represents the entire dataset.
+3. **Render only visible rows** – As you scroll, VueHex calculates which rows are currently in the viewport (plus a small overscan buffer above/below) and renders **only** those rows.
+4. **Translate the table** – The rendered slice is positioned at the correct scroll offset using CSS `transform: translateY()` so it appears in the right place as you scroll.
+
+**Result:** Instead of 65,000 DOM nodes for a 1 MB file, VueHex renders ~50 rows (what fits on your screen + overscan). Scrolling through a 100 MB file feels instant because the browser only ever manages a tiny fraction of the data.
+
+### Chunking: Working around browser limits
+
+Browsers impose limits on element dimensions to prevent rendering engine crashes. Most modern browsers cap `max-height` at around **33,554,432 pixels** (Chrome/Edge) or **17,895,698 pixels** (Firefox). Once your calculated scroll container height exceeds this limit, virtualization breaks—the scrollbar becomes inaccurate, and you can't reach data beyond the cap.
+
+For a hex viewer with 16 bytes per row and 24px row height:
+- **Firefox limit:** ~746,000 rows = ~11.4 MB of data
+- **Chrome limit:** ~1.4 million rows = ~21.4 MB of data
+
+Files larger than these thresholds need **chunking**:
+
+1. **Divide the dataset into chunks** – VueHex splits the file into manageable pieces (e.g., 20,000 rows per chunk).
+2. **Render one chunk at a time** – The scroll container only represents the *current chunk*, keeping its height safely below browser limits.
+3. **Provide chunk navigation** – Users click through chunks via the optional chunk navigator UI, and VueHex resets the scroll position and loads the next slice of data.
+
+**Why this matters:**
+- Without chunking, a 100 MB file would require a scroll container **416 million pixels tall**—far beyond any browser's rendering capabilities.
+- With chunking (e.g., 10,000 rows per chunk = 240,000px per chunk), the same file becomes 6,400 navigable chunks, each comfortably under browser limits.
+
+**When chunking activates:**
+- VueHex automatically enables chunking when the calculated container height would exceed 8,000,000 pixels (a safe default below browser caps).
+- You can disable chunking by setting `expand-to-content` (which removes virtualization entirely and is only suitable for small, fully-loaded buffers) or by providing the full data in `data-mode="buffer"` for files under the auto-chunking threshold.
+
+### Virtual data windows
+
+Even with virtualization and chunking, loading a 4 GB file entirely into memory isn't practical. VueHex supports **windowed data mode**, where:
+
+1. Your application keeps the full file in a storage backend (disk, IndexedDB, HTTP server, etc.).
+2. You provide VueHex with only the **currently needed slice** via `v-model` (e.g., 100 KB around the visible rows).
+3. When VueHex needs different bytes (because the user scrolled or jumped to a new chunk), it emits `updateVirtualData` with `{ offset, length }`.
+4. Your application fetches the requested slice and updates `v-model` asynchronously.
+
+**Result:** VueHex can display terabyte-scale files while keeping browser memory usage under a few megabytes.
+
+---
+
 ## Installation
 
 ```bash
@@ -24,7 +74,7 @@ app.mount("#app");
 
 ## Quick start
 
-VueHex now follows the familiar Vue data model pattern:
+VueHex follows the familiar Vue data model pattern:
 
 - `v-model` carries the currently visible `Uint8Array` window.
 - `data-mode` controls whether `v-model` is a full buffer or a window (`auto` | `buffer` | `window`).
@@ -36,7 +86,7 @@ VueHex now follows the familiar Vue data model pattern:
 <template>
   <VueHex
     v-model="windowData"
-		data-mode="window"
+    data-mode="window"
     :window-offset="windowOffset"
     :total-size="totalBytes"
     :bytes-per-row="16"
@@ -55,13 +105,13 @@ const windowOffset = ref(0);
 const windowData = ref(backingFile.slice(0, 16 * 48));
 
 function handleUpdateVirtualData(request: VueHexWindowRequest) {
-	const offset = Math.max(0, Math.min(request.offset, totalBytes));
-	const length = Math.max(
-		0,
-		Math.min(request.length, totalBytes - offset),
-	);
-	windowOffset.value = offset;
-	windowData.value = backingFile.slice(offset, offset + length);
+    const offset = Math.max(0, Math.min(request.offset, totalBytes));
+    const length = Math.max(
+        0,
+        Math.min(request.length, totalBytes - offset),
+    );
+    windowOffset.value = offset;
+    windowData.value = backingFile.slice(offset, offset + length);
 }
 </script>
 ```
@@ -78,11 +128,11 @@ If you already have the entire `Uint8Array`, you can skip the virtual data hands
 <VueHex v-model="entireFile" data-mode="buffer" :bytes-per-row="32" />
 ```
 
-This mode is ideal for small/medium blobs (think editor previews or fixture files). For multi‑gigabyte datasets you’ll still want the virtual data contract so you can keep memory and scroll heights bounded.
+This mode is ideal for small/medium blobs (think editor previews or fixture files). For multi‑gigabyte datasets you'll still want the virtual data contract so you can keep memory and scroll heights bounded.
 
 ### Expand-to-content mode
 
-If you don’t want VueHex to create its own scroll container, enable `expand-to-content`. In this mode the component grows to fit the rendered rows, so scrolling happens in the parent/page instead.
+If you don't want VueHex to create its own scroll container, enable `expand-to-content`. In this mode the component grows to fit the rendered rows, so scrolling happens in the parent/page instead.
 
 - No internal scrolling
 - No virtualization / window requests
@@ -100,12 +150,12 @@ Responding to `updateVirtualData` can be asynchronous—just update `windowOffse
 
 ```ts
 async function handleUpdateVirtualData(request: VueHexWindowRequest) {
-	const response = await fetch(
-		`/api/blob?offset=${request.offset}&length=${request.length}`,
-	);
-	const arrayBuffer = await response.arrayBuffer();
-	windowOffset.value = request.offset;
-	windowData.value = new Uint8Array(arrayBuffer);
+    const response = await fetch(
+        `/api/blob?offset=${request.offset}&length=${request.length}`,
+    );
+    const arrayBuffer = await response.arrayBuffer();
+    windowOffset.value = request.offset;
+    windowData.value = new Uint8Array(arrayBuffer);
 }
 ```
 
@@ -147,18 +197,18 @@ VueHex emits enter/leave events for rows, hex cells, and ASCII cells so you can 
 
 ```vue
 <VueHex
-	v-model="windowData"
-	:window-offset="windowOffset"
-	@hex-hover-on="handleHexEnter"
-	@hex-hover-off="handleHexLeave"
+    v-model="windowData"
+    :window-offset="windowOffset"
+    @hex-hover-on="handleHexEnter"
+    @hex-hover-off="handleHexLeave"
 />
 
 function handleHexEnter(payload: { index: number; byte: number }) {
-	tooltip.open({ byteOffset: payload.index, value: payload.byte });
+    tooltip.open({ byteOffset: payload.index, value: payload.byte });
 }
 
 function handleHexLeave() {
-	tooltip.close();
+    tooltip.close();
 }
 ```
 
@@ -168,10 +218,10 @@ The ASCII pane renders characters in the standard printable range (`0x20`–`0x7
 
 ```vue
 <VueHex
-	v-model="windowData"
-	:window-offset="windowOffset"
-	:is-printable="(byte) => byte >= 0x30 && byte <= 0x39"
-	:render-ascii="(byte) => `[${String.fromCharCode(byte)}]`"
+    v-model="windowData"
+    :window-offset="windowOffset"
+    :is-printable="(byte) => byte >= 0x30 && byte <= 0x39"
+    :render-ascii="(byte) => `[${String.fromCharCode(byte)}]`"
 />
 ```
 
