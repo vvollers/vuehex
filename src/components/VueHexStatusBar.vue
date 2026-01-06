@@ -220,6 +220,20 @@ const effectiveStatusBarLayout = computed<VueHexStatusBarLayout>(() => {
 	};
 });
 
+// Compute structure once (only when layout changes)
+const itemsStructure = computed(() => {
+	const normalize = (section: StatusBarSectionKey) => {
+		return (effectiveStatusBarLayout.value[section] ?? [])
+			.map(normalizeStatusBarComponent)
+			.filter((c): c is NormalizedStatusBarComponent => c !== null);
+	};
+	return {
+		left: normalize("left"),
+		middle: normalize("middle"),
+		right: normalize("right"),
+	};
+});
+
 function isBuiltInStatusBarName(
 	name: string,
 ): name is VueHexStatusBarComponentName {
@@ -449,20 +463,12 @@ function renderStatusBarItem(
 function renderStatusBarSection(
 	section: StatusBarSectionKey,
 ): RenderedStatusBarItem[] {
-	const items = effectiveStatusBarLayout.value[section] ?? [];
-	const rendered: RenderedStatusBarItem[] = [];
-	items.forEach((entry, index) => {
-		const normalized = normalizeStatusBarComponent(entry);
-		if (!normalized) {
-			return;
-		}
-		const key = `${section}-${index}-${normalized.name}`;
-		const item = renderStatusBarItem(normalized, section, key);
-		if (item) {
-			rendered.push(item);
-		}
-	});
-	return rendered;
+	const items = itemsStructure.value[section];
+	return items
+		.map((component, index) =>
+			renderStatusBarItem(component, section, `${section}-${index}`),
+		)
+		.filter((item): item is RenderedStatusBarItem => item !== null);
 }
 
 const statusBarItems = computed(() => ({

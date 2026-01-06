@@ -16,7 +16,7 @@
 					:key="chunk.index"
 					type="button"
 					role="option"
-					:aria-selected="chunk.index === normalizedActiveIndex"
+					:aria-selected="chunk.index === clampedActiveIndex"
 					:class="chunkButtonClass(chunk.index)"
 					@click="handleChunkSelect(chunk.index)"
 				>
@@ -63,7 +63,7 @@ const props = withDefaults(defineProps<VueHexChunkNavigatorProps>(), {
 
 const emit = defineEmits<(event: "select", index: number) => void>();
 
-const normalizedActiveIndex = computed(() =>
+const clampedActiveIndex = computed(() =>
 	Math.max(0, Math.trunc(props.activeIndex)),
 );
 
@@ -126,7 +126,7 @@ const viewerClass = computed(() => {
 
 function chunkButtonClass(index: number): string[] {
 	const classes = ["vuehex-chunk-item"];
-	if (index === normalizedActiveIndex.value) {
+	if (index === clampedActiveIndex.value) {
 		classes.push("vuehex-chunk-item--active");
 	}
 	return classes;

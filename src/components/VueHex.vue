@@ -51,9 +51,10 @@
 
 <script setup lang="ts">
 import type { CSSProperties } from "vue";
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, toRef, watch } from "vue";
 import { useChunking } from "./composables/useChunking";
 import { useCursor } from "./composables/useCursor";
+import { useDataMode } from "./composables/useDataMode";
 import { useHexWindow } from "./composables/useHexWindow";
 import { useHoverLinking } from "./composables/useHoverLinking";
 import { useSelection } from "./composables/useSelection";
@@ -83,6 +84,24 @@ const DEFAULT_ROW_HEIGHT = 24;
 /** Maximum height allowed before chunking kicks in to avoid huge scroll containers. */
 const MAX_VIRTUAL_HEIGHT = 8_000_000;
 
+/**
+ * VueHex - A performant, virtualized hex editor component for Vue 3.
+ *
+ * Supports three data modes:
+ * - `buffer`: Full dataset in `v-model` (no windowing)
+ * - `window`: Partial dataset in `v-model`, emits `updateVirtualData` for more
+ * - `auto`: Infers mode from `windowOffset` and `totalSize` props
+ *
+ * @example
+ * ```vue
+ * <VueHex
+ *   v-model="bytes"
+ *   :total-size="fileSize"
+ *   data-mode="window"
+ *   @update-virtual-data="loadWindow"
+ * />
+ * ```
+ */
 interface VueHexProps {
 	/** v-model binding containing the currently visible window bytes. */
 	modelValue: Uint8Array;
@@ -197,58 +216,31 @@ const normalizedWindowOffset = computed(() => {
 	return Math.max(0, Math.trunc(props.windowOffset ?? 0));
 });
 /** Provides easy access to the currently supplied window data. */
-const bindingWindow = computed(() => ({
+const currentWindow = computed(() => ({
 	offset: normalizedWindowOffset.value,
 	data: props.modelValue ?? new Uint8Array(0),
 }));
 /** Total bytes in the backing data; feeds navigation decisions. */
 const totalBytes = computed(() => {
 	if (isExpandToContent.value) {
-		return bindingWindow.value.data.length;
+		return currentWindow.value.data.length;
 	}
 	const provided = props.totalSize;
 	if (typeof provided === "number" && Number.isFinite(provided)) {
 		return Math.max(0, Math.trunc(provided));
 	}
-	return bindingWindow.value.data.length;
+	return currentWindow.value.data.length;
 });
 
-const normalizedDataMode = computed<"auto" | "buffer" | "window">(() => {
-	const requested = props.dataMode ?? "auto";
-	if (
-		requested === "buffer" ||
-		requested === "window" ||
-		requested === "auto"
-	) {
-		return requested;
-	}
-	return "auto";
+const { isWindowed, isSelfManaged } = useDataMode({
+	dataMode: toRef(props, "dataMode"),
+	isExpandToContent,
+	windowOffset: normalizedWindowOffset,
+	totalSize: toRef(props, "totalSize"),
+	dataLength: computed(() => currentWindow.value.data.length),
 });
 
-const expectsExternalData = computed(() => {
-	if (isExpandToContent.value || normalizedDataMode.value === "buffer") {
-		return false;
-	}
-	if (normalizedDataMode.value === "window") {
-		return true;
-	}
-	const windowInfo = bindingWindow.value;
-	if (windowInfo.offset > 0) {
-		return true;
-	}
-	const providedTotal = props.totalSize;
-	if (
-		typeof providedTotal === "number" &&
-		Number.isFinite(providedTotal) &&
-		providedTotal > windowInfo.data.length
-	) {
-		return true;
-	}
-	return false;
-});
-
-const isSelfManagedData = computed(() => !expectsExternalData.value);
-const shouldRequestVirtualData = computed(() => !isSelfManagedData.value);
+const shouldRequestVirtualData = computed(() => isWindowed.value);
 
 const uppercase = computed(() => Boolean(props.uppercase));
 const printableCheck = computed(
@@ -263,9 +255,7 @@ const effectiveMaxVirtualHeight = computed(() => {
 	if (isExpandToContent.value) {
 		return Number.POSITIVE_INFINITY;
 	}
-	return isSelfManagedData.value
-		? Number.POSITIVE_INFINITY
-		: MAX_VIRTUAL_HEIGHT;
+	return isSelfManaged.value ? Number.POSITIVE_INFINITY : MAX_VIRTUAL_HEIGHT;
 });
 
 /** Scroll container ref for virtualization math. */
@@ -402,9 +392,7 @@ const { handlePointerOver, handlePointerOut, clearHoverState } =
 		tbodyEl,
 	});
 
-const effectiveCellClassResolver = computed<
-	VueHexCellClassResolver | undefined
->(() => {
+const cellClassResolver = computed<VueHexCellClassResolver | undefined>(() => {
 	const input = props.cellClassForByte;
 	if (input === undefined) {
 		return DEFAULT_ASCII_CATEGORY_CELL_CLASS_RESOLVER;
@@ -466,11 +454,11 @@ const {
 	ensureChunkForRow,
 	clampChunkStartToBounds,
 	buildHexTableMarkup,
-	getWindowState: () => bindingWindow.value,
+	getWindowState: () => currentWindow.value,
 	getUppercase: () => uppercase.value,
 	getPrintableChecker: () => printableCheck.value,
 	getAsciiRenderer: () => asciiRenderer.value,
-	getCellClassResolver: () => effectiveCellClassResolver.value,
+	getCellClassResolver: () => cellClassResolver.value,
 	getNonPrintableChar: () => nonPrintableChar.value,
 	requestWindow: (request) => {
 		if (!shouldRequestVirtualData.value) {
@@ -486,9 +474,9 @@ const { selectionEnabled, selectionRange, selectionCount } = useSelection({
 	tbodyEl,
 	markup,
 	getSelectionDataProp: () => props.getSelectionData,
-	isSelfManagedData,
+	isSelfManagedData: isSelfManaged,
 	totalBytes,
-	getSelfManagedBytes: () => bindingWindow.value.data,
+	getSelfManagedBytes: () => currentWindow.value.data,
 	getUppercase: () => uppercase.value,
 	getPrintableChecker: () => printableCheck.value,
 	getAsciiRenderer: () => asciiRenderer.value,
@@ -582,14 +570,14 @@ function handleChunkSelect(index: number) {
 
 watch(
 	() => ({
-		data: bindingWindow.value.data,
-		offset: bindingWindow.value.offset,
+		data: currentWindow.value.data,
+		offset: currentWindow.value.offset,
 		bytesPerRow: bytesPerRow.value,
 		uppercase: props.uppercase,
 		nonPrintableChar: props.nonPrintableChar,
 		isPrintable: props.isPrintable,
 		renderAscii: props.renderAscii,
-		cellClassForByte: effectiveCellClassResolver.value,
+		cellClassForByte: cellClassResolver.value,
 	}),
 	() => {
 		updateFromWindowState();
@@ -604,16 +592,13 @@ watch(
 		viewportRows,
 		overscanRows,
 		effectiveMaxVirtualHeight,
+		chunkStartRow,
 	],
 	() => {
 		clampChunkStartToBounds();
 		scheduleWindowEvaluation();
 	},
 );
-
-watch(chunkStartRow, () => {
-	scheduleWindowEvaluation();
-});
 
 let resizeObserver: ResizeObserver | null = null;
 
@@ -639,7 +624,7 @@ onMounted(() => {
 		tbody.addEventListener("pointerout", handlePointerOut);
 	}
 
-	queueScrollToOffset(bindingWindow.value.offset);
+	queueScrollToOffset(currentWindow.value.offset);
 });
 
 onBeforeUnmount(() => {
@@ -655,5 +640,8 @@ onBeforeUnmount(() => {
 	clearHoverState();
 });
 
-defineExpose({ scrollToByte });
+defineExpose({
+	scrollToByte,
+	selectChunk,
+});
 </script>

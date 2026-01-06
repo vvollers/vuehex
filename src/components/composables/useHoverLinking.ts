@@ -44,6 +44,11 @@ export function useHoverLinking(
 	const linkedHighlightIndex = ref<number | null>(null);
 
 	/**
+	 * RAF handle for debounced hover class application.
+	 */
+	let rafHandle: number | null = null;
+
+	/**
 	 * Pointer-enter handler for the tbody; delegates to element-specific hover logic.
 	 */
 	function handlePointerOver(event: PointerEvent) {
@@ -272,6 +277,7 @@ export function useHoverLinking(
 
 	/**
 	 * Applies CSS classes to both hex and ASCII cells that share the same absolute byte index.
+	 * Debounced via requestAnimationFrame to prevent excessive DOM updates.
 	 */
 	function applyLinkedHighlight(index: number) {
 		if (!Number.isFinite(index) || index < 0) {
@@ -282,22 +288,39 @@ export function useHoverLinking(
 			return;
 		}
 
-		clearLinkedHighlight();
-
-		const tbody = options.tbodyEl.value;
-		if (!tbody) {
-			linkedHighlightIndex.value = index;
-			return;
+		// Cancel any pending highlight application
+		if (rafHandle !== null) {
+			if (typeof window !== "undefined" && window.cancelAnimationFrame) {
+				window.cancelAnimationFrame(rafHandle);
+			}
+			rafHandle = null;
 		}
 
-		const selector =
-			`[data-hex-index="${index}"]` + `, [data-ascii-index="${index}"]`;
-		const elements = tbody.querySelectorAll<HTMLElement>(selector);
-		elements.forEach((el) => {
-			el.classList.add("vuehex-linked-hover");
-		});
+		const applyHighlight = () => {
+			rafHandle = null;
+			clearLinkedHighlight();
 
-		linkedHighlightIndex.value = index;
+			const tbody = options.tbodyEl.value;
+			if (!tbody) {
+				linkedHighlightIndex.value = index;
+				return;
+			}
+
+			const selector =
+				`[data-hex-index="${index}"]` + `, [data-ascii-index="${index}"]`;
+			const elements = tbody.querySelectorAll<HTMLElement>(selector);
+			elements.forEach((el) => {
+				el.classList.add("vuehex-linked-hover");
+			});
+
+			linkedHighlightIndex.value = index;
+		};
+
+		if (typeof window !== "undefined" && window.requestAnimationFrame) {
+			rafHandle = window.requestAnimationFrame(applyHighlight);
+		} else {
+			applyHighlight();
+		}
 	}
 
 	/**
@@ -326,6 +349,14 @@ export function useHoverLinking(
 	 * Clears all active hover state and notifies listeners that highlighting has ended.
 	 */
 	function clearHoverState() {
+		// Cancel any pending RAF
+		if (rafHandle !== null) {
+			if (typeof window !== "undefined" && window.cancelAnimationFrame) {
+				window.cancelAnimationFrame(rafHandle);
+			}
+			rafHandle = null;
+		}
+
 		if (activeHex.value) {
 			options.emit("hex-hover-off", activeHex.value);
 			activeHex.value = null;
