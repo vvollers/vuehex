@@ -51,13 +51,7 @@
 
 <script setup lang="ts">
 import type { CSSProperties } from "vue";
-import {
-	computed,
-	onBeforeUnmount,
-	onMounted,
-	ref,
-	watch,
-} from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useChunking } from "./composables/useChunking";
 import { useCursor } from "./composables/useCursor";
 import { useHexWindow } from "./composables/useHexWindow";
@@ -221,7 +215,11 @@ const totalBytes = computed(() => {
 
 const normalizedDataMode = computed<"auto" | "buffer" | "window">(() => {
 	const requested = props.dataMode ?? "auto";
-	if (requested === "buffer" || requested === "window" || requested === "auto") {
+	if (
+		requested === "buffer" ||
+		requested === "window" ||
+		requested === "auto"
+	) {
 		return requested;
 	}
 	return "auto";
@@ -592,10 +590,16 @@ watch(
 );
 
 watch(
-	[totalBytes, bytesPerRow, viewportRows, overscanRows, effectiveMaxVirtualHeight],
+	[
+		totalBytes,
+		bytesPerRow,
+		viewportRows,
+		overscanRows,
+		effectiveMaxVirtualHeight,
+	],
 	() => {
-	clampChunkStartToBounds();
-	scheduleWindowEvaluation();
+		clampChunkStartToBounds();
+		scheduleWindowEvaluation();
 	},
 );
 
