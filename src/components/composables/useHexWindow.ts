@@ -16,7 +16,6 @@ export interface HexWindowOptions {
 	bytesPerRow: ComputedRef<number>;
 	rowHeight: Ref<number | null>;
 	rowHeightValue: ComputedRef<number>;
-	containerHeight: Ref<number>;
 	viewportRows: ComputedRef<number>;
 	overscanRows: ComputedRef<number>;
 	chunkStartRow: Ref<number>;
@@ -125,6 +124,29 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 	}
 
 	/**
+	 * Applies scrollTop to bring an absolute byte offset into view.
+	 * Returns false when prerequisites are missing (e.g. container ref).
+	 */
+	function scrollContainerToByte(offset: number): boolean {
+		const container = options.containerEl.value;
+		if (!container) {
+			return false;
+		}
+
+		const bytesPerRowValue = Math.max(options.bytesPerRow.value, 1);
+		const targetRow = Math.floor(offset / bytesPerRowValue);
+		options.ensureChunkForRow(targetRow);
+
+		const relativeRow = targetRow - options.chunkStartRow.value;
+		const rowHeightPx = options.rowHeightValue.value;
+		if (rowHeightPx > 0) {
+			container.scrollTop = Math.max(relativeRow * rowHeightPx, 0);
+		}
+
+		return true;
+	}
+
+	/**
 	 * Defers expensive recalculations until the next animation frame, coalescing scroll events.
 	 */
 	function scheduleWindowEvaluation() {
@@ -133,12 +155,22 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 		}
 
 		pendingScrollCheck.value = true;
-		requestAnimationFrame(() => {
+		const hasRaf =
+			typeof window !== "undefined" &&
+			typeof window.requestAnimationFrame === "function";
+
+		const run = () => {
 			pendingScrollCheck.value = false;
 			applyPendingScroll();
 			updateRenderedSlice();
 			evaluateWindowRequest();
-		});
+		};
+
+		if (hasRaf) {
+			window.requestAnimationFrame(run);
+		} else {
+			nextTick(run);
+		}
 	}
 
 	/**
@@ -165,22 +197,10 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 		}
 
 		const normalized = Math.max(0, Math.trunc(offset));
-
-		const container = options.containerEl.value;
-		if (!container) {
+		const applied = scrollContainerToByte(normalized);
+		if (!applied) {
 			queueScrollToOffset(normalized);
 			return;
-		}
-
-		const targetRow = Math.floor(
-			normalized / Math.max(options.bytesPerRow.value, 1),
-		);
-		options.ensureChunkForRow(targetRow);
-
-		const relativeRow = targetRow - options.chunkStartRow.value;
-		const rowHeightPx = options.rowHeightValue.value;
-		if (rowHeightPx > 0) {
-			container.scrollTop = Math.max(relativeRow * rowHeightPx, 0);
 		}
 
 		pendingScrollByte.value = null;
@@ -194,21 +214,9 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 		if (pendingScrollByte.value == null) {
 			return;
 		}
-
-		const container = options.containerEl.value;
-		if (!container) {
+		const pending = pendingScrollByte.value;
+		if (!scrollContainerToByte(pending)) {
 			return;
-		}
-
-		const targetRow = Math.floor(
-			pendingScrollByte.value / Math.max(options.bytesPerRow.value, 1),
-		);
-		options.ensureChunkForRow(targetRow);
-
-		const relativeRow = targetRow - options.chunkStartRow.value;
-		const rowHeightPx = options.rowHeightValue.value;
-		if (rowHeightPx > 0) {
-			container.scrollTop = Math.max(relativeRow * rowHeightPx, 0);
 		}
 		pendingScrollByte.value = null;
 	}

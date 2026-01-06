@@ -226,10 +226,7 @@ const normalizedDataMode = computed<"auto" | "buffer" | "window">(() => {
 });
 
 const expectsExternalData = computed(() => {
-	if (isExpandToContent.value) {
-		return false;
-	}
-	if (normalizedDataMode.value === "buffer") {
+	if (isExpandToContent.value || normalizedDataMode.value === "buffer") {
 		return false;
 	}
 	if (normalizedDataMode.value === "window") {
@@ -252,6 +249,16 @@ const expectsExternalData = computed(() => {
 
 const isSelfManagedData = computed(() => !expectsExternalData.value);
 const shouldRequestVirtualData = computed(() => !isSelfManagedData.value);
+
+const uppercase = computed(() => Boolean(props.uppercase));
+const printableCheck = computed(
+	() => props.isPrintable ?? DEFAULT_PRINTABLE_CHECK,
+);
+const asciiRenderer = computed(
+	() => props.renderAscii ?? DEFAULT_ASCII_RENDERER,
+);
+const nonPrintableChar = computed(() => props.nonPrintableChar ?? ".");
+
 const effectiveMaxVirtualHeight = computed(() => {
 	if (isExpandToContent.value) {
 		return Number.POSITIVE_INFINITY;
@@ -354,7 +361,7 @@ const {
 	bytesPerRow,
 	rowHeightValue,
 	maxVirtualHeight: effectiveMaxVirtualHeight,
-	uppercase: computed(() => Boolean(props.uppercase)),
+	uppercase,
 });
 
 const rootClassExtra = computed(() => [...themeClass.value]);
@@ -431,6 +438,8 @@ const effectiveCellClassResolver = computed<
 			return merged.flat();
 		};
 	}
+
+	return undefined;
 });
 
 /** Virtual window utilities that coordinate data requests and markup rendering. */
@@ -449,7 +458,6 @@ const {
 	bytesPerRow,
 	rowHeight,
 	rowHeightValue,
-	containerHeight,
 	viewportRows,
 	overscanRows,
 	chunkStartRow,
@@ -459,11 +467,11 @@ const {
 	clampChunkStartToBounds,
 	buildHexTableMarkup,
 	getWindowState: () => bindingWindow.value,
-	getUppercase: () => Boolean(props.uppercase),
-	getPrintableChecker: () => props.isPrintable ?? DEFAULT_PRINTABLE_CHECK,
-	getAsciiRenderer: () => props.renderAscii ?? DEFAULT_ASCII_RENDERER,
+	getUppercase: () => uppercase.value,
+	getPrintableChecker: () => printableCheck.value,
+	getAsciiRenderer: () => asciiRenderer.value,
 	getCellClassResolver: () => effectiveCellClassResolver.value,
-	getNonPrintableChar: () => props.nonPrintableChar ?? ".",
+	getNonPrintableChar: () => nonPrintableChar.value,
 	requestWindow: (request) => {
 		if (!shouldRequestVirtualData.value) {
 			return;
@@ -481,10 +489,10 @@ const { selectionEnabled, selectionRange, selectionCount } = useSelection({
 	isSelfManagedData,
 	totalBytes,
 	getSelfManagedBytes: () => bindingWindow.value.data,
-	getUppercase: () => Boolean(props.uppercase),
-	getPrintableChecker: () => props.isPrintable ?? DEFAULT_PRINTABLE_CHECK,
-	getAsciiRenderer: () => props.renderAscii ?? DEFAULT_ASCII_RENDERER,
-	getNonPrintableChar: () => props.nonPrintableChar ?? ".",
+	getUppercase: () => uppercase.value,
+	getPrintableChecker: () => printableCheck.value,
+	getAsciiRenderer: () => asciiRenderer.value,
+	getNonPrintableChar: () => nonPrintableChar.value,
 });
 
 const cursorEnabled = computed(() => Boolean(props.cursor));

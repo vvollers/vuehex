@@ -16,7 +16,7 @@
 					:key="chunk.index"
 					type="button"
 					role="option"
-					:aria-selected="chunk.index === activeIndex"
+					:aria-selected="chunk.index === normalizedActiveIndex"
 					:class="chunkButtonClass(chunk.index)"
 					@click="handleChunkSelect(chunk.index)"
 				>
@@ -63,7 +63,9 @@ const props = withDefaults(defineProps<VueHexChunkNavigatorProps>(), {
 
 const emit = defineEmits<(event: "select", index: number) => void>();
 
-const activeIndex = computed(() => Math.max(0, Math.trunc(props.activeIndex)));
+const normalizedActiveIndex = computed(() =>
+	Math.max(0, Math.trunc(props.activeIndex)),
+);
 
 const placement = computed<ChunkNavigatorPlacement>(() => {
 	const requested = props.placement ?? "right";
@@ -78,7 +80,7 @@ const placement = computed<ChunkNavigatorPlacement>(() => {
 	}
 });
 
-const isNavigatorVertical = computed(
+const isStackedVertically = computed(
 	() => placement.value === "top" || placement.value === "bottom",
 );
 
@@ -96,7 +98,7 @@ const rootClass = computed(() => {
 	}
 	if (shouldShow.value) {
 		classes.push(
-			isNavigatorVertical.value
+			isStackedVertically.value
 				? "vuehex-root--vertical"
 				: "vuehex-root--horizontal",
 		);
@@ -124,7 +126,7 @@ const viewerClass = computed(() => {
 
 function chunkButtonClass(index: number): string[] {
 	const classes = ["vuehex-chunk-item"];
-	if (index === activeIndex.value) {
+	if (index === normalizedActiveIndex.value) {
 		classes.push("vuehex-chunk-item--active");
 	}
 	return classes;
