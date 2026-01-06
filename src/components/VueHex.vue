@@ -421,15 +421,18 @@ const themeKey = computed(() => {
 
 	return normalized;
 });
+
+const themeClass = computed(() => {
+	const normalized = themeKey.value;
+	if (!normalized || normalized === "auto") {
+		return ["vuehex-theme-auto"];
+	}
+	return [`vuehex-theme-${normalized}`];
+});
 /** Classes applied to the scroll container, including theme modifiers. */
 const containerClass = computed(() => {
 	const classes = ["vuehex"];
-	const normalized = themeKey.value;
-	if (!normalized || normalized === "auto") {
-		classes.push("vuehex-theme-auto");
-	} else {
-		classes.push(`vuehex-theme-${normalized}`);
-	}
+	classes.push(...themeClass.value);
 	if (isExpandToContent.value) {
 		classes.push("vuehex--expand-to-content");
 	}
@@ -468,6 +471,7 @@ const {
 
 const rootClass = computed(() => {
 	const classes = [...rootClassBase.value];
+	classes.push(...themeClass.value);
 	if (isExpandToContent.value) {
 		classes.push("vuehex-root--expand-to-content");
 	}
@@ -519,6 +523,9 @@ const effectiveCellClassResolver = computed<
 	}
 	if (input === null) {
 		return undefined;
+	}
+	if (typeof input === "function") {
+		return input;
 	}
 	if (Array.isArray(input)) {
 		const resolvers = input.filter(

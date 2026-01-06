@@ -39,9 +39,9 @@
 	align-items: center;
 	gap: 0.75rem;
 	padding: 0.5rem 0.75rem;
-	border: 1px solid var(--vuehex-border-color);
-	background: var(--vuehex-background);
-	color: var(--vuehex-foreground);
+	border: 1px solid var(--vuehex-ui-border-color, var(--vuehex-border-color));
+	background: var(--vuehex-ui-background, var(--vuehex-background));
+	color: var(--vuehex-ui-foreground, var(--vuehex-foreground));
 	font-size: 0.8rem;
 }
 
@@ -115,10 +115,10 @@
 	display: flex;
 	gap: 0.5rem;
 	padding: 0.6rem;
-	border: 1px solid var(--vuehex-border-color);
-	background: var(--vuehex-background);
-	color: var(--vuehex-foreground);
-	box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+	border: 1px solid var(--vuehex-ui-border-color, var(--vuehex-border-color));
+	background: var(--vuehex-ui-background, var(--vuehex-background));
+	color: var(--vuehex-ui-foreground, var(--vuehex-foreground));
+	box-shadow: var(--vuehex-ui-shadow, 0 12px 24px rgba(15, 23, 42, 0.12));
 }
 
 .vuehex-chunk-nav--right,
@@ -190,8 +190,9 @@
 	align-items: flex-start;
 	gap: 0.125rem;
 	padding: 0.45rem 0.65rem;
-	border: 1px solid rgba(148, 163, 184, 0.15);
-	background: rgba(148, 163, 184, 0.08);
+	border: 1px solid
+		var(--vuehex-ui-button-border-color, rgba(148, 163, 184, 0.15));
+	background: var(--vuehex-ui-button-background, rgba(148, 163, 184, 0.08));
 	color: inherit;
 	cursor: pointer;
 	transition:
@@ -200,18 +201,30 @@
 }
 
 .vuehex-chunk-item:hover {
-	border-color: rgba(148, 163, 184, 0.4);
-	background: rgba(148, 163, 184, 0.12);
+	border-color: var(
+		--vuehex-ui-button-border-color-hover,
+		rgba(148, 163, 184, 0.4)
+	);
+	background: var(
+		--vuehex-ui-button-background-hover,
+		rgba(148, 163, 184, 0.12)
+	);
 }
 
 .vuehex-chunk-item:focus-visible {
-	outline: 2px solid rgba(96, 165, 250, 0.8);
+	outline: 2px solid var(--vuehex-ui-focus-ring-color, rgba(96, 165, 250, 0.8));
 	outline-offset: 2px;
 }
 
 .vuehex-chunk-item--active {
-	border-color: rgba(96, 165, 250, 0.8);
-	background: rgba(96, 165, 250, 0.22);
+	border-color: var(
+		--vuehex-ui-button-border-color-active,
+		rgba(96, 165, 250, 0.8)
+	);
+	background: var(
+		--vuehex-ui-button-background-active,
+		rgba(96, 165, 250, 0.22)
+	);
 }
 
 .vuehex-chunk-item__label {
@@ -402,6 +415,17 @@
 	--vuehex-ascii-non-printable-color: rgba(148, 163, 184, 0.35);
 	--vuehex-ascii-column-border: rgba(148, 163, 184, 0.24);
 	--vuehex-mid-column-gutter: 1.5ch;
+	--vuehex-ui-background: var(--vuehex-background);
+	--vuehex-ui-foreground: var(--vuehex-foreground);
+	--vuehex-ui-border-color: var(--vuehex-border-color);
+	--vuehex-ui-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+	--vuehex-ui-button-border-color: rgba(148, 163, 184, 0.15);
+	--vuehex-ui-button-border-color-hover: rgba(148, 163, 184, 0.4);
+	--vuehex-ui-button-border-color-active: rgba(96, 165, 250, 0.8);
+	--vuehex-ui-button-background: rgba(148, 163, 184, 0.08);
+	--vuehex-ui-button-background-hover: rgba(148, 163, 184, 0.12);
+	--vuehex-ui-button-background-active: rgba(96, 165, 250, 0.22);
+	--vuehex-ui-focus-ring-color: rgba(96, 165, 250, 0.8);
 }
 
 /* Light theme */
@@ -417,6 +441,17 @@
 	--vuehex-ascii-non-printable-color: rgba(100, 116, 139, 0.5);
 	--vuehex-ascii-column-border: rgba(148, 163, 184, 0.35);
 	--vuehex-mid-column-gutter: 1.5ch;
+	--vuehex-ui-background: var(--vuehex-background);
+	--vuehex-ui-foreground: var(--vuehex-foreground);
+	--vuehex-ui-border-color: var(--vuehex-border-color);
+	--vuehex-ui-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+	--vuehex-ui-button-border-color: rgba(15, 23, 42, 0.12);
+	--vuehex-ui-button-border-color-hover: rgba(15, 23, 42, 0.22);
+	--vuehex-ui-button-border-color-active: rgba(37, 99, 235, 0.7);
+	--vuehex-ui-button-background: rgba(15, 23, 42, 0.03);
+	--vuehex-ui-button-background-hover: rgba(15, 23, 42, 0.06);
+	--vuehex-ui-button-background-active: rgba(37, 99, 235, 0.12);
+	--vuehex-ui-focus-ring-color: rgba(37, 99, 235, 0.7);
 }
 
 .vuehex-theme-light [class~="vuehex-ascii-char--non-printable"] {
@@ -436,6 +471,17 @@
 	--vuehex-ascii-non-printable-color: rgba(148, 163, 184, 0.35);
 	--vuehex-ascii-column-border: rgba(148, 163, 184, 0.24);
 	--vuehex-mid-column-gutter: 1.5ch;
+	--vuehex-ui-background: var(--vuehex-background);
+	--vuehex-ui-foreground: var(--vuehex-foreground);
+	--vuehex-ui-border-color: var(--vuehex-border-color);
+	--vuehex-ui-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+	--vuehex-ui-button-border-color: rgba(148, 163, 184, 0.15);
+	--vuehex-ui-button-border-color-hover: rgba(148, 163, 184, 0.4);
+	--vuehex-ui-button-border-color-active: rgba(96, 165, 250, 0.8);
+	--vuehex-ui-button-background: rgba(148, 163, 184, 0.08);
+	--vuehex-ui-button-background-hover: rgba(148, 163, 184, 0.12);
+	--vuehex-ui-button-background-active: rgba(96, 165, 250, 0.22);
+	--vuehex-ui-focus-ring-color: rgba(96, 165, 250, 0.8);
 }
 
 @media (prefers-color-scheme: light) {
@@ -451,6 +497,17 @@
 		--vuehex-ascii-non-printable-color: rgba(100, 116, 139, 0.5);
 		--vuehex-ascii-column-border: rgba(148, 163, 184, 0.35);
 		--vuehex-mid-column-gutter: 1.5ch;
+		--vuehex-ui-background: var(--vuehex-background);
+		--vuehex-ui-foreground: var(--vuehex-foreground);
+		--vuehex-ui-border-color: var(--vuehex-border-color);
+		--vuehex-ui-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+		--vuehex-ui-button-border-color: rgba(15, 23, 42, 0.12);
+		--vuehex-ui-button-border-color-hover: rgba(15, 23, 42, 0.22);
+		--vuehex-ui-button-border-color-active: rgba(37, 99, 235, 0.7);
+		--vuehex-ui-button-background: rgba(15, 23, 42, 0.03);
+		--vuehex-ui-button-background-hover: rgba(15, 23, 42, 0.06);
+		--vuehex-ui-button-background-active: rgba(37, 99, 235, 0.12);
+		--vuehex-ui-focus-ring-color: rgba(37, 99, 235, 0.7);
 	}
 
 	.vuehex-theme-auto [class~="vuehex-ascii-char--non-printable"] {
@@ -487,6 +544,17 @@
 	--vuehex-ascii-non-printable-color: rgba(127, 255, 127, 0.35);
 	--vuehex-ascii-column-border: rgba(127, 255, 127, 0.25);
 	--vuehex-mid-column-gutter: 2ch;
+	--vuehex-ui-background: var(--vuehex-background);
+	--vuehex-ui-foreground: var(--vuehex-foreground);
+	--vuehex-ui-border-color: var(--vuehex-border-color);
+	--vuehex-ui-shadow: 0 12px 24px rgba(0, 0, 0, 0.45);
+	--vuehex-ui-button-border-color: rgba(127, 255, 127, 0.25);
+	--vuehex-ui-button-border-color-hover: rgba(127, 255, 127, 0.45);
+	--vuehex-ui-button-border-color-active: rgba(127, 255, 127, 0.75);
+	--vuehex-ui-button-background: rgba(127, 255, 127, 0.08);
+	--vuehex-ui-button-background-hover: rgba(127, 255, 127, 0.12);
+	--vuehex-ui-button-background-active: rgba(127, 255, 127, 0.18);
+	--vuehex-ui-focus-ring-color: rgba(127, 255, 127, 0.7);
 }
 
 /* Sunset theme */
@@ -502,4 +570,15 @@
 	--vuehex-ascii-non-printable-color: rgba(251, 191, 36, 0.4);
 	--vuehex-ascii-column-border: rgba(248, 113, 113, 0.25);
 	--vuehex-mid-column-gutter: 1.75ch;
+	--vuehex-ui-background: var(--vuehex-background);
+	--vuehex-ui-foreground: var(--vuehex-foreground);
+	--vuehex-ui-border-color: var(--vuehex-border-color);
+	--vuehex-ui-shadow: 0 14px 30px rgba(15, 23, 42, 0.22);
+	--vuehex-ui-button-border-color: rgba(248, 113, 113, 0.22);
+	--vuehex-ui-button-border-color-hover: rgba(248, 113, 113, 0.42);
+	--vuehex-ui-button-border-color-active: rgba(251, 191, 36, 0.65);
+	--vuehex-ui-button-background: rgba(248, 113, 113, 0.1);
+	--vuehex-ui-button-background-hover: rgba(248, 113, 113, 0.15);
+	--vuehex-ui-button-background-active: rgba(251, 191, 36, 0.18);
+	--vuehex-ui-focus-ring-color: rgba(251, 191, 36, 0.65);
 }

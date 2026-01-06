@@ -1290,6 +1290,10 @@ export const CustomTheme: Story = {
 	name: "Custom theme",
 	args: {
 		theme: "storybook-custom",
+		bytesPerRow: 8,
+		statusbar: "bottom",
+		showChunkNavigator: true,
+		chunkNavigatorPlacement: "left",
 	},
 	parameters: {
 		docs: {
@@ -1301,6 +1305,10 @@ export const CustomTheme: Story = {
     :window-offset="windowOffset"
     :total-size="fileSize"
     :get-selection-data="getSelectionData"
+		:bytes-per-row="8"
+		statusbar="bottom"
+		:show-chunk-navigator="true"
+		chunk-navigator-placement="left"
 		theme="storybook-custom"
     style="height: 300px"
     @updateVirtualData="handleUpdateVirtualData"
@@ -1351,6 +1359,19 @@ function getSelectionData(selectionStart: number, selectionEnd: number) {
 	--vuehex-ascii-non-printable-color: rgba(199, 210, 254, 0.55);
 	--vuehex-ascii-column-border: rgba(99, 102, 241, 0.35);
 	--vuehex-mid-column-gutter: 2ch;
+
+	/* Status bar + chunk navigator surfaces */
+	--vuehex-ui-background: rgba(15, 10, 31, 0.78);
+	--vuehex-ui-foreground: var(--vuehex-foreground);
+	--vuehex-ui-border-color: rgba(129, 140, 248, 0.55);
+	--vuehex-ui-shadow: 0 18px 40px rgba(15, 23, 42, 0.5);
+	--vuehex-ui-button-border-color: rgba(129, 140, 248, 0.25);
+	--vuehex-ui-button-border-color-hover: rgba(129, 140, 248, 0.5);
+	--vuehex-ui-button-border-color-active: rgba(251, 191, 36, 0.8);
+	--vuehex-ui-button-background: rgba(129, 140, 248, 0.12);
+	--vuehex-ui-button-background-hover: rgba(129, 140, 248, 0.18);
+	--vuehex-ui-button-background-active: rgba(251, 191, 36, 0.16);
+	--vuehex-ui-focus-ring-color: rgba(251, 191, 36, 0.75);
 	box-shadow: 0 20px 45px rgba(15, 23, 42, 0.55);
 }
 
