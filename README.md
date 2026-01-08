@@ -1,6 +1,16 @@
 # VueHex
 
-VueHex is a virtualized hex viewer for Vue 3. It renders only the bytes that are currently visible and asks your application for new slices as people scroll, which keeps memory usage predictable even for multi‑gigabyte files.
+VueHex is a fast, virtualized hex viewer component for Vue 3. It can be used both for cleanly displaying binary data and for efficiently viewing very large datasets.
+
+* No dependencies
+* Small package (~64KB minimized / ~15KB zipped)
+* Render local and remote data
+* Can handle extremely large data sizes
+* Very flexible and themeable, can be as simple or as complicated as you wish
+
+![Screenshot Normal](public/screenshot001.png)
+
+![Screenshot Simple](public/screenshot002.png)
 
 ## How VueHex handles large files
 
@@ -62,13 +72,13 @@ Optionally register the plugin once to make the `<VueHex>` component available e
 
 ```ts
 import { createApp } from "vue";
-import VueHexPlugin from "vuehex";
+import VueHex from "vuehex";
 import "vuehex/styles";
 
 import App from "./App.vue";
 
 const app = createApp(App);
-app.use(VueHexPlugin);
+app.use(VueHex);
 app.mount("#app");
 ```
 
