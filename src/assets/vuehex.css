@@ -545,7 +545,7 @@
 	--vuehex-ascii-color: #b8ff8a;
 	--vuehex-ascii-non-printable-color: rgba(127, 255, 127, 0.35);
 	--vuehex-ascii-column-border: rgba(127, 255, 127, 0.25);
-	--vuehex-mid-column-gutter: 2ch;
+	--vuehex-mid-column-gutter: 1.5ch;
 	--vuehex-ui-background: var(--vuehex-background);
 	--vuehex-ui-foreground: var(--vuehex-foreground);
 	--vuehex-ui-border-color: var(--vuehex-border-color);
@@ -571,7 +571,7 @@
 	--vuehex-ascii-color: #fcd34d;
 	--vuehex-ascii-non-printable-color: rgba(251, 191, 36, 0.4);
 	--vuehex-ascii-column-border: rgba(248, 113, 113, 0.25);
-	--vuehex-mid-column-gutter: 1.75ch;
+	--vuehex-mid-column-gutter: 1.5ch;
 	--vuehex-ui-background: var(--vuehex-background);
 	--vuehex-ui-foreground: var(--vuehex-foreground);
 	--vuehex-ui-border-color: var(--vuehex-border-color);

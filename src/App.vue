@@ -56,6 +56,8 @@
               <option value="auto">Auto (System)</option>
               <option value="light">Light</option>
               <option value="dark">Dark</option>
+			  <option value="terminal">Terminal</option>
+			  <option value="sunset">Sunset</option>
             </select>
           </label>
         </div>
@@ -82,7 +84,9 @@ const selectedPresetKey = ref<"standard" | "latin1" | "visibleWhitespace">(
 const selectedHighlightingKey = ref<
 	"default" | "none" | "null-bytes" | "printable"
 >("default");
-const selectedTheme = ref<"auto" | "light" | "dark">("auto");
+const selectedTheme = ref<"auto" | "light" | "dark" | "terminal" | "sunset">(
+	"auto",
+);
 
 const selectedPreset = computed(
 	() => VUE_HEX_ASCII_PRESETS[selectedPresetKey.value],
@@ -165,7 +169,7 @@ body {
   width: 100%;
   height: 100vh;
   background: #0d1117;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+  font-family: 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
 }
 
 .demo-container {
@@ -339,12 +343,14 @@ body {
     border-color: #6e7781;
   }
 }
+</style>
+<style>
 /* Global highlighting styles for custom presets */
 .vuehex-highlight-null {
-  background: rgba(255, 0, 0, 0.2);
+  background: rgba(255, 0, 0, 0.6);
 }
 
 .vuehex-highlight-printable {
-  background: rgba(0, 255, 0, 0.1);
+  background: rgba(0, 255, 0, 0.6);
 }
 </style>
