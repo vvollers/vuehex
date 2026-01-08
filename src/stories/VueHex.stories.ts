@@ -1427,3 +1427,105 @@ function getSelectionData(selectionStart: number, selectionEnd: number) {
 			`,
 	}),
 };
+
+export const InteractiveEvents: StoryObj<typeof VueHex> = (() => {
+	return {
+		name: "Interactive Events",
+		args: {
+			dataMode: "buffer",
+			bytesPerRow: 16,
+			uppercase: false,
+			theme: "dark",
+			cursor: true,
+		},
+		render: (args) => ({
+			components: { VueHex },
+			setup() {
+				const data = ref(sliceDemoData(0, SELF_MANAGED_BYTES));
+				const lastByteClick = ref<{
+					index: number;
+					byte: number;
+					kind: string;
+				} | null>(null);
+				const lastSelection = ref<{
+					start: number | null;
+					end: number | null;
+					length: number;
+				} | null>(null);
+
+				const handleByteClick = (payload: {
+					index: number;
+					byte: number;
+					kind: "hex" | "ascii";
+				}) => {
+					lastByteClick.value = payload;
+				};
+
+				const handleSelectionChange = (payload: {
+					start: number | null;
+					end: number | null;
+					length: number;
+				}) => {
+					lastSelection.value = payload;
+				};
+
+				const formatHex = (value: number) => {
+					return `0x${value.toString(16).toUpperCase().padStart(2, "0")}`;
+				};
+
+				return {
+					args,
+					data,
+					lastByteClick,
+					lastSelection,
+					handleByteClick,
+					handleSelectionChange,
+					formatHex,
+				};
+			},
+			template: `
+				<div class="story-viewport story-viewport--column">
+				  <section class="story-stack">
+				    <header class="story-card__header">
+				      <p class="story-card__eyebrow">Interaction</p>
+				      <h3 class="story-card__title">Byte Click & Selection Events</h3>
+				      <p class="story-card__subtitle">Listen to <code>byte-click</code> and <code>selection-change</code> events for custom interactions.</p>
+				    </header>
+				    <div class="story-demo">
+				      <VueHex
+				        v-bind="args"
+				        v-model="data"
+				        style="height: 400px"
+				        @byte-click="handleByteClick"
+				        @selection-change="handleSelectionChange"
+				      />
+				    </div>
+				    <div class="story-event-log">
+				      <div class="story-event-card">
+				        <h4 class="story-event-title">Last Byte Click</h4>
+				        <div v-if="lastByteClick" class="story-event-content">
+				          <div><strong>Index:</strong> {{ lastByteClick.index }} ({{ formatHex(lastByteClick.index) }})</div>
+				          <div><strong>Value:</strong> {{ lastByteClick.byte }} ({{ formatHex(lastByteClick.byte) }})</div>
+				          <div><strong>Column:</strong> {{ lastByteClick.kind }}</div>
+				        </div>
+				        <div v-else class="story-event-empty">Click on a byte to see details</div>
+				      </div>
+				      <div class="story-event-card">
+				        <h4 class="story-event-title">Current Selection</h4>
+				        <div v-if="lastSelection && lastSelection.start !== null" class="story-event-content">
+				          <div><strong>Start:</strong> {{ lastSelection.start }} ({{ formatHex(lastSelection.start) }})</div>
+				          <div><strong>End:</strong> {{ lastSelection.end }} ({{ formatHex(lastSelection.end ?? 0) }})</div>
+				          <div><strong>Length:</strong> {{ lastSelection.length }} bytes</div>
+				        </div>
+				        <div v-else class="story-event-empty">Select bytes to see range</div>
+				      </div>
+				    </div>
+				    <p class="story-caption">
+				      Click individual bytes to trigger <code>byte-click</code> events. Click and drag to select a range and watch <code>selection-change</code> update in real-time.
+				    </p>
+				  </section>
+				</div>
+			`,
+		}),
+	};
+})();

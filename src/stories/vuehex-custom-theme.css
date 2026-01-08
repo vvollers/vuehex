@@ -114,3 +114,44 @@
 .vuehex-demo-byte--null {
 	opacity: 0.55;
 }
+
+.story-event-log {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 1rem;
+	margin-top: 1rem;
+}
+
+.story-event-card {
+	padding: 1rem;
+	border-radius: 0.5rem;
+	border: 1px solid rgba(148, 163, 184, 0.35);
+	background: rgba(15, 23, 42, 0.5);
+}
+
+.story-event-title {
+	margin: 0 0 0.75rem;
+	font-size: 0.9rem;
+	font-weight: 600;
+	color: rgba(226, 232, 240, 0.95);
+}
+
+.story-event-content {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	font-size: 0.85rem;
+	color: rgba(226, 232, 240, 0.85);
+	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.story-event-content strong {
+	color: rgba(129, 140, 248, 0.9);
+	font-weight: 600;
+}
+
+.story-event-empty {
+	font-size: 0.85rem;
+	color: rgba(148, 163, 184, 0.65);
+	font-style: italic;
+}

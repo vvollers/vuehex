@@ -68,6 +68,22 @@ const windowData = ref(backingFile.slice(0, 16 * 48));
 | `overscan` | `2` | Number of extra rows to render above and below the viewport. |
 | `showChunkNavigator` + `chunkNavigatorPlacement` | — | Enable and configure the optional chunk navigator UI. |
 
+## Events
+
+VueHex emits several events to enable interactive features:
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `update:modelValue` | `Uint8Array` | Emitted when the data changes (for `v-model` binding). |
+| `updateVirtualData` | `{ offset: number, length: number }` | Emitted when the component needs more data in windowed mode. |
+| `byte-click` | `{ index: number, byte: number, kind: 'hex' \| 'ascii' }` | Emitted when a user clicks on a specific byte cell. `index` is the absolute byte position, `byte` is the value (0-255), and `kind` indicates whether the hex or ASCII column was clicked. |
+| `selection-change` | `{ start: number \| null, end: number \| null, length: number }` | Emitted when the selection range changes. `start` and `end` are absolute byte positions (inclusive), or `null` if nothing is selected. `length` is the number of selected bytes. |
+| `cursor-change` | `{ index: number \| null }` | Emitted when the cursor position changes (requires `cursor` prop). |
+| `update:cursorLocation` | `number \| null` | Emitted for `v-model:cursor-location` binding. |
+| `row-hover-on` / `row-hover-off` | `{ offset: number }` | Emitted when hovering over/leaving a row. |
+| `hex-hover-on` / `hex-hover-off` | `{ index: number, byte: number }` | Emitted when hovering over/leaving a hex cell. |
+| `ascii-hover-on` / `ascii-hover-off` | `{ index: number, byte: number }` | Emitted when hovering over/leaving an ASCII cell. |
+
 ## Styling options
 
 1. Import `vuehex/styles` for the default look.
@@ -109,11 +125,11 @@ Files larger than these thresholds need **chunking**:
 
 **When chunking activates:**
 - VueHex automatically enables chunking when the calculated container height would exceed 8,000,000 pixels (a safe default below browser caps).
-- You can disable chunking by setting `expand-to-content` (which removes virtualization entirely and is only suitable for small, fully-loaded buffers) or by providing the full data in `data-mode="buffer"` for files under the auto-chunking threshold.
+- You can disable chunking by setting `expand-to-content` (which removes virtualization entirely)
 
 ### Technique 3/3 : Virtual Data
 
-Even with virtualization and chunking, loading a 4 GB file entirely into memory isn't always practical. VueHex supports **windowed data mode**, where:
+Even with virtualization and chunking, loading a 40 GB file entirely into memory isn't practical. VueHex supports **windowed data mode**, where:
 
 1. Your application keeps the full file in a storage backend.
 2. You provide VueHex with only the **currently needed slice** via `v-model` (e.g., 100 KB around the visible rows).
@@ -138,7 +154,7 @@ If you already have the entire `Uint8Array`, you can skip the virtual data hands
 <VueHex v-model="entireFile" />
 ```
 
-For multi‑gigabyte datasets you'll probably still want to use the virtual data mode.
+For large datasets you'll probably still want to use the virtual data mode.
 
 ### Expand-to-content mode
 
@@ -226,9 +242,8 @@ The ASCII pane renders characters in the standard printable range (`0x20`–`0x7
 ```vue
 <VueHex
     v-model="windowData"
-    :window-offset="windowOffset"
     :is-printable="(byte) => byte >= 0x30 && byte <= 0x39"
-    :render-ascii="(byte) => `[${String.fromCharCode(byte)}]`"
+    :render-ascii="(byte) => `${String.fromCharCode(byte)}`"
 />
 ```
 

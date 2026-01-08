@@ -198,6 +198,14 @@ const emit = defineEmits<{
 	(event: "updateVirtualData", payload: VueHexWindowRequest): void;
 	(event: "update:cursorLocation", value: number | null): void;
 	(event: "cursor-change", payload: { index: number | null }): void;
+	(
+		event: "byte-click",
+		payload: { index: number; byte: number; kind: "hex" | "ascii" },
+	): void;
+	(
+		event: "selection-change",
+		payload: { start: number | null; end: number | null; length: number },
+	): void;
 	(event: "row-hover-on", payload: { offset: number }): void;
 	(event: "row-hover-off", payload: { offset: number }): void;
 	(event: "hex-hover-on", payload: { index: number; byte: number }): void;
@@ -481,6 +489,8 @@ const { selectionEnabled, selectionRange, selectionCount } = useSelection({
 	getPrintableChecker: () => printableCheck.value,
 	getAsciiRenderer: () => asciiRenderer.value,
 	getNonPrintableChar: () => nonPrintableChar.value,
+	emitByteClick: (payload) => emit("byte-click", payload),
+	emitSelectionChange: (payload) => emit("selection-change", payload),
 });
 
 const cursorEnabled = computed(() => Boolean(props.cursor));

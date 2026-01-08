@@ -20,6 +20,17 @@ export interface SelectionOptions {
 	getPrintableChecker: () => VueHexPrintableCheck;
 	getAsciiRenderer: () => VueHexAsciiRenderer;
 	getNonPrintableChar: () => string;
+
+	emitByteClick?: (payload: {
+		index: number;
+		byte: number;
+		kind: "hex" | "ascii";
+	}) => void;
+	emitSelectionChange?: (payload: {
+		start: number | null;
+		end: number | null;
+		length: number;
+	}) => void;
 }
 
 export interface SelectionResult {
@@ -97,6 +108,17 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 	const isPointerSelecting = ref(false);
 	const activePointerId = ref<number | null>(null);
 	let selectionSyncHandle: number | null = null;
+
+	// Watch selection range and emit change events
+	watch(selectionRange, (newRange) => {
+		if (options.emitSelectionChange) {
+			options.emitSelectionChange({
+				start: newRange?.start ?? null,
+				end: newRange?.end ?? null,
+				length: selectionCount.value,
+			});
+		}
+	});
 
 	function scheduleSelectionSync() {
 		if (typeof window === "undefined") {
@@ -246,6 +268,22 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 		const payload = getSelectionPayloadFromElement(
 			event.target as Element | null,
 		);
+
+		// Emit byte-click event
+		if (payload && options.emitByteClick) {
+			const data = options.getSelfManagedBytes();
+			if (payload.index < data.length) {
+				const byte = data[payload.index];
+				if (byte !== undefined) {
+					options.emitByteClick({
+						index: payload.index,
+						byte,
+						kind: payload.mode,
+					});
+				}
+			}
+		}
+
 		const existing = selectionState.value;
 		if (!payload) {
 			if (!event.shiftKey) {
