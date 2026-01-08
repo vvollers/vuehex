@@ -229,20 +229,22 @@ VueHex also exports `VUE_HEX_ASCII_PRESETS` (`standard`, `latin1`, `visibleWhite
 
 ## Props
 
-- `modelValue` (**required via `v-model`**) – the currently visible `Uint8Array`.
-- `dataMode` / `data-mode` (default `auto`) – `auto | buffer | window`.
-- `expandToContent` / `expand-to-content` (default `false`) – disables internal scrolling/virtualization and expands the component height to fit the full buffer (expects the full data in `v-model`).
-- `windowOffset` (default `0`) – absolute start offset represented by `modelValue`.
-- `totalSize` – total bytes available; defaults to `modelValue.length` if omitted.
-- `bytesPerRow` (default `16`).
-- `uppercase` (default `false`).
-- `nonPrintableChar` (default `'.'`).
-- `isPrintable` / `renderAscii` – customize ASCII rendering.
-- `theme` – pass `'dark'`, `'light'`, `'terminal'`, `'sunset'`, or `'auto'` to lock in a palette; omit it to let VueHex follow `prefers-color-scheme` between dark and light.
-- `cellClassForByte` – `(payload: { kind: 'hex' | 'ascii'; index: number; byte: number }) => string | string[] | void` for custom highlighting.
-- `getSelectionData` – `(selectionStart: number, selectionEnd: number) => Uint8Array` used for clipboard copy (required when using virtual windows; auto-implemented in full-data mode).
-- `overscan` (default `2`).
-- `showChunkNavigator` + `chunkNavigatorPlacement` – enable the optional navigator UI.
+| Prop | Default | Description |
+|------|---------|-------------|
+| `modelValue` | **required** | The currently visible `Uint8Array`. Use with `v-model`. |
+| `dataMode` / `data-mode` | `auto` | Data handling mode: `auto`, `buffer`, or `window`. |
+| `expandToContent` / `expand-to-content` | `false` | Disables internal scrolling/virtualization and expands the component height to fit the full buffer (expects the full data in `v-model`). |
+| `windowOffset` | `0` | Absolute start offset represented by `modelValue`. |
+| `totalSize` | `modelValue.length` | Total bytes available. |
+| `bytesPerRow` | `16` | Number of bytes to display per row. |
+| `uppercase` | `false` | Whether to display hex values in uppercase. |
+| `nonPrintableChar` | `'.'` | Character to display for non-printable bytes in ASCII column. |
+| `isPrintable` / `renderAscii` | — | Functions to customize ASCII rendering. |
+| `theme` | — | Color theme: `'dark'`, `'light'`, `'terminal'`, `'sunset'`, or `'auto'`. Omit to follow `prefers-color-scheme` between dark and light. |
+| `cellClassForByte` | — | Function `(payload: { kind: 'hex' \| 'ascii'; index: number; byte: number }) => string \| string[] \| void` for custom highlighting. |
+| `getSelectionData` | — | Function `(selectionStart: number, selectionEnd: number) => Uint8Array` used for clipboard copy (required when using virtual windows; auto-implemented in full-data mode). |
+| `overscan` | `2` | Number of extra rows to render above and below the viewport. |
+| `showChunkNavigator` + `chunkNavigatorPlacement` | — | Enable and configure the optional chunk navigator UI. |
 
 ## Styling options
 
