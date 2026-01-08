@@ -74,13 +74,13 @@ const windowData = ref(backingFile.slice(0, 16 * 48));
 2. Pass `theme="dark" | "light" | "terminal" | "sunset" | "auto"` to toggle bundled palettes explicitly (or skip the prop entirely to stick with OS detection).
 3. Roll your own styles targeting the emitted class names (`.vuehex`, `.vuehex-byte`, `.vuehex-ascii-char`, etc.). The default sheet sets `.vuehex { height: 100%; }`, so remember to give the wrapper a concrete height.
 
-## How VueHex handles large files
+## How VueHex handles large datasets
 
-### Virtualization: Rendering what you see
+### Technique 1/3 : Virtual Scrolling
 
-Traditional hex viewers render **all** rows in the DOM, which works fine for small files but quickly becomes unusable for large datasets. A 1 MB file with 16 bytes per row produces over 65,000 DOM nodes. A 100 MB file? 6.5 million nodes. Browsers slow to a crawl when manipulating or even keeping these trees in memory.
+Instead of rendering **all** rows in the DOM, which works fine for small files but quickly becomes unusable for large datasets. A 1 MB file with 16 bytes per row produces over 65,000 DOM nodes. A 100 MB file? 6.5 million nodes. Browsers slow to a crawl when manipulating or even keeping these trees in memory.
 
-VueHex solves this with **virtual scrolling**:
+VueHex solves this with optimized **virtual scrolling**:
 
 1. **Calculate the full height** – VueHex computes how tall the entire table *would* be if every row were rendered (e.g., 65,000 rows × 24px = 1,560,000px).
 2. **Create a container of that height** – The scroll container's inner wrapper is sized to the full calculated height, so the scrollbar represents the entire dataset.
@@ -89,9 +89,9 @@ VueHex solves this with **virtual scrolling**:
 
 **Result:** Instead of 65,000 DOM nodes for a 1 MB file, VueHex renders ~50 rows (what fits on your screen + overscan). Scrolling through a 100 MB file feels instant because the browser only ever manages a tiny fraction of the data.
 
-### Chunking: Working around browser limits
+### Technique 2/3 : Chunking
 
-Browsers impose limits on element dimensions to prevent rendering engine crashes. Most modern browsers cap `max-height` at around **33,554,432 pixels** (Chrome/Edge) or **17,895,698 pixels** (Firefox). Once your calculated scroll container height exceeds this limit, virtualization breaks—the scrollbar becomes inaccurate, and you can't reach data beyond the cap.
+The above technique works very well, but unfortunately it has a limit. Browsers impose limits on element dimensions to prevent rendering engine crashes. Most modern browsers cap `max-height` at around **33,554,432 pixels** (Chrome/Edge) or **17,895,698 pixels** (Firefox). Once your calculated scroll container height exceeds this limit, virtualization breaks—the scrollbar becomes inaccurate, and you can't reach data beyond the cap.
 
 For a hex viewer with 16 bytes per row and 24px row height:
 - **Firefox limit:** ~746,000 rows = ~11.4 MB of data
@@ -111,11 +111,11 @@ Files larger than these thresholds need **chunking**:
 - VueHex automatically enables chunking when the calculated container height would exceed 8,000,000 pixels (a safe default below browser caps).
 - You can disable chunking by setting `expand-to-content` (which removes virtualization entirely and is only suitable for small, fully-loaded buffers) or by providing the full data in `data-mode="buffer"` for files under the auto-chunking threshold.
 
-### Virtual data windows
+### Technique 3/3 : Virtual Data
 
-Even with virtualization and chunking, loading a 4 GB file entirely into memory isn't practical. VueHex supports **windowed data mode**, where:
+Even with virtualization and chunking, loading a 4 GB file entirely into memory isn't always practical. VueHex supports **windowed data mode**, where:
 
-1. Your application keeps the full file in a storage backend (disk, IndexedDB, HTTP server, etc.).
+1. Your application keeps the full file in a storage backend.
 2. You provide VueHex with only the **currently needed slice** via `v-model` (e.g., 100 KB around the visible rows).
 3. When VueHex needs different bytes (because the user scrolled or jumped to a new chunk), it emits `updateVirtualData` with `{ offset, length }`.
 4. Your application fetches the requested slice and updates `v-model` asynchronously.
@@ -124,23 +124,21 @@ Even with virtualization and chunking, loading a 4 GB file entirely into memory 
 
 ---
 
+## Data modes
 
-
-
-
-## Virtual data contract
+### Virtual data mode
 
 When VueHex needs different bytes it emits `updateVirtualData` with `{ offset, length }`. The component keeps rendering whatever you provide through `v-model` until you feed it a new slice. That means you can back the viewer with disk I/O, HTTP range requests, IndexedDB, or any other storage you control.
 
 ### Full data mode
 
-If you already have the entire `Uint8Array`, you can skip the virtual data handshake entirely. Set `data-mode="buffer"` and point `v-model` at the whole buffer (or leave `data-mode` as `auto` and keep `window-offset` at 0 with the full buffer).
+If you already have the entire `Uint8Array`, you can skip the virtual data handshake entirely. Set `data-mode="buffer"` (or omit it entirely) and point `v-model` at the whole buffer.
 
 ```vue
-<VueHex v-model="entireFile" data-mode="buffer" :bytes-per-row="32" />
+<VueHex v-model="entireFile" />
 ```
 
-This mode is ideal for small/medium blobs (think editor previews or fixture files). For multi‑gigabyte datasets you'll still want the virtual data contract so you can keep memory and scroll heights bounded.
+For multi‑gigabyte datasets you'll probably still want to use the virtual data mode.
 
 ### Expand-to-content mode
 
@@ -173,10 +171,9 @@ async function handleUpdateVirtualData(request: VueHexWindowRequest) {
 
 ## Storybook workspace
 
-Run Storybook to explore prebuilt demos (chunk navigator, hover linking, theming, etc.):
+Run Storybook to explore prebuilt demos:
 
 ```bash
-npm install
 npm run storybook
 ```
 
@@ -185,8 +182,6 @@ The static build lives in `storybook-static/` when you run `npm run storybook:bu
 ## Viewport sizing
 
 VueHex virtualizes DOM rows, so make sure the component has a bounded height. Set `height`, `max-height`, or place it inside a flex/grid cell with a defined size. Without a viewport the table expands indefinitely and virtualization is effectively disabled.
-
-If you explicitly want the component to expand with its content (no internal scroll), enable `expand-to-content` and provide the full buffer via `v-model`.
 
 ## Imperative scrolling
 
