@@ -133,22 +133,14 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 
 		const start = Math.min(state.anchor, state.focus);
 		const end = Math.max(state.anchor, state.focus);
-		const selector =
-			state.mode === "hex" ? "[data-hex-index]" : "[data-ascii-index]";
-		const classNames =
-			state.mode === "hex"
-				? [SELECTED_CLASS]
-				: [SELECTED_CLASS, SELECTED_ASCII_CLASS];
 
-		const nodes = tbody.querySelectorAll<HTMLElement>(selector);
-		nodes.forEach((node) => {
+		// Apply selection to both hex and ASCII columns
+		const hexNodes = tbody.querySelectorAll<HTMLElement>("[data-hex-index]");
+		hexNodes.forEach((node) => {
 			if (node.getAttribute("aria-hidden") === "true") {
 				return;
 			}
-			const attr =
-				state.mode === "hex"
-					? node.getAttribute("data-hex-index")
-					: node.getAttribute("data-ascii-index");
+			const attr = node.getAttribute("data-hex-index");
 			if (!attr) {
 				return;
 			}
@@ -156,11 +148,27 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 			if (!Number.isFinite(index)) {
 				return;
 			}
-			if (index < start || index > end) {
+			if (index >= start && index <= end) {
+				node.classList.add(SELECTED_CLASS);
+			}
+		});
+
+		const asciiNodes =
+			tbody.querySelectorAll<HTMLElement>("[data-ascii-index]");
+		asciiNodes.forEach((node) => {
+			if (node.getAttribute("aria-hidden") === "true") {
 				return;
 			}
-			for (const className of classNames) {
-				node.classList.add(className);
+			const attr = node.getAttribute("data-ascii-index");
+			if (!attr) {
+				return;
+			}
+			const index = Number.parseInt(attr, 10);
+			if (!Number.isFinite(index)) {
+				return;
+			}
+			if (index >= start && index <= end) {
+				node.classList.add(SELECTED_CLASS, SELECTED_ASCII_CLASS);
 			}
 		});
 	}
