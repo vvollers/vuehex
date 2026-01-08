@@ -10,7 +10,69 @@ VueHex is a fast, virtualized hex viewer component for Vue 3. It can be used bot
 
 ![Screenshot Normal](public/screenshot001.png)
 
-![Screenshot Simple](public/screenshot002.png)
+## Installation
+
+```bash
+npm install vuehex
+```
+
+Optionally register the plugin once to make the `<VueHex>` component available everywhere and load the bundled styles:
+
+```ts
+import { createApp } from "vue";
+import VueHex from "vuehex";
+import "vuehex/styles";
+
+import App from "./App.vue";
+
+const app = createApp(App);
+app.use(VueHex);
+app.mount("#app");
+```
+
+## Quick start
+
+It can be as simple as this
+
+```vue
+<template>
+  <VueHex
+    v-model="windowData"
+  />
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+
+const backingFile = crypto.getRandomValues(new Uint8Array(2 ** 20));
+const windowData = ref(backingFile.slice(0, 16 * 48));
+</script>
+```
+
+## Props
+
+| Prop | Default | Description |
+|------|---------|-------------|
+| `modelValue` | **required** | The currently visible `Uint8Array`. Use with `v-model`. |
+| `dataMode` / `data-mode` | `auto` | Data handling mode: `auto`, `buffer`, or `window`. |
+| `expandToContent` / `expand-to-content` | `false` | Disables internal scrolling/virtualization and expands the component height to fit the full buffer (expects the full data in `v-model`). |
+| `windowOffset` | `0` | Absolute start offset represented by `modelValue`. |
+| `totalSize` | `modelValue.length` | Total bytes available. |
+| `bytesPerRow` | `16` | Number of bytes to display per row. |
+| `uppercase` | `false` | Whether to display hex values in uppercase. |
+| `nonPrintableChar` | `'.'` | Character to display for non-printable bytes in ASCII column. |
+| `isPrintable` / `renderAscii` | — | Functions to customize ASCII rendering. |
+| `theme` | — | Color theme: `'dark'`, `'light'`, `'terminal'`, `'sunset'`, or `'auto'`. Omit to follow `prefers-color-scheme` between dark and light. |
+| `cellClassForByte` | — | Function `(payload: { kind: 'hex' \| 'ascii'; index: number; byte: number }) => string \| string[] \| void` for custom highlighting. |
+| `getSelectionData` | — | Function `(selectionStart: number, selectionEnd: number) => Uint8Array` used for clipboard copy (required when using virtual windows; auto-implemented in full-data mode). |
+| `overscan` | `2` | Number of extra rows to render above and below the viewport. |
+| `showChunkNavigator` + `chunkNavigatorPlacement` | — | Enable and configure the optional chunk navigator UI. |
+
+## Styling options
+
+1. Import `vuehex/styles` for the default look.
+2. Pass `theme="dark" | "light" | "terminal" | "sunset" | "auto"` to toggle bundled palettes explicitly (or skip the prop entirely to stick with OS detection).
+3. Roll your own styles targeting the emitted class names (`.vuehex`, `.vuehex-byte`, `.vuehex-ascii-char`, etc.). The default sheet sets `.vuehex { height: 100%; }`, so remember to give the wrapper a concrete height.
 
 ## How VueHex handles large files
 
@@ -62,69 +124,9 @@ Even with virtualization and chunking, loading a 4 GB file entirely into memory 
 
 ---
 
-## Installation
 
-```bash
-npm install vuehex
-```
 
-Optionally register the plugin once to make the `<VueHex>` component available everywhere and load the bundled styles:
 
-```ts
-import { createApp } from "vue";
-import VueHex from "vuehex";
-import "vuehex/styles";
-
-import App from "./App.vue";
-
-const app = createApp(App);
-app.use(VueHex);
-app.mount("#app");
-```
-
-## Quick start
-
-VueHex follows the familiar Vue data model pattern:
-
-- `v-model` carries the currently visible `Uint8Array` window.
-- `data-mode` controls whether `v-model` is a full buffer or a window (`auto` | `buffer` | `window`).
-- `window-offset` tells VueHex where that window belongs in the full file.
-- `total-size` declares the total byte length (defaults to the current window length).
-- `updateVirtualData` is emitted whenever VueHex needs a new slice.
-
-```vue
-<template>
-  <VueHex
-    v-model="windowData"
-    data-mode="window"
-    :window-offset="windowOffset"
-    :total-size="totalBytes"
-    :bytes-per-row="16"
-    @updateVirtualData="handleUpdateVirtualData"
-  />
-</template>
-
-<script setup lang="ts">
-import { ref } from "vue";
-import type { VueHexWindowRequest } from "vuehex";
-
-const backingFile = crypto.getRandomValues(new Uint8Array(2 ** 20));
-const totalBytes = backingFile.length;
-
-const windowOffset = ref(0);
-const windowData = ref(backingFile.slice(0, 16 * 48));
-
-function handleUpdateVirtualData(request: VueHexWindowRequest) {
-    const offset = Math.max(0, Math.min(request.offset, totalBytes));
-    const length = Math.max(
-        0,
-        Math.min(request.length, totalBytes - offset),
-    );
-    windowOffset.value = offset;
-    windowData.value = backingFile.slice(offset, offset + length);
-}
-</script>
-```
 
 ## Virtual data contract
 
@@ -236,39 +238,6 @@ The ASCII pane renders characters in the standard printable range (`0x20`–`0x7
 ```
 
 VueHex also exports `VUE_HEX_ASCII_PRESETS` (`standard`, `latin1`, `visibleWhitespace`) if you want a drop-in configuration.
-
-## Props
-
-| Prop | Default | Description |
-|------|---------|-------------|
-| `modelValue` | **required** | The currently visible `Uint8Array`. Use with `v-model`. |
-| `dataMode` / `data-mode` | `auto` | Data handling mode: `auto`, `buffer`, or `window`. |
-| `expandToContent` / `expand-to-content` | `false` | Disables internal scrolling/virtualization and expands the component height to fit the full buffer (expects the full data in `v-model`). |
-| `windowOffset` | `0` | Absolute start offset represented by `modelValue`. |
-| `totalSize` | `modelValue.length` | Total bytes available. |
-| `bytesPerRow` | `16` | Number of bytes to display per row. |
-| `uppercase` | `false` | Whether to display hex values in uppercase. |
-| `nonPrintableChar` | `'.'` | Character to display for non-printable bytes in ASCII column. |
-| `isPrintable` / `renderAscii` | — | Functions to customize ASCII rendering. |
-| `theme` | — | Color theme: `'dark'`, `'light'`, `'terminal'`, `'sunset'`, or `'auto'`. Omit to follow `prefers-color-scheme` between dark and light. |
-| `cellClassForByte` | — | Function `(payload: { kind: 'hex' \| 'ascii'; index: number; byte: number }) => string \| string[] \| void` for custom highlighting. |
-| `getSelectionData` | — | Function `(selectionStart: number, selectionEnd: number) => Uint8Array` used for clipboard copy (required when using virtual windows; auto-implemented in full-data mode). |
-| `overscan` | `2` | Number of extra rows to render above and below the viewport. |
-| `showChunkNavigator` + `chunkNavigatorPlacement` | — | Enable and configure the optional chunk navigator UI. |
-
-## Styling options
-
-1. Import `vuehex/styles` for the default look.
-2. Pass `theme="dark" | "light" | "terminal" | "sunset" | "auto"` to toggle bundled palettes explicitly (or skip the prop entirely to stick with OS detection).
-3. Roll your own styles targeting the emitted class names (`.vuehex`, `.vuehex-byte`, `.vuehex-ascii-char`, etc.). The default sheet sets `.vuehex { height: 100%; }`, so remember to give the wrapper a concrete height.
-
-## Plugin options
-
-Override the registered component name if needed:
-
-```ts
-app.use(VueHexPlugin, { componentName: "HexViewer" });
-```
 
 ## License
 
