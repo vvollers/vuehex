@@ -255,7 +255,7 @@ const effectiveMaxVirtualHeight = computed(() => {
 	if (isExpandToContent.value) {
 		return Number.POSITIVE_INFINITY;
 	}
-	return isSelfManaged.value ? Number.POSITIVE_INFINITY : MAX_VIRTUAL_HEIGHT;
+	return MAX_VIRTUAL_HEIGHT;
 });
 
 /** Scroll container ref for virtualization math. */

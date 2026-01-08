@@ -1,927 +1,350 @@
 <template>
-  <main class="app">
-    <h1>VueHex demo</h1>
-
-    <section class="panel">
-      <h2 class="panel-title">Virtualized hex viewer</h2>
-
-      <div class="options">
-        <label class="option">
-          <input type="checkbox" v-model="uppercase" />
-          Uppercase
-        </label>
-        <label class="option">
-          Bytes per row
+  <div class="demo-app">
+    <div class="demo-container">
+      <header class="demo-header">
+        <h1>VueHex Demo</h1>
+        <label class="file-input-wrapper">
           <input
-            type="number"
-            min="4"
-            max="64"
-            step="1"
-            v-model.number="bytesPerRowInput"
+            type="file"
+            @change="handleFileSelect"
+            class="file-input"
           />
+          <span class="file-button">Select File</span>
         </label>
-        <label class="option">
-          Non-printable
-          <input type="text" maxlength="1" v-model="nonPrintableInput" />
-        </label>
-        <label class="option">
-          ASCII preset
-          <select v-model="asciiPresetKey">
-            <option
-              v-for="option in asciiPresetOptions"
-              :key="option.key"
-              :value="option.key"
-            >
-              {{ option.label }}
-            </option>
-          </select>
-        </label>
-        <label class="option">
-          Theme
-          <select v-model="themeKey">
-            <option
-              v-for="option in themeOptions"
-              :key="option.key"
-              :value="option.key"
-            >
-              {{ option.label }}
-            </option>
-          </select>
-        </label>
-        <label class="option">
-          Chunk navigator
-          <select v-model="chunkNavigatorPlacement">
-            <option
-              v-for="option in chunkNavigatorPlacementOptions"
-              :key="option.value"
-              :value="option.value"
-            >
-              {{ option.label }}
-            </option>
-          </select>
-        </label>
-        <label class="option">
-          Highlights
-          <select v-model="highlightKey">
-            <option
-              v-for="option in highlightOptions"
-              :key="option.key"
-              :value="option.key"
-            >
-              {{ option.label }}
-            </option>
-          </select>
-        </label>
-      </div>
+        <span v-if="fileName" class="file-name">{{ fileName }}</span>
+      </header>
 
-      <div class="file-loader">
-        <label class="option option-file">
-          <span>Load local file</span>
-          <input type="file" @change="handleFileSelection" />
-        </label>
-        <button
-          type="button"
-          class="file-loader-button"
-          @click="resetToSampleData"
-        >
-          Use sample data
-        </button>
-        <p class="file-status">Current source: {{ currentSourceSummary }}</p>
-        <p v-if="fileError" class="file-error">{{ fileError }}</p>
-      </div>
-
-      <div class="viewer">
+      <main class="demo-main">
         <VueHex
-          ref="viewerRef"
-					v-model="viewerWindowData"
-					:window-offset="viewerWindowOffset"
-					:total-size="totalBytes"
-					:get-selection-data="getSelectionData"
-          :bytes-per-row="bytesPerRow"
-          :uppercase="uppercase"
-          :non-printable-char="nonPrintableChar"
-          :is-printable="activeAsciiPreset.isPrintable"
-          :render-ascii="activeAsciiPreset.renderAscii"
-		  :theme="viewerTheme"
-          :cell-class-for-byte="activeCellClassResolver"
+          v-model="fileData"
+          statusbar="top"
+          :theme="selectedTheme"
+          :cell-class-for-byte="selectedHighlighting"
+          :is-printable="selectedPreset.isPrintable"
+          :render-ascii="selectedPreset.renderAscii"
+          :cursor="true"
+          :bytes-per-row="16"
           :show-chunk-navigator="true"
-          :chunk-navigator-placement="chunkNavigatorPlacement"
-					@updateVirtualData="handleRequestWindow"
-          @row-hover-on="handleRowHoverOn"
-          @row-hover-off="handleRowHoverOff"
-          @hex-hover-on="handleHexHoverOn"
-          @hex-hover-off="handleHexHoverOff"
-          @ascii-hover-on="handleAsciiHoverOn"
-          @ascii-hover-off="handleAsciiHoverOff"
+          chunk-navigator-placement="left"
         />
-      </div>
+      </main>
 
-      <div v-if="activeHighlightNotes.length" class="highlight-legend">
-        <h3 class="highlight-legend-title">Highlight guide</h3>
-        <ul class="highlight-legend-list">
-          <li v-for="note in activeHighlightNotes" :key="note">
-            {{ note }}
-          </li>
-        </ul>
-      </div>
+      <footer class="demo-footer">
+        <div class="demo-controls">
+          <label class="control-label">
+            <span>ASCII Preset:</span>
+            <select v-model="selectedPresetKey" class="demo-select">
+              <option value="standard">Standard ASCII (0x20-0x7E)</option>
+              <option value="latin1">Latin-1 Supplement (0x20-0x7E, 0xA0-0xFF)</option>
+              <option value="visibleWhitespace">Visible Whitespace</option>
+            </select>
+          </label>
 
-      <div class="events">
-        <h3 class="events-title">Hover events</h3>
-        <div class="events-grid">
-          <div class="events-card">
-            <h4>Row (active)</h4>
-            <p>{{ activeRowText }}</p>
-          </div>
-          <div class="events-card">
-            <h4>Hex byte (active)</h4>
-            <p>{{ activeHexText }}</p>
-          </div>
-          <div class="events-card">
-            <h4>ASCII char (active)</h4>
-            <p>{{ activeAsciiText }}</p>
-          </div>
+          <label class="control-label">
+            <span>Highlighting:</span>
+            <select v-model="selectedHighlightingKey" class="demo-select">
+              <option value="default">ASCII Categories (Default)</option>
+              <option value="none">None</option>
+              <option value="null-bytes">Null Bytes</option>
+              <option value="printable">Printable Characters</option>
+            </select>
+          </label>
+
+          <label class="control-label">
+            <span>Theme:</span>
+            <select v-model="selectedTheme" class="demo-select">
+              <option value="auto">Auto (System)</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
         </div>
-        <div class="events-log">
-          <h4>Event log</h4>
-          <ul class="events-log-list">
-            <li v-for="entry in hoverLog" :key="entry.id">{{ entry.text }}</li>
-            <li v-if="hoverLog.length === 0" class="events-log-empty">
-              Hover bytes to see enter/leave events
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="controls">
-        <span class="controls-label">Jump to:</span>
-        <button type="button" @click="scrollToStart">Start</button>
-        <button type="button" @click="scrollToMiddle">Middle</button>
-        <button type="button" @click="scrollToEnd">End</button>
-      </div>
-    </section>
-  </main>
+      </footer>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref } from "vue";
+import { computed, ref } from "vue";
 import VueHex from "./components/VueHex.vue";
 import {
 	VUE_HEX_ASCII_PRESETS,
-	type VueHexAsciiPreset,
 	type VueHexCellClassResolver,
-	type VueHexWindow,
-	type VueHexWindowRequest,
 } from "./components/vuehex-api";
-import "@/assets/vuehex.css";
+import "./assets/vuehex.css";
 
-const BYTES_PER_ROW = 16;
-const VISIBLE_ROWS = 48;
-const SAMPLE_SIZE = 256 * 256;
-const SAMPLE_LABEL = "Generated sample data";
+const fileData = ref<Uint8Array>(new Uint8Array(0));
 
-const viewerRef = ref<InstanceType<typeof VueHex> | null>(null);
+const fileName = ref<string>("");
+const selectedPresetKey = ref<"standard" | "latin1" | "visibleWhitespace">(
+	"standard",
+);
+const selectedHighlightingKey = ref<
+	"default" | "none" | "null-bytes" | "printable"
+>("default");
+const selectedTheme = ref<"auto" | "light" | "dark">("auto");
 
-const uppercase = ref(false);
-const bytesPerRowInput = ref(BYTES_PER_ROW);
-const nonPrintableInput = ref(".");
-
-const bytesPerRow = computed(() =>
-	Math.max(1, Math.trunc(bytesPerRowInput.value)),
+const selectedPreset = computed(
+	() => VUE_HEX_ASCII_PRESETS[selectedPresetKey.value],
 );
 
-const nonPrintableChar = computed(() =>
-	nonPrintableInput.value.length > 0 ? nonPrintableInput.value[0] : ".",
-);
-
-const backingData = ref<Uint8Array>(createSampleData());
-const sourceLabel = ref<string>(SAMPLE_LABEL);
-const fileError = ref<string | null>(null);
-
-const totalBytes = computed(() => backingData.value.length);
-
-const initialWindow = createInitialWindow(backingData.value, 0);
-const viewerWindowOffset = ref(initialWindow.offset);
-const viewerWindowData = ref(initialWindow.data);
-
-const presetStandard: VueHexAsciiPreset = VUE_HEX_ASCII_PRESETS.standard;
-const presetLatin1: VueHexAsciiPreset = VUE_HEX_ASCII_PRESETS.latin1;
-const presetWhitespace: VueHexAsciiPreset =
-	VUE_HEX_ASCII_PRESETS.visibleWhitespace;
-
-const customAsciiPreset: VueHexAsciiPreset = {
-	label: "Digits + uppercase (custom demo)",
-	isPrintable: (byte) =>
-		(byte >= 0x30 && byte <= 0x39) || (byte >= 0x41 && byte <= 0x5a),
-	renderAscii: (byte) => {
-		if (byte >= 0x41 && byte <= 0x5a) {
-			return String.fromCharCode(byte + 0x20);
-		}
-		if (byte >= 0x30 && byte <= 0x39) {
-			return `[${String.fromCharCode(byte)}]`;
-		}
-		return "";
-	},
+// Custom highlighting resolvers
+const highlightNullBytes: VueHexCellClassResolver = ({ byte }) => {
+	return byte === 0x00 ? "vuehex-highlight-null" : undefined;
 };
 
-const asciiPresetOptions = [
-	{
-		key: "standard",
-		label: presetStandard.label,
-		preset: presetStandard,
-	},
-	{
-		key: "latin1",
-		label: presetLatin1.label,
-		preset: presetLatin1,
-	},
-	{
-		key: "visibleWhitespace",
-		label: presetWhitespace.label,
-		preset: presetWhitespace,
-	},
-	{
-		key: "custom",
-		label: customAsciiPreset.label,
-		preset: customAsciiPreset,
-	},
-] as const;
-
-type AsciiPresetKey = (typeof asciiPresetOptions)[number]["key"];
-
-const asciiPresetKey = ref<AsciiPresetKey>("standard");
-
-const themeOptions = [
-	{ key: "auto", label: "Match OS" },
-	{ key: "dark", label: "Dark Mode" },
-	{ key: "light", label: "Light Mode" },
-	{ key: "terminal", label: "Terminal Green" },
-	{ key: "sunset", label: "Sunset Glow" },
-] as const;
-
-type ThemeKey = (typeof themeOptions)[number]["key"];
-
-const themeKey = ref<ThemeKey>("auto");
-
-const viewerTheme = computed(() =>
-	themeKey.value === "auto" ? null : themeKey.value,
-);
-
-const highlightOptions = [
-	{ key: "structure", label: "Sample structure" },
-	{ key: "asciiCategories", label: "ASCII categories" },
-	{ key: "none", label: "No highlights" },
-] as const;
-
-type HighlightKey = (typeof highlightOptions)[number]["key"];
-
-const highlightKey = ref<HighlightKey>("structure");
-
-const chunkNavigatorPlacementOptions = [
-	{ value: "right", label: "Navigator right" },
-	{ value: "left", label: "Navigator left" },
-	{ value: "top", label: "Navigator top" },
-	{ value: "bottom", label: "Navigator bottom" },
-] as const;
-
-type ChunkNavigatorPlacement =
-	(typeof chunkNavigatorPlacementOptions)[number]["value"];
-
-const chunkNavigatorPlacement = ref<ChunkNavigatorPlacement>("right");
-
-const activeAsciiPreset = computed(() => {
-	const found = asciiPresetOptions.find(
-		(option) => option.key === asciiPresetKey.value,
-	);
-	return found?.preset ?? asciiPresetOptions[0].preset;
-});
-
-const structureHighlight: VueHexCellClassResolver = ({ index }) => {
-	const total = totalBytes.value;
-	const headerLimit = Math.min(0x40, Math.max(total, 0));
-	const hasFooter = total >= 0x80;
-	const footerStart = hasFooter
-		? Math.max(total - 0x40, headerLimit)
-		: Infinity;
-	const metadataLimit = Math.min(0x180, footerStart);
-
-	if (index < headerLimit) {
-		return "vuehex-demo-region--header";
-	}
-	if (index < metadataLimit) {
-		return "vuehex-demo-region--metadata";
-	}
-	if (index >= footerStart) {
-		return "vuehex-demo-region--footer";
-	}
-	return "vuehex-demo-region--payload";
+const highlightPrintable: VueHexCellClassResolver = ({ byte }) => {
+	return byte >= 0x20 && byte <= 0x7e
+		? "vuehex-highlight-printable"
+		: undefined;
 };
 
-const asciiCategoryHighlight: VueHexCellClassResolver = ({ byte }) => {
-	if (byte >= 0x30 && byte <= 0x39) {
-		return "vuehex-demo-byte--digit";
+const selectedHighlighting = computed(() => {
+	switch (selectedHighlightingKey.value) {
+		case "none":
+			return null;
+		case "null-bytes":
+			return highlightNullBytes;
+		case "printable":
+			return highlightPrintable;
+		case "default":
+		default:
+			return undefined;
 	}
-	if (byte >= 0x41 && byte <= 0x5a) {
-		return "vuehex-demo-byte--uppercase";
-	}
-	if (byte >= 0x61 && byte <= 0x7a) {
-		return "vuehex-demo-byte--lowercase";
-	}
-	if (byte === 0x00) {
-		return "vuehex-demo-byte--null";
-	}
-	return undefined;
-};
-
-const highlightResolverMap: Record<
-	HighlightKey,
-	VueHexCellClassResolver | undefined
-> = {
-	structure: structureHighlight,
-	asciiCategories: asciiCategoryHighlight,
-	none: undefined,
-};
-
-const highlightNotesMap: Record<HighlightKey, string[]> = {
-	structure: [
-		"Header: first 64 bytes (or the whole file if shorter)",
-		"Metadata: bytes 0x40–0x17F until the footer boundary",
-		"Payload: everything after metadata until the footer",
-		"Footer: final 64 bytes when available",
-	],
-	asciiCategories: [
-		"Digits highlighted in gold",
-		"Uppercase ASCII highlighted in cyan",
-		"Lowercase ASCII highlighted in violet",
-		"Null bytes dimmed",
-	],
-	none: [],
-};
-
-const activeCellClassResolver = computed(
-	() => highlightResolverMap[highlightKey.value],
-);
-
-const activeHighlightNotes = computed(
-	() => highlightNotesMap[highlightKey.value] ?? [],
-);
-
-const activeRowOffset = ref<number | null>(null);
-const activeHex = ref<{ index: number; byte: number } | null>(null);
-const activeAscii = ref<{ index: number; byte: number } | null>(null);
-
-interface HoverLogEntry {
-	id: number;
-	text: string;
-}
-
-const hoverLog = ref<HoverLogEntry[]>([]);
-let hoverLogId = 0;
-
-const activeRowText = computed(() => {
-	const offset = activeRowOffset.value;
-	if (offset == null) {
-		return "None";
-	}
-	return `${formatHex(offset, 8)} (${offset})`;
 });
 
-const activeHexText = computed(() => {
-	const details = activeHex.value;
-	if (!details) {
-		return "None";
-	}
-	return `Index ${formatHex(details.index, 8)} | Byte ${formatHex(
-		details.byte,
-		2,
-	)}`;
-});
-
-const activeAsciiText = computed(() => {
-	const details = activeAscii.value;
-	if (!details) {
-		return "None";
-	}
-	return `Index ${formatHex(details.index, 8)} | Byte ${formatHex(
-		details.byte,
-		2,
-	)}`;
-});
-
-const currentSourceSummary = computed(() => {
-	const sizeText = formatBytes(totalBytes.value);
-	return `${sourceLabel.value} - ${sizeText}`;
-});
-
-async function handleFileSelection(event: Event) {
+async function handleFileSelect(event: Event) {
 	const input = event.target as HTMLInputElement;
-	const fileList = input.files;
-	if (!fileList || fileList.length === 0) {
-		return;
-	}
+	const file = input.files?.[0];
 
-	const file = fileList.item(0);
 	if (!file) {
 		return;
 	}
 
-	fileError.value = null;
+	fileName.value = file.name;
 
 	try {
-		const buffer = await file.arrayBuffer();
-		replaceBackingData(new Uint8Array(buffer), file.name);
-		await nextTick();
-		scrollToStart();
+		const arrayBuffer = await file.arrayBuffer();
+		fileData.value = new Uint8Array(arrayBuffer);
 	} catch (error) {
-		fileError.value =
-			error instanceof Error
-				? error.message
-				: "Unable to read the selected file.";
-	} finally {
-		input.value = "";
+		console.error("Failed to read file:", error);
+		fileName.value = "";
+		fileData.value = new Uint8Array(0);
 	}
-}
-
-async function resetToSampleData() {
-	fileError.value = null;
-	replaceBackingData(createSampleData(), SAMPLE_LABEL);
-	await nextTick();
-	scrollToStart();
-}
-
-function replaceBackingData(data: Uint8Array, label: string) {
-	backingData.value = data;
-	sourceLabel.value = label;
-	resetViewerToOffset(0);
-	resetHoverState();
-	clearHoverLog();
-}
-
-function resetViewerToOffset(offset: number) {
-	const nextWindow = createInitialWindow(backingData.value, offset);
-	viewerWindowOffset.value = nextWindow.offset;
-	viewerWindowData.value = nextWindow.data;
-}
-
-function handleRequestWindow(request: VueHexWindowRequest) {
-	const total = totalBytes.value;
-	if (total <= 0) {
-		viewerWindowOffset.value = 0;
-		viewerWindowData.value = new Uint8Array(0);
-		return;
-	}
-
-	const offset = Math.max(0, Math.min(Math.trunc(request.offset), total));
-	const requestedLength = Math.max(0, Math.trunc(request.length));
-	const available = Math.max(total - offset, 0);
-	const length = Math.min(requestedLength, available);
-	const slice =
-		length > 0
-			? backingData.value.slice(offset, offset + length)
-			: new Uint8Array(0);
-	viewerWindowOffset.value = offset;
-	viewerWindowData.value = slice;
-}
-
-function getSelectionData(selectionStart: number, selectionEnd: number) {
-	const data = backingData.value;
-	const total = data.length;
-	if (total <= 0) {
-		return new Uint8Array(0);
-	}
-	const start = Math.max(0, Math.min(Math.trunc(selectionStart), total - 1));
-	const end = Math.max(0, Math.min(Math.trunc(selectionEnd), total - 1));
-	const from = Math.min(start, end);
-	const to = Math.max(start, end);
-	return data.slice(from, to + 1);
-}
-
-function handleRowHoverOn(payload: { offset: number }) {
-	activeRowOffset.value = payload.offset;
-	pushHoverLog(
-		`row-hover-on  offset ${formatHex(payload.offset, 8)} (${payload.offset})`,
-	);
-}
-
-function handleRowHoverOff(payload: { offset: number }) {
-	if (activeRowOffset.value === payload.offset) {
-		activeRowOffset.value = null;
-	}
-	pushHoverLog(
-		`row-hover-off offset ${formatHex(payload.offset, 8)} (${payload.offset})`,
-	);
-}
-
-function handleHexHoverOn(payload: { index: number; byte: number }) {
-	activeHex.value = payload;
-	pushHoverLog(
-		`hex-hover-on  index ${formatHex(payload.index, 8)} byte ${formatHex(
-			payload.byte,
-			2,
-		)}`,
-	);
-}
-
-function handleHexHoverOff(payload: { index: number; byte: number }) {
-	if (activeHex.value && activeHex.value.index === payload.index) {
-		activeHex.value = null;
-	}
-	pushHoverLog(
-		`hex-hover-off index ${formatHex(payload.index, 8)} byte ${formatHex(
-			payload.byte,
-			2,
-		)}`,
-	);
-}
-
-function handleAsciiHoverOn(payload: { index: number; byte: number }) {
-	activeAscii.value = payload;
-	pushHoverLog(
-		`ascii-hover-on index ${formatHex(payload.index, 8)} byte ${formatHex(
-			payload.byte,
-			2,
-		)}`,
-	);
-}
-
-function handleAsciiHoverOff(payload: { index: number; byte: number }) {
-	if (activeAscii.value && activeAscii.value.index === payload.index) {
-		activeAscii.value = null;
-	}
-	pushHoverLog(
-		`ascii-hover-off index ${formatHex(payload.index, 8)} byte ${formatHex(
-			payload.byte,
-			2,
-		)}`,
-	);
-}
-
-function pushHoverLog(message: string) {
-	hoverLogId += 1;
-	const entry: HoverLogEntry = { id: hoverLogId, text: message };
-	hoverLog.value = [entry, ...hoverLog.value].slice(0, 8);
-}
-
-function clearHoverLog() {
-	hoverLogId = 0;
-	hoverLog.value = [];
-}
-
-function scrollToByte(offset: number) {
-	viewerRef.value?.scrollToByte(offset);
-}
-
-function scrollToStart() {
-	if (totalBytes.value === 0) {
-		return;
-	}
-	scrollToByte(0);
-}
-
-function scrollToMiddle() {
-	if (totalBytes.value === 0) {
-		return;
-	}
-	scrollToByte(Math.floor(totalBytes.value / 2));
-}
-
-function scrollToEnd() {
-	if (totalBytes.value === 0) {
-		return;
-	}
-	scrollToByte(Math.max(totalBytes.value - bytesPerRow.value, 0));
-}
-
-function resetHoverState() {
-	activeRowOffset.value = null;
-	activeHex.value = null;
-	activeAscii.value = null;
-}
-
-function formatHex(value: number, pad: number): string {
-	return `0x${value.toString(16).padStart(pad, "0").toUpperCase()}`;
-}
-
-function createSampleData(): Uint8Array {
-	const data = new Uint8Array(SAMPLE_SIZE);
-	for (let index = 0; index < data.length; index += 1) {
-		data[index] = index % 256;
-	}
-	return data;
-}
-
-function createInitialWindow(data: Uint8Array, offset: number): VueHexWindow {
-	const total = data.length;
-	if (total === 0) {
-		return {
-			offset: 0,
-			data: new Uint8Array(0),
-		};
-	}
-
-	const rowSize = Math.max(bytesPerRow.value, 1);
-	const clampedOffset = Math.max(0, Math.trunc(offset));
-	const alignedOffset = clampedOffset - (clampedOffset % rowSize);
-	const rowsToShow = Math.max(VISIBLE_ROWS, 1);
-	const visibleLength = Math.min(
-		rowSize * rowsToShow,
-		Math.max(total - alignedOffset, 0),
-	);
-
-	const slice =
-		visibleLength > 0
-			? data.slice(alignedOffset, alignedOffset + visibleLength)
-			: new Uint8Array(0);
-
-	return {
-		offset: alignedOffset,
-		data: slice,
-	};
-}
-
-function formatBytes(size: number): string {
-	if (size <= 0) {
-		return "0 bytes";
-	}
-
-	const units = ["bytes", "KB", "MB", "GB", "TB"];
-	let value = size;
-	let unitIndex = 0;
-
-	while (value >= 1024 && unitIndex < units.length - 1) {
-		value /= 1024;
-		unitIndex += 1;
-	}
-
-	const precision = unitIndex === 0 || value >= 100 ? 0 : 1;
-	const formatted = value.toFixed(precision);
-	const normalized = Number(formatted).toString();
-
-	return `${normalized} ${units[unitIndex]}`;
 }
 </script>
 
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+#app {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+</style>
+
 <style scoped>
-.app {
-  padding: 2rem;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-  display: grid;
-  gap: 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.panel {
-  display: grid;
-  gap: 1rem;
-}
-
-.viewer {
-  height: min(480px, 70vh);
-  min-height: 320px;
-}
-
-.events {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.events-title {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.events-grid {
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-}
-
-.events-card {
-  border-radius: 0.75rem;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(148, 163, 184, 0.1);
-  padding: 0.75rem;
-  display: grid;
-  gap: 0.35rem;
-}
-
-.events-card h4 {
-  margin: 0;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.events-card p {
-  margin: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
-  font-size: 0.8rem;
-}
-
-.events-log {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.events-log h4 {
-  margin: 0;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.events-log-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.35rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
-  font-size: 0.75rem;
-}
-
-.events-log-list li {
-  border-radius: 0.5rem;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(148, 163, 184, 0.15);
-  padding: 0.35rem 0.5rem;
-}
-
-.events-log-empty {
-  text-align: center;
-  color: rgba(30, 41, 59, 0.6);
-}
-
-.panel-title {
-  margin: 0;
-  font-size: 1.25rem;
-}
-
-.options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  align-items: center;
-}
-
-.option {
+.demo-app {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
+  justify-content: center;
+  width: 100%;
+  height: 100vh;
+  background: #0d1117;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
 }
 
-.file-loader {
-  display: grid;
-  gap: 0.5rem;
-  align-items: start;
-}
-
-.option-file {
+.demo-container {
+  display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  width: 90vw;
+  max-width: 1800px;
+  height: calc(100vh - 4rem);
+  background: #161b22;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
-.option-file input[type="file"] {
-  font-size: 0.875rem;
-}
-
-.file-loader-button {
-  border-radius: 0.5rem;
-  border: 1px solid rgba(99, 102, 241, 0.35);
-  background: rgba(99, 102, 241, 0.15);
-  color: #312e81;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
-}
-
-.file-loader-button:hover {
-  border-color: rgba(99, 102, 241, 0.75);
-  background: rgba(99, 102, 241, 0.25);
-}
-
-.file-status {
-  margin: 0;
-  font-size: 0.85rem;
-  color: rgba(30, 41, 59, 0.75);
-}
-
-.file-error {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #b91c1c;
-}
-
-.controls {
+.demo-header {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  font-size: 0.875rem;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  flex-shrink: 0;
 }
 
-.controls button {
-  border-radius: 0.5rem;
-  border: 1px solid rgba(99, 102, 241, 0.35);
-  background: rgba(99, 102, 241, 0.15);
-  color: #312e81;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
-}
-
-.controls button:hover {
-  border-color: rgba(99, 102, 241, 0.75);
-  background: rgba(99, 102, 241, 0.25);
-}
-
-.controls-label {
-  font-weight: 600;
-}
-
-input[type="number"],
-input[type="text"],
-select {
-  border-radius: 0.5rem;
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  padding: 0.25rem 0.5rem;
-  font-size: 0.875rem;
-  background: rgba(15, 23, 42, 0.05);
-  color: inherit;
-}
-
-input[type="number"]:focus,
-input[type="text"]:focus,
-select:focus {
-  outline: 2px solid rgba(99, 102, 241, 0.35);
-  outline-offset: 1px;
-}
-
-.highlight-legend {
-  display: grid;
-  gap: 0.25rem;
-  padding: 0.75rem;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(148, 163, 184, 0.12);
-}
-
-.highlight-legend-title {
+.demo-header h1 {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 1.5rem;
   font-weight: 600;
+  color: #e6edf3;
+  letter-spacing: -0.02em;
 }
 
-.highlight-legend-list {
-  list-style: disc;
-  margin: 0 0 0 1.2rem;
-  padding: 0;
-  display: grid;
-  gap: 0.2rem;
-  font-size: 0.8rem;
+.file-input-wrapper {
+  position: relative;
+  cursor: pointer;
 }
 
-:deep(.vuehex-demo-region--header),
-:deep(.vuehex-demo-region--metadata),
-:deep(.vuehex-demo-region--payload),
-:deep(.vuehex-demo-region--footer) {
-  //border-radius: 0.25rem;
-  //padding: 0 0.2rem;
+.file-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
 }
 
-:deep(.vuehex-demo-region--header) {
-  background: rgba(56, 189, 248, 0.2);
+.file-button {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: #238636;
+  color: #ffffff;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  border: 1px solid rgba(240, 246, 252, 0.1);
 }
 
-:deep(.vuehex-demo-region--metadata) {
-  background: rgba(94, 234, 212, 0.18);
+.file-button:hover {
+  background: #2ea043;
 }
 
-:deep(.vuehex-demo-region--payload) {
-  background: rgba(251, 191, 36, 0.18);
+.file-name {
+  color: #7d8590;
+  font-size: 0.875rem;
+  font-style: normal;
 }
 
-:deep(.vuehex-demo-region--footer) {
-  background: rgba(249, 115, 22, 0.2);
+.demo-main {
+  flex: 1;
+  padding: 1rem;
+  min-height: 0;
 }
 
-:deep(.vuehex-demo-byte--digit) {
-  color: #facc15;
+.demo-footer {
+  padding: 1rem 1.5rem;
+  background: #161b22;
+  border-top: 1px solid #30363d;
+  flex-shrink: 0;
 }
 
-:deep(.vuehex-demo-byte--uppercase) {
-  color: #38bdf8;
+.demo-controls {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
-:deep(.vuehex-demo-byte--lowercase) {
-  color: #c084fc;
+.control-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #e6edf3;
 }
 
-:deep(.vuehex-demo-byte--null) {
-  opacity: 0.5;
+.control-label span {
+  font-weight: 500;
+  color: #7d8590;
+}
+
+.demo-select {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  background: #0d1117;
+  color: #e6edf3;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.demo-select:hover {
+  border-color: #484f58;
+  background: #161b22;
+}
+
+.demo-select:focus {
+  outline: none;
+  border-color: #1f6feb;
+  box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.15);
+}
+
+@media (prefers-color-scheme: light) {
+  .demo-app {
+    background: #f6f8fa;
+  }
+
+  .demo-container {
+    background: #ffffff;
+    border: 1px solid #d0d7de;
+  }
+
+  .demo-header,
+  .demo-footer {
+    background: #ffffff;
+    border-color: #d0d7de;
+  }
+
+  .demo-header h1 {
+    color: #24292f;
+  }
+
+  .file-button {
+    background: #2da44e;
+  }
+
+  .file-button:hover {
+    background: #2c974b;
+  }
+
+  .file-name {
+    color: #57606a;
+  }
+
+  .control-label {
+    color: #24292f;
+  }
+
+  .control-label span {
+    color: #57606a;
+  }
+
+  .demo-select {
+    background: #ffffff;
+    color: #24292f;
+    border-color: #d0d7de;
+  }
+
+  .demo-select:hover {
+    border-color: #6e7781;
+  }
+}
+/* Global highlighting styles for custom presets */
+.vuehex-highlight-null {
+  background: rgba(255, 0, 0, 0.2);
+}
+
+.vuehex-highlight-printable {
+  background: rgba(0, 255, 0, 0.1);
 }
 </style>
