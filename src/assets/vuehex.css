@@ -258,7 +258,7 @@
 		"Courier New", monospace;
 	background: var(--vuehex-background);
 	color: var(--vuehex-foreground);
-	padding: 1rem;
+	padding: 0 1rem;
 	border: 1px solid var(--vuehex-border-color);
 	overflow-x: auto;
 	overflow-y: auto;

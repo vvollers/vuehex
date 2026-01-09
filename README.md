@@ -56,7 +56,7 @@ const windowData = ref(backingFile.slice(0, 16 * 48));
 | `modelValue` | **required** | The currently visible `Uint8Array`. Use with `v-model`. |
 | `dataMode` / `data-mode` | `auto` | Data handling mode: `auto`, `buffer`, or `window`. |
 | `expandToContent` / `expand-to-content` | `false` | Disables internal scrolling/virtualization and expands the component height to fit the full buffer (expects the full data in `v-model`). |
-| `windowOffset` | `0` | Absolute start offset represented by `modelValue`. |
+| `windowOffset` | `0` | Absolute start offset represented by `modelValue`. Supports two-way binding with `v-model:window-offset` - updates when scrolling to new data, and scrolls when changed externally. |
 | `totalSize` | `modelValue.length` | Total bytes available. |
 | `bytesPerRow` | `16` | Number of bytes to display per row. |
 | `uppercase` | `false` | Whether to display hex values in uppercase. |
@@ -75,6 +75,7 @@ VueHex emits several events to enable interactive features:
 | Event | Payload | Description |
 |-------|---------|-------------|
 | `update:modelValue` | `Uint8Array` | Emitted when the data changes (for `v-model` binding). |
+| `update:windowOffset` | `number` | Emitted when the component scrolls to a new data window (for `v-model:window-offset` binding). |
 | `updateVirtualData` | `{ offset: number, length: number }` | Emitted when the component needs more data in windowed mode. |
 | `byte-click` | `{ index: number, byte: number, kind: 'hex' \| 'ascii' }` | Emitted when a user clicks on a specific byte cell. `index` is the absolute byte position, `byte` is the value (0-255), and `kind` indicates whether the hex or ASCII column was clicked. |
 | `selection-change` | `{ start: number \| null, end: number \| null, length: number }` | Emitted when the selection range changes. `start` and `end` are absolute byte positions (inclusive), or `null` if nothing is selected. `length` is the number of selected bytes. |
@@ -145,6 +146,53 @@ Even with virtualization and chunking, loading a 40 GB file entirely into memory
 ### Virtual data mode
 
 When VueHex needs different bytes it emits `updateVirtualData` with `{ offset, length }`. The component keeps rendering whatever you provide through `v-model` until you feed it a new slice. That means you can back the viewer with disk I/O, HTTP range requests, IndexedDB, or any other storage you control.
+
+You can use `v-model:window-offset` for two-way binding of the current offset. This automatically:
+- Updates the parent when the user scrolls to new data
+- Scrolls the viewer when you change the offset programmatically
+
+```vue
+<template>
+  <VueHex
+    v-model="windowData"
+    v-model:window-offset="windowOffset"
+    :total-size="fileSize"
+    data-mode="window"
+    @update-virtual-data="loadWindow"
+  />
+</template>
+
+<script setup>
+const windowData = ref(new Uint8Array());
+const windowOffset = ref(0);
+
+async function loadWindow({ offset, length }) {
+  const data = await fetchBytesFromSource(offset, length);
+  windowData.value = data;
+  // windowOffset will be automatically updated by the component
+}
+</script>
+```
+
+Alternatively, manually sync the offset when handling `updateVirtualData`:
+
+```vue
+<template>
+  <VueHex
+    v-model="windowData"
+    :window-offset="windowOffset"
+    :total-size="fileSize"
+    @update-virtual-data="loadWindow"
+  />
+</template>
+
+<script setup>
+async function loadWindow({ offset, length }) {
+  windowOffset.value = offset; // Manual sync
+  windowData.value = await fetchBytesFromSource(offset, length);
+}
+</script>
+```
 
 ### Full data mode
 
@@ -221,7 +269,7 @@ VueHex emits enter/leave events for rows, hex cells, and ASCII cells so you can 
 ```vue
 <VueHex
     v-model="windowData"
-    :window-offset="windowOffset"
+    v-model:window-offset="windowOffset"
     @hex-hover-on="handleHexEnter"
     @hex-hover-off="handleHexLeave"
 />

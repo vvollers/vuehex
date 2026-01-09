@@ -278,15 +278,15 @@ function formatOffsetValue(offset: number | null, config: unknown): string {
 		return "";
 	}
 	const format = getConfigString(config, "format");
-	if (format === "hex") {
-		const upper = Boolean(props.uppercase);
-		const pad = Math.max(0, Math.trunc(getConfigNumber(config, "pad") ?? 0));
-		const raw = Math.max(0, Math.trunc(offset)).toString(16);
-		const value = (upper ? raw.toUpperCase() : raw).padStart(pad, "0");
-		const prefix = getConfigBoolean(config, "prefix") ?? true;
-		return prefix ? `0x${value}` : value;
+	if (format === "decimal") {
+		return String(Math.max(0, Math.trunc(offset)));
 	}
-	return String(Math.max(0, Math.trunc(offset)));
+	const upper = Boolean(props.uppercase);
+	const pad = Math.max(0, Math.trunc(getConfigNumber(config, "pad") ?? 0));
+	const raw = Math.max(0, Math.trunc(offset)).toString(16);
+	const value = (upper ? raw.toUpperCase() : raw).padStart(pad, "0");
+	const prefix = getConfigBoolean(config, "prefix") ?? true;
+	return prefix ? `0x${value}` : value;
 }
 
 function formatHexValue(hex: string, config: unknown): string {

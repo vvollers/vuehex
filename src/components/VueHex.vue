@@ -105,8 +105,6 @@ const MAX_VIRTUAL_HEIGHT = 8_000_000;
  * ```
  */
 interface VueHexProps {
-	/** v-model binding containing the currently visible window bytes. */
-	modelValue: Uint8Array;
 	/**
 	 * Controls whether VueHex treats `v-model` as the full buffer or as a virtual window.
 	 *
@@ -122,8 +120,6 @@ interface VueHexProps {
 	 * In this mode, VueHex expects the full data buffer in `v-model` (windowing is not used).
 	 */
 	expandToContent?: boolean;
-	/** Absolute offset that the provided window data represents. */
-	windowOffset?: number;
 	/** Total bytes available in the backing source; defaults to modelValue length. */
 	totalSize?: number;
 	/** Controls how many bytes render per table row; consumers tune readability. */
@@ -177,11 +173,12 @@ interface VueHexProps {
 	statusbarLayout?: VueHexStatusBarLayout | null;
 }
 
+const windowOffset = defineModel<number>("windowOffset", { default: 0 });
+const modelValue = defineModel<Uint8Array>({ default: new Uint8Array(0) });
+
 const props = withDefaults(defineProps<VueHexProps>(), {
-	modelValue: () => new Uint8Array(0),
 	dataMode: "auto",
 	expandToContent: false,
-	windowOffset: 0,
 	bytesPerRow: 16,
 	uppercase: false,
 	nonPrintableChar: ".",
@@ -196,7 +193,6 @@ const props = withDefaults(defineProps<VueHexProps>(), {
 });
 
 const emit = defineEmits<{
-	(event: "update:modelValue", value: Uint8Array): void;
 	(event: "updateVirtualData", payload: VueHexWindowRequest): void;
 	(event: "update:cursorLocation", value: number | null): void;
 	(event: "cursor-change", payload: { index: number | null }): void;
@@ -223,13 +219,31 @@ const normalizedWindowOffset = computed(() => {
 	if (isExpandToContent.value) {
 		return 0;
 	}
-	return Math.max(0, Math.trunc(props.windowOffset ?? 0));
+	return Math.max(0, Math.trunc(windowOffset.value ?? 0));
 });
+
+/** Current length of the model value, used for mode detection. */
+const backingDataLength = computed(() => modelValue.value?.length ?? 0);
+
+const { isWindowed, isSelfManaged } = useDataMode({
+	dataMode: toRef(props, "dataMode"),
+	isExpandToContent,
+	windowOffset: normalizedWindowOffset,
+	totalSize: toRef(props, "totalSize"),
+	dataLength: backingDataLength,
+});
+
 /** Provides easy access to the currently supplied window data. */
 const currentWindow = computed(() => ({
-	offset: normalizedWindowOffset.value,
-	data: props.modelValue ?? new Uint8Array(0),
+	/**
+	 * In self-managed (buffer) mode, we treat the provided data as starting at offset 0,
+	 * regardless of the current scroll position (windowOffset).
+	 * In windowed mode, windowOffset represents the requested start of the data slice.
+	 */
+	offset: isSelfManaged.value ? 0 : normalizedWindowOffset.value,
+	data: modelValue.value,
 }));
+
 /** Total bytes in the backing data; feeds navigation decisions. */
 const totalBytes = computed(() => {
 	if (isExpandToContent.value) {
@@ -240,14 +254,6 @@ const totalBytes = computed(() => {
 		return Math.max(0, Math.trunc(provided));
 	}
 	return currentWindow.value.data.length;
-});
-
-const { isWindowed, isSelfManaged } = useDataMode({
-	dataMode: toRef(props, "dataMode"),
-	isExpandToContent,
-	windowOffset: normalizedWindowOffset,
-	totalSize: toRef(props, "totalSize"),
-	dataLength: computed(() => currentWindow.value.data.length),
 });
 
 const shouldRequestVirtualData = computed(() => isWindowed.value);
@@ -475,6 +481,7 @@ const {
 		if (!shouldRequestVirtualData.value) {
 			return;
 		}
+		windowOffset.value = request.offset;
 		emit("updateVirtualData", request);
 	},
 	clearHoverState,
@@ -527,6 +534,22 @@ function handleScroll() {
 		return;
 	}
 	handleVirtualScroll();
+
+	// Update windowOffset based on current scroll position (for buffer mode)
+	if (isSelfManaged.value) {
+		const container = containerEl.value;
+		if (container) {
+			// Calculate the byte offset at the top of the visible viewport
+			const scrollTop = container.scrollTop;
+			const visibleRow = Math.floor(scrollTop / rowHeightValue.value);
+			const absoluteRow = chunkStartRow.value + visibleRow;
+			const currentByteOffset = absoluteRow * bytesPerRow.value;
+
+			if (currentByteOffset !== windowOffset.value) {
+				windowOffset.value = currentByteOffset;
+			}
+		}
+	}
 }
 
 /** Pixel offset applied to translate the table to the rendered slice. */
@@ -535,8 +558,7 @@ const tableOffset = computed(() => {
 		return 0;
 	}
 	const offsetRows = renderStartRow.value - chunkStartRow.value;
-	const offset = offsetRows * rowHeightValue.value;
-	return Math.max(offset, 0);
+	return offsetRows * rowHeightValue.value;
 });
 
 /** Inline styles for the inner wrapper sizing the virtualized content area. */
@@ -579,6 +601,11 @@ function handleChunkSelect(index: number) {
 	if (container) {
 		container.scrollTop = 0;
 	}
+
+	if (isSelfManaged.value) {
+		windowOffset.value = chunkStartRow.value * bytesPerRow.value;
+	}
+
 	scheduleWindowEvaluation();
 }
 
@@ -597,6 +624,19 @@ watch(
 		updateFromWindowState();
 	},
 	{ immediate: true },
+);
+
+// Watch for external windowOffset changes to scroll to that position
+watch(
+	() => windowOffset.value,
+	(newOffset, oldOffset) => {
+		if (newOffset === oldOffset) {
+			return;
+		}
+		if (newOffset != null && Number.isFinite(newOffset) && newOffset >= 0) {
+			queueScrollToOffset(newOffset);
+		}
+	},
 );
 
 watch(

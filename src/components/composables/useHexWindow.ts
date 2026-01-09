@@ -366,10 +366,11 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 			const topRow = options.chunkStartRow.value + topRowWithinChunk;
 			const desiredStartByte = topRow * bytesPerRowValue;
 			const overscanBytes = overscanCount * bytesPerRowValue;
+			const chunkStartByte = options.chunkStartRow.value * bytesPerRowValue;
 
 			renderStart = clamp(
 				desiredStartByte - overscanBytes,
-				windowStart,
+				Math.max(windowStart, chunkStartByte),
 				windowEnd,
 			);
 

@@ -45,11 +45,6 @@ export function useDataMode(options: UseDataModeOptions): UseDataModeResult {
 			return true;
 		}
 
-		// Auto-detect: non-zero offset implies windowing
-		if (options.windowOffset.value > 0) {
-			return true;
-		}
-
 		// Auto-detect: totalSize exceeds data length implies windowing
 		const total = options.totalSize.value;
 		return (

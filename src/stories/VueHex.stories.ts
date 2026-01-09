@@ -244,7 +244,7 @@ function createThemeStory(variant: ThemeVariant): Story {
 					code: `<template>
   <VueHex
     v-model="windowData"
-    :window-offset="windowOffset"
+    v-model:window-offset="windowOffset"
     :total-size="fileSize"
     :get-selection-data="getSelectionData"
     theme="${variant.key}"
@@ -267,7 +267,6 @@ function readBytes(offset: number, length: number): Uint8Array {
 }
 
 function handleUpdateVirtualData(payload: VueHexWindowRequest) {
-  windowOffset.value = payload.offset;
   windowData.value = readBytes(payload.offset, payload.length ?? 0x4000);
 }
 
@@ -331,7 +330,7 @@ export const VirtualBinding: Story = {
   <VueHex
     v-model="windowData"
 		data-mode="window"
-    :window-offset="windowOffset"
+    v-model:window-offset="windowOffset"
     :total-size="fileSize"
     :get-selection-data="getSelectionData"
     style="height: 320px"
@@ -354,7 +353,7 @@ function readBytes(offset: number, length: number): Uint8Array {
 }
 
 function handleUpdateVirtualData(payload: VueHexWindowRequest) {
-  windowOffset.value = payload.offset;
+  // windowOffset is automatically synced via v-model:window-offset
   windowData.value = readBytes(payload.offset, payload.length ?? 0x4000);
 }
 

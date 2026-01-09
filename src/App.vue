@@ -10,6 +10,8 @@
             class="file-input"
           />
           <span class="file-button">Select File</span>
+          <span style="color: white">{{ fileData.length }} bytes</span>
+          <span style="color: white"> offset: {{ offset }}</span>
         </label>
         <span v-if="fileName" class="file-name">{{ fileName }}</span>
       </header>
@@ -17,6 +19,7 @@
       <main class="demo-main">
         <VueHex
           v-model="fileData"
+          v-model:window-offset="offset"
           statusbar="top"
           :theme="selectedTheme"
           :cell-class-for-byte="selectedHighlighting"
@@ -76,6 +79,7 @@ import {
 import "./assets/vuehex.css";
 
 const fileData = ref<Uint8Array>(new Uint8Array(0));
+const offset = ref<number>(0);
 
 const fileName = ref<string>("");
 const selectedPresetKey = ref<"standard" | "latin1" | "visibleWhitespace">(
@@ -129,6 +133,7 @@ async function handleFileSelect(event: Event) {
 	try {
 		const arrayBuffer = await file.arrayBuffer();
 		fileData.value = new Uint8Array(arrayBuffer);
+		offset.value = 0;
 	} catch (error) {
 		console.error("Failed to read file:", error);
 		fileName.value = "";
