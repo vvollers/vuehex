@@ -391,6 +391,21 @@
 	opacity: 0.55;
 }
 
+.vuehex-byte.vuehex-category-erased,
+.vuehex-ascii-char.vuehex-category-erased {
+	color: #fb923c;
+}
+
+.vuehex-byte.vuehex-category-control,
+.vuehex-ascii-char.vuehex-category-control {
+	color: #2dd4bf;
+}
+
+.vuehex-byte.vuehex-category-highbit,
+.vuehex-ascii-char.vuehex-category-highbit {
+	color: #f87171;
+}
+
 .vuehex-byte.vuehex-linked-hover,
 .vuehex-ascii-char.vuehex-linked-hover {
 	background: rgba(96, 165, 250, 0.25);

@@ -109,6 +109,9 @@ const VUEHEX_CATEGORY_DIGIT_CLASS = "vuehex-category-digit";
 const VUEHEX_CATEGORY_UPPERCASE_CLASS = "vuehex-category-uppercase";
 const VUEHEX_CATEGORY_LOWERCASE_CLASS = "vuehex-category-lowercase";
 const VUEHEX_CATEGORY_NULL_CLASS = "vuehex-category-null";
+const VUEHEX_CATEGORY_ERASED_CLASS = "vuehex-category-erased";
+const VUEHEX_CATEGORY_CONTROL_CLASS = "vuehex-category-control";
+const VUEHEX_CATEGORY_HIGHBIT_CLASS = "vuehex-category-highbit";
 
 /**
  * Default per-byte cell classifier used by VueHex when `cellClassForByte` is not provided.
@@ -128,6 +131,15 @@ export const DEFAULT_ASCII_CATEGORY_CELL_CLASS_RESOLVER: VueHexCellClassResolver
 		}
 		if (byte === 0x00) {
 			return VUEHEX_CATEGORY_NULL_CLASS;
+		}
+		if (byte === 0xff) {
+			return VUEHEX_CATEGORY_ERASED_CLASS;
+		}
+		if ((byte >= 0x01 && byte <= 0x1f) || byte === 0x7f) {
+			return VUEHEX_CATEGORY_CONTROL_CLASS;
+		}
+		if (byte >= 0x80 && byte <= 0xfe) {
+			return VUEHEX_CATEGORY_HIGHBIT_CLASS;
 		}
 		return undefined;
 	};
