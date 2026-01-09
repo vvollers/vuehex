@@ -252,6 +252,9 @@
 	--vuehex-ascii-non-printable-color: rgba(148, 163, 184, 0.45);
 	--vuehex-ascii-column-border: rgba(148, 163, 184, 0.2);
 	--vuehex-mid-column-gutter: 1.5ch;
+	--vuehex-scrollbar-track: rgba(15, 23, 42, 0.3);
+	--vuehex-scrollbar-thumb: rgba(148, 163, 184, 0.4);
+	--vuehex-scrollbar-thumb-hover: rgba(148, 163, 184, 0.6);
 
 	font-family:
 		ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
@@ -265,6 +268,34 @@
 	position: relative;
 	box-sizing: border-box;
 	user-select: none;
+
+	/* Firefox scrollbar styling */
+	scrollbar-color: var(--vuehex-scrollbar-thumb) var(--vuehex-scrollbar-track);
+	scrollbar-width: thin;
+}
+
+/* Webkit/Chromium scrollbar styling */
+.vuehex::-webkit-scrollbar {
+	width: 12px;
+	height: 12px;
+}
+
+.vuehex::-webkit-scrollbar-track {
+	background: var(--vuehex-scrollbar-track);
+}
+
+.vuehex::-webkit-scrollbar-thumb {
+	background: var(--vuehex-scrollbar-thumb);
+	border-radius: 6px;
+	border: 2px solid var(--vuehex-background);
+}
+
+.vuehex::-webkit-scrollbar-thumb:hover {
+	background: var(--vuehex-scrollbar-thumb-hover);
+}
+
+.vuehex::-webkit-scrollbar-corner {
+	background: var(--vuehex-scrollbar-track);
 }
 
 .vuehex.vuehex--expand-to-content {
@@ -432,6 +463,9 @@
 	--vuehex-ascii-non-printable-color: rgba(148, 163, 184, 0.35);
 	--vuehex-ascii-column-border: rgba(148, 163, 184, 0.24);
 	--vuehex-mid-column-gutter: 1.5ch;
+	--vuehex-scrollbar-track: rgba(15, 23, 42, 0.3);
+	--vuehex-scrollbar-thumb: rgba(148, 163, 184, 0.4);
+	--vuehex-scrollbar-thumb-hover: rgba(148, 163, 184, 0.6);
 	--vuehex-ui-background: var(--vuehex-background);
 	--vuehex-ui-foreground: var(--vuehex-foreground);
 	--vuehex-ui-border-color: var(--vuehex-border-color);
@@ -458,6 +492,9 @@
 	--vuehex-ascii-non-printable-color: rgba(100, 116, 139, 0.5);
 	--vuehex-ascii-column-border: rgba(148, 163, 184, 0.35);
 	--vuehex-mid-column-gutter: 1.5ch;
+	--vuehex-scrollbar-track: rgba(226, 232, 240, 0.6);
+	--vuehex-scrollbar-thumb: rgba(100, 116, 139, 0.4);
+	--vuehex-scrollbar-thumb-hover: rgba(100, 116, 139, 0.6);
 	--vuehex-ui-background: var(--vuehex-background);
 	--vuehex-ui-foreground: var(--vuehex-foreground);
 	--vuehex-ui-border-color: var(--vuehex-border-color);
@@ -485,6 +522,9 @@
 	--vuehex-row-divider: rgba(148, 163, 184, 0.18);
 	--vuehex-byte-color: #f8fafc;
 	--vuehex-ascii-color: #f1f5f9;
+	--vuehex-scrollbar-track: rgba(15, 23, 42, 0.3);
+	--vuehex-scrollbar-thumb: rgba(148, 163, 184, 0.4);
+	--vuehex-scrollbar-thumb-hover: rgba(148, 163, 184, 0.6);
 	--vuehex-ascii-non-printable-color: rgba(148, 163, 184, 0.35);
 	--vuehex-ascii-column-border: rgba(148, 163, 184, 0.24);
 	--vuehex-mid-column-gutter: 1.5ch;
@@ -511,6 +551,9 @@
 		--vuehex-row-divider: rgba(15, 23, 42, 0.08);
 		--vuehex-byte-color: #1f2937;
 		--vuehex-ascii-color: #334155;
+		--vuehex-scrollbar-track: rgba(226, 232, 240, 0.6);
+		--vuehex-scrollbar-thumb: rgba(100, 116, 139, 0.4);
+		--vuehex-scrollbar-thumb-hover: rgba(100, 116, 139, 0.6);
 		--vuehex-ascii-non-printable-color: rgba(100, 116, 139, 0.5);
 		--vuehex-ascii-column-border: rgba(148, 163, 184, 0.35);
 		--vuehex-mid-column-gutter: 1.5ch;
@@ -555,6 +598,9 @@
 	--vuehex-border-color: rgba(80, 255, 120, 0.25);
 	--vuehex-offset-color: rgba(143, 255, 143, 0.65);
 	--vuehex-offset-leading-opacity: 0.55;
+	--vuehex-scrollbar-track: rgba(0, 0, 0, 0.5);
+	--vuehex-scrollbar-thumb: rgba(127, 255, 127, 0.35);
+	--vuehex-scrollbar-thumb-hover: rgba(127, 255, 127, 0.55);
 	--vuehex-row-divider: rgba(80, 255, 120, 0.15);
 	--vuehex-byte-color: #7fff7f;
 	--vuehex-ascii-color: #b8ff8a;
@@ -581,6 +627,9 @@
 	--vuehex-border-color: rgba(248, 113, 113, 0.35);
 	--vuehex-offset-color: rgba(248, 113, 113, 0.75);
 	--vuehex-offset-leading-opacity: 0.5;
+	--vuehex-scrollbar-track: rgba(31, 23, 40, 0.5);
+	--vuehex-scrollbar-thumb: rgba(248, 113, 113, 0.45);
+	--vuehex-scrollbar-thumb-hover: rgba(248, 113, 113, 0.65);
 	--vuehex-row-divider: rgba(248, 113, 113, 0.12);
 	--vuehex-byte-color: #fca5a5;
 	--vuehex-ascii-color: #fcd34d;
