@@ -1,19 +1,4 @@
-import type {
-	VueHexAsciiRenderer,
-	VueHexCellClassResolver,
-	VueHexPrintableCheck,
-} from "./vuehex-api";
-
 export const OFFSET_PAD = 8;
-export const PLACEHOLDER_HEX = "--";
-export const PLACEHOLDER_ASCII = "--";
-
-const HEX_LOWER: readonly string[] = Array.from({ length: 256 }, (_, value) =>
-	value.toString(16).padStart(2, "0"),
-);
-const HEX_UPPER: readonly string[] = HEX_LOWER.map((value) =>
-	value.toUpperCase(),
-);
 
 const HTML_ESCAPE_LOOKUP: Record<string, string> = {
 	"&": "&amp;",
@@ -22,17 +7,6 @@ const HTML_ESCAPE_LOOKUP: Record<string, string> = {
 	'"': "&quot;",
 	"'": "&#39;",
 };
-
-export type BuildHexTableMarkupFn = (
-	bytes: Uint8Array,
-	bytesPerRow: number,
-	uppercase: boolean,
-	fallbackAscii: string,
-	baseOffset: number,
-	isPrintable: VueHexPrintableCheck,
-	renderAscii: VueHexAsciiRenderer,
-	resolveCellClass?: VueHexCellClassResolver,
-) => string;
 
 /**
  * Validates that the input data source is a Uint8Array, failing fast otherwise.
@@ -73,13 +47,6 @@ export function resolveFallbackChar(value: unknown): string {
 }
 
 /**
- * Escapes a provided ASCII representation so it can be safely interpolated into HTML.
- */
-export function escapeAsciiChar(value: string): string {
-	return escapeHtml(value);
-}
-
-/**
  * Escapes raw text for safe HTML insertion by replacing reserved characters.
  */
 export function escapeHtml(value: string): string {
@@ -100,26 +67,6 @@ export function formatOffsetPlain(value: number, uppercase: boolean): string {
 }
 
 /**
- * Formats a byte offset for the table header, decorating leading zeros with markup for
- * visual differentiation while honoring casing preferences.
- */
-export function formatOffset(value: number, uppercase: boolean): string {
-	const raw = value.toString(16).padStart(OFFSET_PAD, "0");
-	const normalized = uppercase ? raw.toUpperCase() : raw;
-	const trimmed = normalized.replace(/^0+/, "");
-	const leadingCount = normalized.length - trimmed.length;
-
-	if (leadingCount <= 0) {
-		return normalized;
-	}
-
-	const leading = normalized.slice(0, leadingCount);
-	const significant = normalized.slice(leadingCount);
-
-	return `<span class="vuehex-offset-leading">${leading}</span>${significant}`;
-}
-
-/**
  * Clamps a numeric value into an inclusive range for shared viewport math helpers.
  */
 export function clamp(value: number, min: number, max: number): number {
@@ -130,6 +77,48 @@ export function clamp(value: number, min: number, max: number): number {
 		return max;
 	}
 	return value;
+}
+
+/**
+ * Parses an integer from a DOM element attribute and validates it.
+ * Returns null if the attribute doesn't exist or contains an invalid number.
+ */
+export function parseIndexAttribute(
+	element: HTMLElement,
+	attrName: string,
+): number | null {
+	const attr = element.getAttribute(attrName);
+	if (!attr) {
+		return null;
+	}
+	const index = Number.parseInt(attr, 10);
+	return Number.isFinite(index) ? index : null;
+}
+
+/**
+ * Reads a byte index from a hex or ASCII cell element.
+ * Returns null if the element is not a valid cell or has no index.
+ */
+export function readByteIndexFromElement(
+	element: Element | null,
+): number | null {
+	if (!(element instanceof HTMLElement)) {
+		return null;
+	}
+	const cell = element.closest<HTMLElement>(
+		"[data-hex-index], [data-ascii-index]",
+	);
+	if (!cell || cell.getAttribute("aria-hidden") === "true") {
+		return null;
+	}
+	const attr = cell.hasAttribute("data-hex-index")
+		? cell.getAttribute("data-hex-index")
+		: cell.getAttribute("data-ascii-index");
+	if (!attr) {
+		return null;
+	}
+	const parsed = Number.parseInt(attr, 10);
+	return Number.isFinite(parsed) ? parsed : null;
 }
 
 /**
@@ -153,206 +142,3 @@ export function normalizeThemeKey(value: unknown): string | null {
 
 	return normalized || null;
 }
-
-/**
- * Flattens and cleans arbitrary class token inputs so renderer utilities can safely append them.
- */
-export function normalizeClassTokens(
-	value: string | string[] | null | undefined,
-): string[] {
-	if (value == null) {
-		return [];
-	}
-
-	if (Array.isArray(value)) {
-		const flattened: string[] = [];
-		for (const entry of value) {
-			flattened.push(...normalizeClassTokens(entry));
-		}
-		return flattened;
-	}
-
-	if (typeof value !== "string") {
-		return [];
-	}
-
-	return value
-		.split(/\s+/g)
-		.map((token) => token.trim())
-		.filter(Boolean);
-}
-
-/**
- * Escapes a list of class names for inclusion in an attribute, deduplicating tokens on the way.
- */
-export function escapeClassAttribute(classes: string[]): string {
-	const seen = new Set<string>();
-	const normalized: string[] = [];
-	for (const token of classes) {
-		const trimmed = token.trim();
-		if (!trimmed || seen.has(trimmed)) {
-			continue;
-		}
-		seen.add(trimmed);
-		normalized.push(escapeHtml(trimmed));
-	}
-	return normalized.join(" ");
-}
-
-/**
- * Builds the inner HTML for the hex table body, returning a string that can be assigned via
- * v-html while taking care of alignment, placeholders, and optional cell class resolution.
- */
-export const buildHexTableMarkup: BuildHexTableMarkupFn = (
-	bytes,
-	bytesPerRow,
-	uppercase,
-	fallbackAscii,
-	baseOffset,
-	isPrintable,
-	renderAscii,
-	resolveCellClass,
-) => {
-	if (bytes.length === 0) {
-		return "";
-	}
-
-	const hexLookup = uppercase ? HEX_UPPER : HEX_LOWER;
-	const asciiFallbackEscaped = fallbackAscii;
-	const tableMarkup: string[] = [];
-	const useColumnSplit = bytesPerRow % 2 === 0;
-	const columnBreakIndex = useColumnSplit ? bytesPerRow / 2 : -1;
-
-	const buildClassList = (
-		base: string,
-		columnIndex: number,
-		payload: {
-			kind: "hex" | "ascii";
-			absoluteIndex: number;
-			byteValue: number;
-			isPlaceholder?: boolean;
-			isNonPrintable?: boolean;
-			resolver?: VueHexCellClassResolver;
-		},
-	): string => {
-		const classes: string[] = [base];
-		if (useColumnSplit && columnIndex >= columnBreakIndex) {
-			classes.push(`${base}--second-column`);
-			if (columnIndex === columnBreakIndex) {
-				classes.push(`${base}--column-start`);
-			}
-		}
-
-		if (!payload.isPlaceholder) {
-			classes.push(`${base}--value-${payload.byteValue}`);
-		}
-
-		if (payload.isPlaceholder) {
-			classes.push(`${base}--placeholder`);
-		}
-
-		if (payload.kind === "ascii" && !payload.isPlaceholder) {
-			if (payload.isNonPrintable) {
-				classes.push("vuehex-ascii-char--non-printable");
-			} else {
-				classes.push("vuehex-ascii-char--printable");
-			}
-		}
-
-		if (payload.resolver && !payload.isPlaceholder) {
-			const resolved = payload.resolver({
-				kind: payload.kind,
-				index: payload.absoluteIndex,
-				byte: payload.byteValue,
-			});
-			if (resolved != null) {
-				classes.push(...normalizeClassTokens(resolved));
-			}
-		}
-
-		return escapeClassAttribute(classes);
-	};
-
-	for (let offset = 0; offset < bytes.length; offset += bytesPerRow) {
-		const remaining = Math.min(bytesPerRow, bytes.length - offset);
-		const rowOffset = baseOffset + offset;
-
-		tableMarkup.push(
-			`<tr role="row" data-row-offset="${rowOffset}"><th scope="row" class="vuehex-offset" role="rowheader">${formatOffset(
-				rowOffset,
-				uppercase,
-			)}</th><td class="vuehex-bytes" role="cell">`,
-		);
-
-		for (let index = 0; index < remaining; index += 1) {
-			const value = bytes[offset + index] ?? 0;
-			const absoluteIndex = rowOffset + index;
-			const className = buildClassList("vuehex-byte", index, {
-				kind: "hex",
-				absoluteIndex,
-				byteValue: value,
-				resolver: resolveCellClass,
-			});
-			tableMarkup.push(
-				`<span class="${className}" data-hex-index="${absoluteIndex}" data-byte-value="${value}">${hexLookup[value]}</span>`,
-			);
-		}
-
-		for (let pad = remaining; pad < bytesPerRow; pad += 1) {
-			const columnIndex = pad;
-			const className = buildClassList("vuehex-byte", columnIndex, {
-				kind: "hex",
-				absoluteIndex: rowOffset + columnIndex,
-				byteValue: 0,
-				isPlaceholder: true,
-			});
-			tableMarkup.push(
-				`<span class="${className}" aria-hidden="true">${PLACEHOLDER_HEX}</span>`,
-			);
-		}
-
-		tableMarkup.push('</td><td class="vuehex-ascii" role="cell">');
-
-		for (let index = 0; index < remaining; index += 1) {
-			const value = bytes[offset + index] ?? 0;
-			const absoluteIndex = rowOffset + index;
-			let asciiContent = asciiFallbackEscaped;
-			let isNonPrintable = true;
-			if (isPrintable(value)) {
-				const rendered = renderAscii(value);
-				const renderedString = rendered != null ? String(rendered) : "";
-				if (renderedString.length > 0) {
-					asciiContent = escapeAsciiChar(renderedString);
-					isNonPrintable = false;
-				}
-			}
-			const className = buildClassList("vuehex-ascii-char", index, {
-				kind: "ascii",
-				absoluteIndex,
-				byteValue: value,
-				isNonPrintable,
-				resolver: resolveCellClass,
-			});
-			tableMarkup.push(
-				`<span class="${className}" data-ascii-index="${absoluteIndex}" data-byte-value="${value}">${asciiContent}</span>`,
-			);
-		}
-
-		for (let pad = remaining; pad < bytesPerRow; pad += 1) {
-			const columnIndex = pad;
-			const className = buildClassList("vuehex-ascii-char", columnIndex, {
-				kind: "ascii",
-				absoluteIndex: rowOffset + columnIndex,
-				byteValue: 0,
-				isPlaceholder: true,
-			});
-			tableMarkup.push(
-				`<span class="${className}" aria-hidden="true">${PLACEHOLDER_ASCII}</span>`,
-			);
-		}
-
-		tableMarkup.push("</td></tr>");
-	}
-
-	return tableMarkup.join("");
-};

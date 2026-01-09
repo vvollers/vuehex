@@ -7,6 +7,7 @@ import {
 	ref,
 	watch,
 } from "vue";
+import { clamp, readByteIndexFromElement } from "../vuehex-utils";
 
 const CURSOR_CLASS = "vuehex-cursor";
 
@@ -34,33 +35,6 @@ export interface CursorResult {
 	setCursorLocation: (index: number | null) => void;
 }
 
-function clampIndex(index: number, total: number): number {
-	if (total <= 0) {
-		return 0;
-	}
-	return Math.max(0, Math.min(Math.trunc(index), Math.max(0, total - 1)));
-}
-
-function readIndexFromElement(element: Element | null): number | null {
-	if (!(element instanceof HTMLElement)) {
-		return null;
-	}
-	const cell = element.closest<HTMLElement>(
-		"[data-hex-index], [data-ascii-index]",
-	);
-	if (!cell || cell.getAttribute("aria-hidden") === "true") {
-		return null;
-	}
-	const attr = cell.hasAttribute("data-hex-index")
-		? cell.getAttribute("data-hex-index")
-		: cell.getAttribute("data-ascii-index");
-	if (!attr) {
-		return null;
-	}
-	const parsed = Number.parseInt(attr, 10);
-	return Number.isFinite(parsed) ? parsed : null;
-}
-
 export function useCursor(options: CursorOptions): CursorResult {
 	const internalCursor = ref<number | null>(null);
 
@@ -86,7 +60,7 @@ export function useCursor(options: CursorOptions): CursorResult {
 			return null;
 		}
 
-		return clampIndex(index, total);
+		return total > 0 ? clamp(Math.trunc(index), 0, total - 1) : 0;
 	});
 
 	function emitIfChanged(next: number | null) {
@@ -175,7 +149,7 @@ export function useCursor(options: CursorOptions): CursorResult {
 		if (index !== null) {
 			const numeric = Number(index);
 			if (Number.isFinite(numeric)) {
-				next = clampIndex(numeric, total);
+				next = total > 0 ? clamp(Math.trunc(numeric), 0, total - 1) : 0;
 			}
 		}
 
@@ -244,7 +218,7 @@ export function useCursor(options: CursorOptions): CursorResult {
 			return;
 		}
 
-		const index = readIndexFromElement(event.target as Element | null);
+		const index = readByteIndexFromElement(event.target as Element | null);
 		if (index === null) {
 			return;
 		}

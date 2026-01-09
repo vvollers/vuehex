@@ -1,5 +1,6 @@
 import type { Ref } from "vue";
 import { ref } from "vue";
+import { parseIndexAttribute } from "../vuehex-utils";
 
 type HoverEmit = (
 	event:
@@ -94,8 +95,8 @@ export function useHoverLinking(
 			return;
 		}
 
-		const offset = Number.parseInt(rowEl.dataset.rowOffset, 10);
-		if (!Number.isFinite(offset)) {
+		const offset = parseIndexAttribute(rowEl, "data-row-offset");
+		if (offset === null) {
 			return;
 		}
 
@@ -125,8 +126,8 @@ export function useHoverLinking(
 			return;
 		}
 
-		const offset = Number.parseInt(rowEl.dataset.rowOffset, 10);
-		if (!Number.isFinite(offset) || offset !== activeRowOffset.value) {
+		const offset = parseIndexAttribute(rowEl, "data-row-offset");
+		if (offset === null || offset !== activeRowOffset.value) {
 			return;
 		}
 
@@ -147,9 +148,9 @@ export function useHoverLinking(
 			return;
 		}
 
-		const index = Number.parseInt(hexEl.dataset.hexIndex, 10);
-		const byte = Number.parseInt(hexEl.dataset.byteValue, 10);
-		if (!Number.isFinite(index) || !Number.isFinite(byte)) {
+		const index = parseIndexAttribute(hexEl, "data-hex-index");
+		const byte = parseIndexAttribute(hexEl, "data-byte-value");
+		if (index === null || byte === null) {
 			return;
 		}
 
@@ -180,8 +181,8 @@ export function useHoverLinking(
 			return;
 		}
 
-		const index = Number.parseInt(hexEl.dataset.hexIndex, 10);
-		if (!Number.isFinite(index) || index !== activeHex.value.index) {
+		const index = parseIndexAttribute(hexEl, "data-hex-index");
+		if (index === null || index !== activeHex.value.index) {
 			return;
 		}
 
@@ -214,9 +215,9 @@ export function useHoverLinking(
 			return;
 		}
 
-		const index = Number.parseInt(asciiEl.dataset.asciiIndex, 10);
-		const byte = Number.parseInt(asciiEl.dataset.byteValue, 10);
-		if (!Number.isFinite(index) || !Number.isFinite(byte)) {
+		const index = parseIndexAttribute(asciiEl, "data-ascii-index");
+		const byte = parseIndexAttribute(asciiEl, "data-byte-value");
+		if (index === null || byte === null) {
 			return;
 		}
 
@@ -250,8 +251,8 @@ export function useHoverLinking(
 			return;
 		}
 
-		const index = Number.parseInt(asciiEl.dataset.asciiIndex, 10);
-		if (!Number.isFinite(index) || index !== activeAscii.value.index) {
+		const index = parseIndexAttribute(asciiEl, "data-ascii-index");
+		if (index === null || index !== activeAscii.value.index) {
 			return;
 		}
 

@@ -5,6 +5,7 @@ import type {
 	VueHexPrintableCheck,
 	VueHexSelectionDataProvider,
 } from "../vuehex-api";
+import { clamp, parseIndexAttribute } from "../vuehex-utils";
 
 export interface SelectionOptions {
 	containerEl: Ref<HTMLDivElement | undefined>;
@@ -50,6 +51,19 @@ const SELECTED_CLASS = "vuehex-selected";
 const SELECTED_ASCII_CLASS = "vuehex-selected--ascii";
 
 export function useSelection(options: SelectionOptions): SelectionResult {
+	/**
+	 * Calculate ordered start and end from anchor and focus.
+	 */
+	function getOrderedRange(
+		anchor: number,
+		focus: number,
+	): { start: number; end: number } {
+		return {
+			start: Math.min(anchor, focus),
+			end: Math.max(anchor, focus),
+		};
+	}
+
 	const selectionDataProvider = computed<VueHexSelectionDataProvider | null>(
 		() => {
 			const provided = options.getSelectionDataProp();
@@ -66,16 +80,9 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 				if (total <= 0) {
 					return new Uint8Array(0);
 				}
-				const start = Math.max(
-					0,
-					Math.min(Math.trunc(selectionStart), Math.max(0, total - 1)),
-				);
-				const end = Math.max(
-					0,
-					Math.min(Math.trunc(selectionEnd), Math.max(0, total - 1)),
-				);
-				const from = Math.min(start, end);
-				const to = Math.max(start, end);
+				const start = clamp(Math.trunc(selectionStart), 0, total - 1);
+				const end = clamp(Math.trunc(selectionEnd), 0, total - 1);
+				const { start: from, end: to } = getOrderedRange(start, end);
 				return options.getSelfManagedBytes().slice(from, to + 1);
 			};
 		},
@@ -91,9 +98,7 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 		if (!state) {
 			return null;
 		}
-		const start = Math.min(state.anchor, state.focus);
-		const end = Math.max(state.anchor, state.focus);
-		return { start, end };
+		return getOrderedRange(state.anchor, state.focus);
 	});
 
 	const selectionCount = computed(() => {
@@ -153,8 +158,7 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 			return;
 		}
 
-		const start = Math.min(state.anchor, state.focus);
-		const end = Math.max(state.anchor, state.focus);
+		const { start, end } = getOrderedRange(state.anchor, state.focus);
 
 		// Apply selection to both hex and ASCII columns
 		const hexNodes = tbody.querySelectorAll<HTMLElement>("[data-hex-index]");
@@ -162,15 +166,8 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 			if (node.getAttribute("aria-hidden") === "true") {
 				return;
 			}
-			const attr = node.getAttribute("data-hex-index");
-			if (!attr) {
-				return;
-			}
-			const index = Number.parseInt(attr, 10);
-			if (!Number.isFinite(index)) {
-				return;
-			}
-			if (index >= start && index <= end) {
+			const index = parseIndexAttribute(node, "data-hex-index");
+			if (index !== null && index >= start && index <= end) {
 				node.classList.add(SELECTED_CLASS);
 			}
 		});
@@ -181,15 +178,8 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 			if (node.getAttribute("aria-hidden") === "true") {
 				return;
 			}
-			const attr = node.getAttribute("data-ascii-index");
-			if (!attr) {
-				return;
-			}
-			const index = Number.parseInt(attr, 10);
-			if (!Number.isFinite(index)) {
-				return;
-			}
-			if (index >= start && index <= end) {
+			const index = parseIndexAttribute(node, "data-ascii-index");
+			if (index !== null && index >= start && index <= end) {
 				node.classList.add(SELECTED_CLASS, SELECTED_ASCII_CLASS);
 			}
 		});
@@ -208,14 +198,12 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 			return null;
 		}
 		if (cell.hasAttribute("data-hex-index")) {
-			const attr = cell.getAttribute("data-hex-index");
-			const index = attr ? Number.parseInt(attr, 10) : NaN;
-			return Number.isFinite(index) ? { mode: "hex", index } : null;
+			const index = parseIndexAttribute(cell, "data-hex-index");
+			return index !== null ? { mode: "hex", index } : null;
 		}
 		if (cell.hasAttribute("data-ascii-index")) {
-			const attr = cell.getAttribute("data-ascii-index");
-			const index = attr ? Number.parseInt(attr, 10) : NaN;
-			return Number.isFinite(index) ? { mode: "ascii", index } : null;
+			const index = parseIndexAttribute(cell, "data-ascii-index");
+			return index !== null ? { mode: "ascii", index } : null;
 		}
 		return null;
 	}
@@ -362,8 +350,7 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 		if (!provider) {
 			return null;
 		}
-		const start = Math.min(state.anchor, state.focus);
-		const end = Math.max(state.anchor, state.focus);
+		const { start, end } = getOrderedRange(state.anchor, state.focus);
 		const bytes = provider(start, end);
 		if (!bytes.length) {
 			return null;

@@ -142,7 +142,7 @@
 	gap: 0.5rem;
 	font-size: 0.85rem;
 	color: rgba(226, 232, 240, 0.85);
-	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+	font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
 }
 
 .story-event-content strong {

@@ -73,11 +73,7 @@ import {
 	DEFAULT_ASCII_RENDERER,
 	DEFAULT_PRINTABLE_CHECK,
 } from "./vuehex-api";
-import {
-	buildHexTableMarkup,
-	clampBytesPerRow,
-	normalizeThemeKey,
-} from "./vuehex-utils";
+import { clampBytesPerRow, normalizeThemeKey } from "./vuehex-utils";
 
 /** Fallback row height used until the DOM is measured. */
 const DEFAULT_ROW_HEIGHT = 24;
@@ -461,7 +457,6 @@ const {
 	totalBytes,
 	ensureChunkForRow,
 	clampChunkStartToBounds,
-	buildHexTableMarkup,
 	getWindowState: () => currentWindow.value,
 	getUppercase: () => uppercase.value,
 	getPrintableChecker: () => printableCheck.value,

@@ -111,7 +111,6 @@ const selectedHighlighting = computed(() => {
 			return highlightNullBytes;
 		case "printable":
 			return highlightPrintable;
-		case "default":
 		default:
 			return undefined;
 	}
