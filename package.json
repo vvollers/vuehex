@@ -29,9 +29,10 @@
 	"scripts": {
 		"dev": "vite",
 		"build": "vite build && vue-tsc --declaration --emitDeclarationOnly --outDir dist",
+		"build:demo": "vite build --mode demo",
 		"preview": "vite preview",
 		"storybook": "storybook dev -p 6006 --disable-telemetry",
-		"storybook:build": "storybook build",
+		"storybook:build": "storybook build --output-dir dist-storybook",
 		"lint": "biome check",
 		"type-check": "vue-tsc --noEmit",
 		"format": "biome check --write",

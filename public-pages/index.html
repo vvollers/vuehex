@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VueHex - Fast Virtualized Hex Viewer for Vue 3</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #ffffff;
+      padding: 2rem;
+    }
+
+    .container {
+      text-align: center;
+      max-width: 800px;
+      width: 100%;
+    }
+
+    h1 {
+      font-size: clamp(2.5rem, 8vw, 4rem);
+      margin-bottom: 1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      font-size: clamp(1.1rem, 3vw, 1.5rem);
+      margin-bottom: 1rem;
+      opacity: 0.95;
+      font-weight: 400;
+    }
+
+    .description {
+      font-size: 1rem;
+      margin-bottom: 3rem;
+      opacity: 0.85;
+      line-height: 1.6;
+    }
+
+    .links {
+      display: flex;
+      gap: 1.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+    }
+
+    a {
+      padding: 1rem 2.5rem;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+      color: white;
+      text-decoration: none;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 1.1rem;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    a:hover {
+      background: rgba(255, 255, 255, 0.25);
+      border-color: rgba(255, 255, 255, 0.5);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      margin-top: 3rem;
+      text-align: left;
+    }
+
+    .feature {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      padding: 1.5rem;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .feature-title {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      font-size: 1.1rem;
+    }
+
+    .feature-desc {
+      opacity: 0.85;
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .footer {
+      margin-top: 4rem;
+      opacity: 0.7;
+      font-size: 0.9rem;
+    }
+
+    .footer a {
+      padding: 0;
+      background: none;
+      border: none;
+      text-decoration: underline;
+      font-size: inherit;
+    }
+
+    .footer a:hover {
+      transform: none;
+      box-shadow: none;
+      opacity: 1;
+    }
+
+    @media (max-width: 640px) {
+      .links {
+        flex-direction: column;
+      }
+
+      a {
+        width: 100%;
+      }
+
+      .features {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>VueHex</h1>
+    <p class="subtitle">Fast, virtualized hex viewer for Vue 3</p>
+    <p class="description">
+      Display and interact with binary data efficiently. Supports massive files with virtual scrolling,
+      chunking, and windowed data mode. No dependencies, highly customizable.
+    </p>
+
+    <div class="links">
+      <a href="./demo/">
+        <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+        </svg>
+        Live Demo
+      </a>
+      <a href="./docs/">
+        <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M1 2.828c.885-.37 2.154-.769 3.388-.893 1.33-.134 2.458.063 3.112.752v9.746c-.935-.53-2.12-.603-3.213-.493-1.18.12-2.37.461-3.287.811V2.828zm7.5-.141c.654-.689 1.782-.886 3.112-.752 1.234.124 2.503.523 3.388.893v9.923c-.918-.35-2.107-.692-3.287-.81-1.094-.111-2.278-.039-3.213.492V2.687zM8 1.783C7.015.936 5.587.81 4.287.94c-1.514.153-3.042.672-3.994 1.105A.5.5 0 0 0 0 2.5v11a.5.5 0 0 0 .707.455c.882-.4 2.303-.881 3.68-1.02 1.409-.142 2.59.087 3.223.877a.5.5 0 0 0 .78 0c.633-.79 1.814-1.019 3.222-.877 1.378.139 2.8.62 3.681 1.02A.5.5 0 0 0 16 13.5v-11a.5.5 0 0 0-.293-.455c-.952-.433-2.48-.952-3.994-1.105C10.413.809 8.985.936 8 1.783z"/>
+        </svg>
+        Documentation
+      </a>
+    </div>
+
+    <div class="features">
+      <div class="feature">
+        <div class="feature-title">🚀 Blazing Fast</div>
+        <div class="feature-desc">Virtual scrolling renders only visible rows. Handle gigabytes with ease.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">💪 Zero Dependencies</div>
+        <div class="feature-desc">Small bundle size (~15KB gzipped). Pure Vue 3 with no external libs.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">🎨 Fully Themeable</div>
+        <div class="feature-desc">Built-in themes or create your own. Dark, light, terminal, and more.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">⚡ Remote Data</div>
+        <div class="feature-desc">Stream data from disk, HTTP, or IndexedDB. Windowed data mode included.</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>
+        Open source under MIT License<br>
+        <a href="https://github.com/vvollers/vuehex" target="_blank" rel="noopener noreferrer">View on GitHub</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>
