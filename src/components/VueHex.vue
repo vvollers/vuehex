@@ -443,6 +443,7 @@ const {
 	scrollToByte,
 	queueScrollToOffset,
 	updateFromWindowState,
+	updateRenderedSlice,
 	measureRowHeight,
 } = useHexWindow({
 	containerEl,
@@ -463,6 +464,7 @@ const {
 	getAsciiRenderer: () => asciiRenderer.value,
 	getCellClassResolver: () => cellClassResolver.value,
 	getNonPrintableChar: () => nonPrintableChar.value,
+	getSelectionRange: () => selectionRange.value,
 	requestWindow: (request) => {
 		if (!shouldRequestVirtualData.value) {
 			return;
@@ -484,6 +486,7 @@ const { selectionEnabled, selectionRange, selectionCount } = useSelection({
 	getPrintableChecker: () => printableCheck.value,
 	getAsciiRenderer: () => asciiRenderer.value,
 	getNonPrintableChar: () => nonPrintableChar.value,
+	updateRenderedSlice,
 	emitByteClick: (payload) => emit("byte-click", payload),
 	emitSelectionChange: (payload) => emit("selection-change", payload),
 });

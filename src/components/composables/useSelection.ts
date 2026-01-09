@@ -22,6 +22,8 @@ export interface SelectionOptions {
 	getAsciiRenderer: () => VueHexAsciiRenderer;
 	getNonPrintableChar: () => string;
 
+	updateRenderedSlice: () => void;
+
 	emitByteClick?: (payload: {
 		index: number;
 		byte: number;
@@ -46,9 +48,6 @@ interface SelectionState {
 	anchor: number;
 	focus: number;
 }
-
-const SELECTED_CLASS = "vuehex-selected";
-const SELECTED_ASCII_CLASS = "vuehex-selected--ascii";
 
 export function useSelection(options: SelectionOptions): SelectionResult {
 	/**
@@ -134,54 +133,8 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 		}
 		selectionSyncHandle = requestAnimationFrame(() => {
 			selectionSyncHandle = null;
-			applySelectionHighlight();
-		});
-	}
-
-	function applySelectionHighlight() {
-		const tbody = options.tbodyEl.value;
-		if (!tbody) {
-			return;
-		}
-		const allNodes = tbody.querySelectorAll<HTMLElement>(
-			"[data-hex-index], [data-ascii-index]",
-		);
-		allNodes.forEach((node) => {
-			node.classList.remove(SELECTED_CLASS, SELECTED_ASCII_CLASS);
-		});
-
-		const state = selectionState.value;
-		if (!state || !selectionEnabled.value) {
-			if (state) {
-				selectionState.value = null;
-			}
-			return;
-		}
-
-		const { start, end } = getOrderedRange(state.anchor, state.focus);
-
-		// Apply selection to both hex and ASCII columns
-		const hexNodes = tbody.querySelectorAll<HTMLElement>("[data-hex-index]");
-		hexNodes.forEach((node) => {
-			if (node.getAttribute("aria-hidden") === "true") {
-				return;
-			}
-			const index = parseIndexAttribute(node, "data-hex-index");
-			if (index !== null && index >= start && index <= end) {
-				node.classList.add(SELECTED_CLASS);
-			}
-		});
-
-		const asciiNodes =
-			tbody.querySelectorAll<HTMLElement>("[data-ascii-index]");
-		asciiNodes.forEach((node) => {
-			if (node.getAttribute("aria-hidden") === "true") {
-				return;
-			}
-			const index = parseIndexAttribute(node, "data-ascii-index");
-			if (index !== null && index >= start && index <= end) {
-				node.classList.add(SELECTED_CLASS, SELECTED_ASCII_CLASS);
-			}
+			// Trigger markup regeneration which will embed selection classes
+			options.updateRenderedSlice();
 		});
 	}
 

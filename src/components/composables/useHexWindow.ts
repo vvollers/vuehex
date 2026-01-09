@@ -116,6 +116,7 @@ export interface HexWindowOptions {
 	getAsciiRenderer: () => VueHexAsciiRenderer;
 	getCellClassResolver: () => VueHexCellClassResolver | undefined;
 	getNonPrintableChar: () => string;
+	getSelectionRange: () => { start: number; end: number } | null;
 	requestWindow: (request: VueHexWindowRequest) => void;
 	clearHoverState: () => void;
 }
@@ -132,6 +133,7 @@ export interface HexWindowResult {
 	scrollToByte: (offset: number) => void;
 	queueScrollToOffset: (offset: number) => void;
 	updateFromWindowState: () => void;
+	updateRenderedSlice: () => void;
 	measureRowHeight: () => void;
 }
 
@@ -407,6 +409,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 
 		const printableCheck = options.getPrintableChecker();
 		const asciiRenderer = options.getAsciiRenderer();
+		const selectionRange = options.getSelectionRange();
 
 		const nextMarkup = buildHexTableMarkup(
 			slice,
@@ -416,6 +419,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 			renderStart,
 			printableCheck,
 			asciiRenderer,
+			selectionRange,
 			options.getCellClassResolver(),
 		);
 
@@ -437,6 +441,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 		baseOffset: number,
 		isPrintable: VueHexPrintableCheck,
 		renderAscii: VueHexAsciiRenderer,
+		selectionRange: { start: number; end: number } | null,
 		resolveCellClass?: VueHexCellClassResolver,
 	): string {
 		if (bytes.length === 0) {
@@ -523,6 +528,15 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 				// Fast path for classes: standard classes + value class
 				let classString = col.hexStatic + " vuehex-byte--value-" + value;
 
+				// Add selection class if in range
+				if (
+					selectionRange &&
+					absoluteIndex >= selectionRange.start &&
+					absoluteIndex <= selectionRange.end
+				) {
+					classString += " vuehex-selected";
+				}
+
 				if (resolveCellClass) {
 					const resolved = resolveCellClass({
 						kind: "hex",
@@ -584,6 +598,15 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 				} else {
 					classString =
 						col.asciiNonPrintable + " vuehex-ascii-char--value-" + value;
+				}
+
+				// Add selection classes if in range
+				if (
+					selectionRange &&
+					absoluteIndex >= selectionRange.start &&
+					absoluteIndex <= selectionRange.end
+				) {
+					classString += " vuehex-selected vuehex-selected--ascii";
 				}
 
 				if (resolveCellClass) {
@@ -725,6 +748,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 		scrollToByte,
 		queueScrollToOffset,
 		updateFromWindowState,
+		updateRenderedSlice,
 		measureRowHeight,
 	};
 }
