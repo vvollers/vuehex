@@ -125,7 +125,7 @@ export function useChunking(options: UseChunkingOptions) {
 				range: `${formatOffsetPlain(
 					startByte,
 					uppercase,
-				)} – ${formatOffsetPlain(endByte, uppercase)}`,
+				)} - ${formatOffsetPlain(endByte, uppercase)}`,
 			});
 		}
 		return items;

@@ -9,6 +9,12 @@
 		:expand-to-content="isExpandToContent"
 		@select="handleChunkSelect"
 	>
+		<template #chunk-navigator-header="headerProps">
+			<slot name="chunk-navigator-header" v-bind="headerProps" />
+		</template>
+		<template #chunk-navigator-item="itemProps">
+			<slot name="chunk-navigator-item" v-bind="itemProps" />
+		</template>
 			<VueHexStatusBar
 				v-if="showStatusBar"
 				ref="statusBarRef"

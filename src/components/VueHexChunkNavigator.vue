@@ -7,8 +7,14 @@
 			aria-label="Chunk navigator"
 		>
 			<header class="vuehex-chunk-nav__header">
-				<span class="vuehex-chunk-nav__title">Chunks</span>
-				<span class="vuehex-chunk-nav__summary">{{ props.chunks.length }} chunks</span>
+				<slot
+					name="chunk-navigator-header"
+					:chunks="props.chunks"
+					:active-index="clampedActiveIndex"
+				>
+					<span class="vuehex-chunk-nav__title">Chunks</span>
+					<span class="vuehex-chunk-nav__summary">{{ props.chunks.length }} chunks</span>
+				</slot>
 			</header>
 			<div class="vuehex-chunk-list" role="listbox">
 				<button
@@ -20,8 +26,15 @@
 					:class="chunkButtonClass(chunk.index)"
 					@click="handleChunkSelect(chunk.index)"
 				>
-					<span class="vuehex-chunk-item__label">{{ chunk.label }}</span>
-					<span class="vuehex-chunk-item__range">{{ chunk.range }}</span>
+					<slot
+						name="chunk-navigator-item"
+						:chunk="chunk"
+						:active="chunk.index === clampedActiveIndex"
+						:select="() => handleChunkSelect(chunk.index)"
+					>
+						<span class="vuehex-chunk-item__label">{{ chunk.label }}</span>
+						<span class="vuehex-chunk-item__range">{{ chunk.range }}</span>
+					</slot>
 				</button>
 			</div>
 		</nav>

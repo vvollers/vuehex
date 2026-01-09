@@ -1291,6 +1291,148 @@ const cellClassForByte: VueHexCellClassResolver = ({ index }) =>
 	}),
 };
 
+export const ChunkNavigatorCustomTemplate: Story = {
+	name: "Chunk navigator custom templates",
+	args: {
+		showChunkNavigator: true,
+		chunkNavigatorPlacement: "right",
+	},
+	parameters: {
+		docs: {
+			source: {
+				language: "vue",
+				code: `<template>
+  <VueHex
+    v-model="windowData"
+    :window-offset="windowOffset"
+    :total-size="fileSize"
+    :get-selection-data="getSelectionData"
+    :show-chunk-navigator="true"
+    chunk-navigator-placement="right"
+    style="height: 360px"
+    @updateVirtualData="handleUpdateVirtualData"
+  >
+    <template #chunk-navigator-header="{ chunks, activeIndex }">
+      <div style="padding: 0.5rem; border-bottom: 2px solid rgba(96, 165, 250, 0.3);">
+        <h3 style="margin: 0; font-size: 1rem; color: #60a5fa;">File Segments</h3>
+        <p style="margin: 0.25rem 0 0; font-size: 0.75rem; opacity: 0.8;">
+          {{ chunks.length }} segments · Viewing #{{ activeIndex + 1 }}
+        </p>
+      </div>
+    </template>
+    
+    <template #chunk-navigator-item="{ chunk, active }">
+      <div :style="{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.25rem',
+        padding: active ? '0.5rem' : '0.4rem',
+        borderLeft: active ? '3px solid #60a5fa' : '3px solid transparent',
+        backgroundColor: active ? 'rgba(96, 165, 250, 0.15)' : 'transparent'
+      }">
+        <span :style="{ fontWeight: active ? '700' : '600', fontSize: '0.85rem' }">
+          📦 {{ chunk.label }}
+        </span>
+        <span style="font-size: 0.7rem; opacity: 0.7; font-family: monospace;">
+          {{ chunk.range }}
+        </span>
+      </div>
+    </template>
+  </VueHex>
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import VueHex from "vuehex";
+import type { VueHexWindowRequest } from "vuehex";
+
+const fileSize = 4 * 1024 * 1024;
+const windowData = ref(new Uint8Array());
+const windowOffset = ref(0);
+
+function readBytes(offset: number, length: number): Uint8Array {
+  return new Uint8Array(length);
+}
+
+function handleUpdateVirtualData(payload: VueHexWindowRequest) {
+  windowOffset.value = payload.offset;
+  windowData.value = readBytes(payload.offset, payload.length ?? 0x4000);
+}
+
+function getSelectionData(selectionStart: number, selectionEnd: number) {
+  const from = Math.min(selectionStart, selectionEnd);
+  const to = Math.max(selectionStart, selectionEnd);
+  return readBytes(from, to - from + 1);
+}
+</script>`,
+			},
+		},
+	},
+	render: (args) => ({
+		components: { VueHex },
+		setup() {
+			const windowLength = Math.max(1, (args.bytesPerRow ?? 16) * 48);
+			const controller = createVirtualDataController(windowLength);
+			return { args, ...controller };
+		},
+		template: `
+			<div class="story-viewport story-viewport--column">
+			  <section class="story-stack">
+			    <header class="story-card__header">
+			      <p class="story-card__eyebrow">Customization</p>
+			      <h3 class="story-card__title">Custom chunk navigator templates</h3>
+			      <p class="story-card__subtitle">
+			        Use slots to customize the chunk navigator header and individual chunk items with your own styles and layout.
+			      </p>
+			    </header>
+			    <div class="story-demo story-demo--tall">
+			      <VueHex
+			        v-bind="args"
+			        v-model="windowData"
+			        :window-offset="windowOffset"
+			        :total-size="totalBytes"
+			        :get-selection-data="getSelectionData"
+			        style="height: 360px"
+			        @updateVirtualData="handleUpdateVirtualData"
+			      >
+			        <template #chunk-navigator-header="{ chunks, activeIndex }">
+			          <div style="padding: 0.5rem; border-bottom: 2px solid rgba(96, 165, 250, 0.3);">
+			            <h3 style="margin: 0; font-size: 1rem; color: #60a5fa;">File Segments</h3>
+			            <p style="margin: 0.25rem 0 0; font-size: 0.75rem; opacity: 0.8;">
+			              {{ chunks.length }} segments · Viewing #{{ activeIndex + 1 }}
+			            </p>
+			          </div>
+			        </template>
+			        
+			        <template #chunk-navigator-item="{ chunk, active }">
+			          <div :style="{
+			            display: 'flex',
+			            flexDirection: 'column',
+			            gap: '0.25rem',
+			            padding: active ? '0.5rem' : '0.4rem',
+			            borderLeft: active ? '3px solid #60a5fa' : '3px solid transparent',
+			            backgroundColor: active ? 'rgba(96, 165, 250, 0.15)' : 'transparent'
+			          }">
+			            <span :style="{ fontWeight: active ? '700' : '600', fontSize: '0.85rem' }">
+			              📦 {{ chunk.label }}
+			            </span>
+			            <span style="font-size: 0.7rem; opacity: 0.7; font-family: monospace;">
+			              {{ chunk.range }}
+			            </span>
+			          </div>
+			        </template>
+			      </VueHex>
+			    </div>
+			    <p class="story-caption">
+			      The <code>#chunk-navigator-header</code> slot provides access to <code>chunks</code> and <code>activeIndex</code>.
+			      The <code>#chunk-navigator-item</code> slot gives you <code>chunk</code>, <code>active</code>, and <code>select</code> function for each item.
+			    </p>
+			  </section>
+			</div>
+			`,
+	}),
+};
+
 export const ThemeDark = createThemeStory(THEME_VARIANTS[0]);
 export const ThemeLight = createThemeStory(THEME_VARIANTS[1]);
 export const ThemeTerminal = createThemeStory(THEME_VARIANTS[2]);

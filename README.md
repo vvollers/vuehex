@@ -249,6 +249,60 @@ The ASCII pane renders characters in the standard printable range (`0x20`–`0x7
 
 VueHex also exports `VUE_HEX_ASCII_PRESETS` (`standard`, `latin1`, `visibleWhitespace`) if you want a drop-in configuration.
 
+## Chunk Navigator Customization
+
+When using the chunk navigator (`show-chunk-navigator` prop), you can customize how the navigator header and chunk items are rendered using slots:
+
+### chunk-navigator-header
+
+Customize the chunk navigator header with access to the chunks list and active index:
+
+```vue
+<VueHex
+    v-model="windowData"
+    show-chunk-navigator
+    chunk-navigator-placement="right"
+>
+    <template #chunk-navigator-header="{ chunks, activeIndex }">
+        <div class="custom-header">
+            <h3>File Chunks</h3>
+            <p>{{ chunks.length }} total | Active: {{ activeIndex + 1 }}</p>
+        </div>
+    </template>
+</VueHex>
+```
+
+**Slot props:**
+- `chunks`: Array of all chunk descriptors
+- `activeIndex`: Index of the currently active chunk
+
+### chunk-navigator-item
+
+Customize individual chunk items with access to chunk data and active state:
+
+```vue
+<VueHex
+    v-model="windowData"
+    show-chunk-navigator
+    chunk-navigator-placement="right"
+>
+    <template #chunk-navigator-item="{ chunk, active, select }">
+        <div :class="{ 'my-chunk': true, 'active': active }">
+            <strong>{{ chunk.label }}</strong>
+            <span>{{ chunk.range }}</span>
+            <button @click="select">Jump</button>
+        </div>
+    </template>
+</VueHex>
+```
+
+**Slot props:**
+- `chunk`: Object with `{ index: number, label: string, range: string }`
+- `active`: Boolean indicating if this is the currently active chunk
+- `select`: Function to programmatically select this chunk
+
+Both slots are optional. If not provided, VueHex uses the default chunk navigator appearance.
+
 ## License
 
 MIT © Vincent Vollers
