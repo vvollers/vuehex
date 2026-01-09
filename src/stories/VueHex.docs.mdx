@@ -3,11 +3,237 @@ import * as VueHexStories from "./VueHex.stories";
 
 <Meta of={VueHexStories} title="Components/VueHex/Guides" />
 
-# VueHex usage guide
+# VueHex
 
-These notes expand on each demo so newcomers can understand when to pick a
-particular mode, which events fire, and how to customize the component without
-inspecting the source.
+VueHex is a fast, virtualized hex viewer component for Vue 3. It can be used both for cleanly displaying binary data and for efficiently viewing very large datasets.
+
+**Key features:**
+* No dependencies
+* Small package (~64KB minimized / ~15KB zipped)
+* Render local and remote data
+* Can handle extremely large data sizes (terabytes with virtual data mode)
+* Very flexible and themeable
+* Keyboard navigation and selection support
+
+## Quick Start
+
+```vue
+<template>
+  <VueHex
+    v-model="windowData"
+  />
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import VueHex from "vuehex";
+
+const windowData = ref(new Uint8Array());
+
+function loadWindow({ offset, length }) {
+  // Load bytes from your data source
+  windowData.value = fetchBytes(offset, length);
+}
+</script>
+```
+
+## Props
+
+<table>
+  <thead>
+    <tr>
+      <th>Prop</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>modelValue</code></td>
+      <td><strong>required</strong></td>
+      <td>The currently visible <code>Uint8Array</code>. Use with <code>v-model</code>.</td>
+    </tr>
+    <tr>
+      <td><code>dataMode</code></td>
+      <td><code>auto</code></td>
+      <td>Data handling mode: <code>auto</code>, <code>buffer</code>, or <code>window</code>.</td>
+    </tr>
+    <tr>
+      <td><code>expandToContent</code></td>
+      <td><code>false</code></td>
+      <td>Disables internal scrolling/virtualization and expands to fit full buffer.</td>
+    </tr>
+    <tr>
+      <td><code>windowOffset</code></td>
+      <td><code>0</code></td>
+      <td>Absolute start offset represented by <code>modelValue</code>. Supports <code>v-model:window-offset</code>.</td>
+    </tr>
+    <tr>
+      <td><code>totalSize</code></td>
+      <td><code>modelValue.length</code></td>
+      <td>Total bytes available.</td>
+    </tr>
+    <tr>
+      <td><code>bytesPerRow</code></td>
+      <td><code>16</code></td>
+      <td>Number of bytes to display per row.</td>
+    </tr>
+    <tr>
+      <td><code>uppercase</code></td>
+      <td><code>false</code></td>
+      <td>Whether to display hex values in uppercase.</td>
+    </tr>
+    <tr>
+      <td><code>nonPrintableChar</code></td>
+      <td><code>'.'</code></td>
+      <td>Character to display for non-printable bytes in ASCII column.</td>
+    </tr>
+    <tr>
+      <td><code>isPrintable</code></td>
+      <td>—</td>
+      <td>Function to customize ASCII printability check.</td>
+    </tr>
+    <tr>
+      <td><code>renderAscii</code></td>
+      <td>—</td>
+      <td>Function to customize ASCII character rendering.</td>
+    </tr>
+    <tr>
+      <td><code>theme</code></td>
+      <td>—</td>
+      <td>Color theme: <code>'dark'</code>, <code>'light'</code>, <code>'terminal'</code>, <code>'sunset'</code>, or <code>'auto'</code>.</td>
+    </tr>
+    <tr>
+      <td><code>cellClassForByte</code></td>
+      <td>—</td>
+      <td>Function or array of functions for custom byte highlighting.</td>
+    </tr>
+    <tr>
+      <td><code>getSelectionData</code></td>
+      <td>—</td>
+      <td>Function <code>(start, end) =&gt; Uint8Array</code> for clipboard copy support.</td>
+    </tr>
+    <tr>
+      <td><code>overscan</code></td>
+      <td><code>2</code></td>
+      <td>Number of extra rows to render above and below viewport.</td>
+    </tr>
+    <tr>
+      <td><code>showChunkNavigator</code></td>
+      <td><code>false</code></td>
+      <td>Enable the chunk navigator UI for large datasets.</td>
+    </tr>
+    <tr>
+      <td><code>chunkNavigatorPlacement</code></td>
+      <td><code>'right'</code></td>
+      <td>Placement: <code>'left'</code>, <code>'right'</code>, <code>'top'</code>, or <code>'bottom'</code>.</td>
+    </tr>
+    <tr>
+      <td><code>statusbar</code></td>
+      <td><code>null</code></td>
+      <td>Status bar placement: <code>'top'</code>, <code>'bottom'</code>, or <code>null</code>.</td>
+    </tr>
+    <tr>
+      <td><code>statusbarLayout</code></td>
+      <td>—</td>
+      <td>Configuration for status bar item placement.</td>
+    </tr>
+    <tr>
+      <td><code>cursor</code></td>
+      <td><code>false</code></td>
+      <td>Enable keyboard cursor navigation.</td>
+    </tr>
+    <tr>
+      <td><code>cursorLocation</code></td>
+      <td><code>null</code></td>
+      <td>Controlled cursor location. Supports <code>v-model:cursorLocation</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+## Models
+
+VueHex supports three v-model bindings:
+
+<table>
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>v-model</code></td>
+      <td><code>Uint8Array</code></td>
+      <td>The currently visible data buffer.</td>
+    </tr>
+    <tr>
+      <td><code>v-model:window-offset</code></td>
+      <td><code>number</code></td>
+      <td>Absolute byte offset of the current window (two-way binding).</td>
+    </tr>
+    <tr>
+      <td><code>v-model:cursorLocation</code></td>
+      <td><code>number | null</code></td>
+      <td>Current cursor position for keyboard navigation.</td>
+    </tr>
+  </tbody>
+</table>
+
+## Events
+
+<table>
+  <thead>
+    <tr>
+      <th>Event</th>
+      <th>Payload</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>updateVirtualData</code></td>
+      <td><code>&#123; offset: number, length: number &#125;</code></td>
+      <td>Emitted when the component needs more data in windowed mode.</td>
+    </tr>
+    <tr>
+      <td><code>byte-click</code></td>
+      <td><code>&#123; index: number, byte: number, kind: 'hex' | 'ascii' &#125;</code></td>
+      <td>Emitted when a byte cell is clicked.</td>
+    </tr>
+    <tr>
+      <td><code>selection-change</code></td>
+      <td><code>&#123; start: number | null, end: number | null, length: number &#125;</code></td>
+      <td>Emitted when the selection changes.</td>
+    </tr>
+    <tr>
+      <td><code>cursor-change</code></td>
+      <td><code>&#123; index: number | null &#125;</code></td>
+      <td>Emitted when cursor position changes.</td>
+    </tr>
+    <tr>
+      <td><code>row-hover-on</code> / <code>row-hover-off</code></td>
+      <td><code>&#123; offset: number &#125;</code></td>
+      <td>Emitted when hovering over/leaving a row.</td>
+    </tr>
+    <tr>
+      <td><code>hex-hover-on</code> / <code>hex-hover-off</code></td>
+      <td><code>&#123; index: number, byte: number &#125;</code></td>
+      <td>Emitted when hovering over/leaving a hex cell.</td>
+    </tr>
+    <tr>
+      <td><code>ascii-hover-on</code> / <code>ascii-hover-off</code></td>
+      <td><code>&#123; index: number, byte: number &#125;</code></td>
+      <td>Emitted when hovering over/leaving an ASCII cell.</td>
+    </tr>
+  </tbody>
+</table>
+
+## Usage Patterns
+
+The following sections demonstrate common usage patterns and features. Each example includes working code you can adapt for your needs.
 
 ## Virtual data contract
 
