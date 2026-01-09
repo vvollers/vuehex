@@ -6,7 +6,7 @@ export default defineConfig(({ mode }) => {
 	const isDemo = mode === "demo";
 
 	return {
-		base: isDemo ? "/vuehex/" : "/",
+		base: isDemo ? "/vuehex/demo/" : "/",
 		plugins: [vue()],
 
 		resolve: {
