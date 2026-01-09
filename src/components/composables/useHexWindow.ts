@@ -464,18 +464,17 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 
 			if (isSecond) {
 				const suffix = isStart ? " vuehex-byte--column-start" : "";
-				hexStatic += " vuehex-byte--second-column" + suffix;
+				hexStatic += ` vuehex-byte--second-column${suffix}`;
 
 				const asciiSuffix = isStart ? " vuehex-ascii-char--column-start" : "";
-				asciiStatic += " vuehex-ascii-char--second-column" + asciiSuffix;
+				asciiStatic += ` vuehex-ascii-char--second-column${asciiSuffix}`;
 			}
 
 			// Pre-built placeholders and class variants
-			const hexPhClass = hexStatic + " vuehex-byte--placeholder";
-			const asciiPhClass = asciiStatic + " vuehex-ascii-char--placeholder";
-			const asciiPrintable = asciiStatic + " vuehex-ascii-char--printable";
-			const asciiNonPrintable =
-				asciiStatic + " vuehex-ascii-char--non-printable";
+			const hexPhClass = `${hexStatic} vuehex-byte--placeholder`;
+			const asciiPhClass = `${asciiStatic} vuehex-ascii-char--placeholder`;
+			const asciiPrintable = `${asciiStatic} vuehex-ascii-char--printable`;
+			const asciiNonPrintable = `${asciiStatic} vuehex-ascii-char--non-printable`;
 
 			colData[i] = {
 				hexStatic,
@@ -526,7 +525,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 				const col = colData[index];
 
 				// Fast path for classes: standard classes + value class
-				let classString = col.hexStatic + " vuehex-byte--value-" + value;
+				let classString = `${col.hexStatic} vuehex-byte--value-${value}`;
 
 				// Add selection class if in range
 				if (
@@ -546,7 +545,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 					if (resolved != null) {
 						const extras = normalizeClassTokens(resolved);
 						if (extras.length > 0) {
-							classString += " " + escapeClassAttribute(extras);
+							classString += ` ${escapeClassAttribute(extras)}`;
 						}
 					}
 				}
@@ -585,19 +584,15 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 						const renderedString = String(rendered);
 						if (renderedString.length > 0) {
 							asciiContent = escapeAsciiChar(renderedString);
-							classString =
-								col.asciiPrintable + " vuehex-ascii-char--value-" + value;
+							classString = `${col.asciiPrintable} vuehex-ascii-char--value-${value}`;
 						} else {
-							classString =
-								col.asciiNonPrintable + " vuehex-ascii-char--value-" + value;
+							classString = `${col.asciiNonPrintable} vuehex-ascii-char--value-${value}`;
 						}
 					} else {
-						classString =
-							col.asciiNonPrintable + " vuehex-ascii-char--value-" + value;
+						classString = `${col.asciiNonPrintable} vuehex-ascii-char--value-${value}`;
 					}
 				} else {
-					classString =
-						col.asciiNonPrintable + " vuehex-ascii-char--value-" + value;
+					classString = `${col.asciiNonPrintable} vuehex-ascii-char--value-${value}`;
 				}
 
 				// Add selection classes if in range
@@ -618,7 +613,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 					if (resolved != null) {
 						const extras = normalizeClassTokens(resolved);
 						if (extras.length > 0) {
-							classString += " " + escapeClassAttribute(extras);
+							classString += ` ${escapeClassAttribute(extras)}`;
 						}
 					}
 				}
