@@ -10,8 +10,6 @@
             class="file-input"
           />
           <span class="file-button">Select File</span>
-          <span style="color: white">{{ fileData.length }} bytes</span>
-          <span style="color: white"> offset: {{ offset }}</span>
         </label>
         <span v-if="fileName" class="file-name">{{ fileName }}</span>
       </header>
