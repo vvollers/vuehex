@@ -67,6 +67,10 @@ const windowData = ref(backingFile.slice(0, 16 * 48));
 | `getSelectionData` | — | Function `(selectionStart: number, selectionEnd: number) => Uint8Array` used for clipboard copy (required when using virtual windows; auto-implemented in full-data mode). |
 | `overscan` | `2` | Number of extra rows to render above and below the viewport. |
 | `showChunkNavigator` + `chunkNavigatorPlacement` | — | Enable and configure the optional chunk navigator UI. |
+| `statusbar` | `null` | Status bar placement: `'top'`, `'bottom'`, or `null` to hide. Shows byte info on hover and selection details. |
+| `statusbarLayout` | — | Configuration object controlling which items appear in the status bar and their placement (`left`, `middle`, `right` sections). |
+| `cursor` | `false` | Enable keyboard/click cursor navigation. Navigate with arrow keys when focused or click bytes to move cursor. |
+| `cursorLocation` | `null` | Controlled cursor location (absolute byte index). Use with `v-model:cursorLocation` for two-way binding. |
 
 ## Events
 
@@ -80,7 +84,7 @@ VueHex emits several events to enable interactive features:
 | `byte-click` | `{ index: number, byte: number, kind: 'hex' \| 'ascii' }` | Emitted when a user clicks on a specific byte cell. `index` is the absolute byte position, `byte` is the value (0-255), and `kind` indicates whether the hex or ASCII column was clicked. |
 | `selection-change` | `{ start: number \| null, end: number \| null, length: number }` | Emitted when the selection range changes. `start` and `end` are absolute byte positions (inclusive), or `null` if nothing is selected. `length` is the number of selected bytes. |
 | `cursor-change` | `{ index: number \| null }` | Emitted when the cursor position changes (requires `cursor` prop). |
-| `update:cursorLocation` | `number \| null` | Emitted for `v-model:cursor-location` binding. |
+| `update:cursorLocation` | `number \| null` | Emitted for `v-model:cursorLocation` binding. |
 | `row-hover-on` / `row-hover-off` | `{ offset: number }` | Emitted when hovering over/leaving a row. |
 | `hex-hover-on` / `hex-hover-off` | `{ index: number, byte: number }` | Emitted when hovering over/leaving a hex cell. |
 | `ascii-hover-on` / `ascii-hover-off` | `{ index: number, byte: number }` | Emitted when hovering over/leaving an ASCII cell. |
@@ -158,7 +162,7 @@ You can use `v-model:window-offset` for two-way binding of the current offset. T
     v-model:window-offset="windowOffset"
     :total-size="fileSize"
     data-mode="window"
-    @update-virtual-data="loadWindow"
+    @updateVirtualData="loadWindow"
   />
 </template>
 
@@ -182,7 +186,7 @@ Alternatively, manually sync the offset when handling `updateVirtualData`:
     v-model="windowData"
     :window-offset="windowOffset"
     :total-size="fileSize"
-    @update-virtual-data="loadWindow"
+    @updateVirtualData="loadWindow"
   />
 </template>
 
@@ -350,6 +354,40 @@ Customize individual chunk items with access to chunk data and active state:
 - `select`: Function to programmatically select this chunk
 
 Both slots are optional. If not provided, VueHex uses the default chunk navigator appearance.
+
+## Status Bar Slots
+
+When using the status bar (`statusbar="top"` or `statusbar="bottom"`), you can provide custom content via slots. Use the `statusbarLayout` prop with the `"slot"` component name to control where your custom content appears.
+
+### Available slots
+
+- `#statusbar-left` - Content for the left section
+- `#statusbar-middle` - Content for the middle section  
+- `#statusbar-right` - Content for the right section
+
+### Example
+
+```vue
+<VueHex
+    v-model="data"
+    statusbar="bottom"
+    :statusbar-layout="{
+        left: ['offset', 'slot', 'hex'],
+        middle: ['ascii'],
+        right: ['selection', 'slot']
+    }"
+>
+    <template #statusbar-left>
+        <span>Mode: RO</span>
+    </template>
+    
+    <template #statusbar-right>
+        <span>Endian: LE</span>
+    </template>
+</VueHex>
+```
+
+The `"slot"` entry in `statusbarLayout` determines where your custom content renders relative to built-in status bar items. You can place it at any position within each section array.
 
 ## License
 

@@ -16,7 +16,7 @@ VueHex renders only a small window of a backing file. As you scroll, it emits
 from disk, HTTP ranges, or IndexedDB.
 
 ```ts
-import type { VueHexWindowRequest } from "@/components/vuehex-api";
+import type { VueHexWindowRequest } from "vuehex";
 
 type VueHexWindowRequest = {
   offset: number; // starting byte index
@@ -132,7 +132,7 @@ When you want to keep those defaults *and* add your own rules, pass an array:
 import {
   DEFAULT_ASCII_CATEGORY_CELL_CLASS_RESOLVER,
   type VueHexCellClassResolver,
-} from "@/components/vuehex-api";
+} from "vuehex";
 
 const customHighlight: VueHexCellClassResolver = ({ index }) =>
   index % 16 === 0 ? "my-row-start" : undefined;
@@ -154,7 +154,7 @@ To disable all highlighting (including the defaults), pass `null`.
 ranges and pair them with their matching `renderAscii` helpers.
 
 ```ts
-import { VUE_HEX_ASCII_PRESETS } from "@/components/vuehex-api";
+import { VUE_HEX_ASCII_PRESETS } from "vuehex";
 
 const presetKey = ref<"standard" | "latin1" | "visibleWhitespace">("standard");
 const activePreset = computed(() => VUE_HEX_ASCII_PRESETS[presetKey.value]);
@@ -223,44 +223,12 @@ into three sections:
 
 - `left` (left-aligned)
 - `middle` (centered)
-
-## Cursor
-
-Enable the optional cursor to move around the dataset with the keyboard.
-
-- Set the boolean `cursor` prop to enable the feature.
-- Press arrow keys while the viewer is focused to move the cursor.
-- Click any hex/ASCII byte to set the cursor.
-- Use `cursorLocation` (and `update:cursorLocation`) to control the location from the parent.
-- Listen to `cursor-change` to react when the cursor moves.
-
-```vue
-<template>
-  <VueHex
-    v-model="data"
-    cursor
-    v-model:cursorLocation="cursorLocation"
-    style="height: 320px"
-    @cursor-change="({ index }) => console.log('cursor moved', index)"
-  />
-</template>
-
-<script setup lang="ts">
-import { ref } from "vue";
-import VueHex from "vuehex";
-
-const data = ref(new Uint8Array(1024));
-const cursorLocation = ref<number | null>(0);
-</script>
-```
-
-<Canvas of={VueHexStories.Cursor} />
 - `right` (right-aligned)
 
 Each section is an array of **status bar components**:
 
 ```ts
-import type { VueHexStatusBarLayout } from "@/components/vuehex-api";
+import type { VueHexStatusBarLayout } from "vuehex";
 
 const layout: VueHexStatusBarLayout = {
   left: ["offset", "hex"],
@@ -345,6 +313,38 @@ const layout: VueHexStatusBarLayout = {
 - `hex`: `prefix` (boolean)
 - `ascii`: `quote` (boolean)
 - `selection`: `showWhenEmpty` (boolean)
+
+## Cursor
+
+Enable the optional cursor to move around the dataset with the keyboard.
+
+- Set the boolean `cursor` prop to enable the feature.
+- Press arrow keys while the viewer is focused to move the cursor.
+- Click any hex/ASCII byte to set the cursor.
+- Use `cursorLocation` (and `update:cursorLocation`) to control the location from the parent.
+- Listen to `cursor-change` to react when the cursor moves.
+
+```vue
+<template>
+  <VueHex
+    v-model="data"
+    cursor
+    v-model:cursorLocation="cursorLocation"
+    style="height: 320px"
+    @cursor-change="({ index }) => console.log('cursor moved', index)"
+  />
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import VueHex from "vuehex";
+
+const data = ref(new Uint8Array(1024));
+const cursorLocation = ref<number | null>(0);
+</script>
+```
+
+<Canvas of={VueHexStories.Cursor} />
 
 ## Custom themes
 
