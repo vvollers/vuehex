@@ -163,8 +163,6 @@ interface VueHexProps {
 	statusbar?: "top" | "bottom" | null;
 	/** When true, enables keyboard/click cursor navigation and rendering. */
 	cursor?: boolean;
-	/** Optional controlled cursor location (absolute byte index). */
-	cursorLocation?: number | null;
 	/**
 	 * Configures which items appear in the status bar and where they render.
 	 *
@@ -175,6 +173,9 @@ interface VueHexProps {
 
 const windowOffset = defineModel<number>("windowOffset", { default: 0 });
 const modelValue = defineModel<Uint8Array>({ default: new Uint8Array(0) });
+const cursorLocation = defineModel<number | null>("cursorLocation", {
+	default: null,
+});
 
 const props = withDefaults(defineProps<VueHexProps>(), {
 	dataMode: "auto",
@@ -194,8 +195,6 @@ const props = withDefaults(defineProps<VueHexProps>(), {
 
 const emit = defineEmits<{
 	(event: "updateVirtualData", payload: VueHexWindowRequest): void;
-	(event: "update:cursorLocation", value: number | null): void;
-	(event: "cursor-change", payload: { index: number | null }): void;
 	(
 		event: "byte-click",
 		payload: { index: number; byte: number; kind: "hex" | "ascii" },
@@ -519,9 +518,7 @@ useCursor({
 	chunkStartRow,
 	ensureChunkForRow,
 	scheduleWindowEvaluation,
-	getCursorLocationProp: () => props.cursorLocation,
-	emitCursorLocationUpdate: (value) => emit("update:cursorLocation", value),
-	emitCursorChange: (payload) => emit("cursor-change", payload),
+	cursorLocation,
 	scrollToByte,
 });
 

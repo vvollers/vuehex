@@ -153,13 +153,14 @@ function loadWindow({ offset, length }) {
 
 ## Models
 
-VueHex supports three v-model bindings:
+VueHex uses Vue 3's <code>defineModel</code> for two-way data binding. These support <code>v-model</code> syntax:
 
 <table>
   <thead>
     <tr>
       <th>Model</th>
       <th>Type</th>
+      <th>Default</th>
       <th>Description</th>
     </tr>
   </thead>
@@ -167,17 +168,20 @@ VueHex supports three v-model bindings:
     <tr>
       <td><code>v-model</code></td>
       <td><code>Uint8Array</code></td>
-      <td>The currently visible data buffer.</td>
+      <td><code>new Uint8Array(0)</code></td>
+      <td>The currently visible data buffer. In buffer mode, this is the entire dataset; in window mode, this is the current slice.</td>
     </tr>
     <tr>
-      <td><code>v-model:window-offset</code></td>
+      <td><code>v-model:windowOffset</code></td>
       <td><code>number</code></td>
-      <td>Absolute byte offset of the current window (two-way binding).</td>
+      <td><code>0</code></td>
+      <td>Absolute byte offset of the current window. Automatically updates when scrolling, and scrolls the viewer when changed externally.</td>
     </tr>
     <tr>
       <td><code>v-model:cursorLocation</code></td>
       <td><code>number | null</code></td>
-      <td>Current cursor position for keyboard navigation.</td>
+      <td><code>null</code></td>
+      <td>Current cursor position (absolute byte index). Only active when <code>cursor</code> prop is <code>true</code>. Automatically updates when navigating.</td>
     </tr>
   </tbody>
 </table>
@@ -547,8 +551,8 @@ Enable the optional cursor to move around the dataset with the keyboard.
 - Set the boolean `cursor` prop to enable the feature.
 - Press arrow keys while the viewer is focused to move the cursor.
 - Click any hex/ASCII byte to set the cursor.
-- Use `cursorLocation` (and `update:cursorLocation`) to control the location from the parent.
-- Listen to `cursor-change` to react when the cursor moves.
+- Use `v-model:cursorLocation` for two-way binding of the cursor position.
+- The cursor location updates automatically as the user navigates.
 
 ```vue
 <template>
@@ -557,7 +561,6 @@ Enable the optional cursor to move around the dataset with the keyboard.
     cursor
     v-model:cursorLocation="cursorLocation"
     style="height: 320px"
-    @cursor-change="({ index }) => console.log('cursor moved', index)"
   />
 </template>
 
@@ -567,6 +570,12 @@ import VueHex from "vuehex";
 
 const data = ref(new Uint8Array(1024));
 const cursorLocation = ref<number | null>(0);
+
+// cursorLocation automatically updates when the user moves the cursor
+// You can also set it programmatically to move the cursor
+watch(cursorLocation, (newLocation) => {
+  console.log('Cursor moved to:', newLocation);
+});
 </script>
 ```
 

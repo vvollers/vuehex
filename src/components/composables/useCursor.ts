@@ -24,9 +24,7 @@ export interface CursorOptions {
 	chunkStartRow: Ref<number>;
 	ensureChunkForRow: (row: number) => boolean;
 	scheduleWindowEvaluation: () => void;
-	getCursorLocationProp: () => number | null | undefined;
-	emitCursorLocationUpdate: (value: number | null) => void;
-	emitCursorChange: (payload: { index: number | null }) => void;
+	cursorLocation: Ref<number | null>;
 	scrollToByte: (offset: number) => void;
 }
 
@@ -36,20 +34,13 @@ export interface CursorResult {
 }
 
 export function useCursor(options: CursorOptions): CursorResult {
-	const internalCursor = ref<number | null>(null);
-
-	const isControlled = computed(
-		() => options.getCursorLocationProp() !== undefined,
-	);
-
-	const cursorLocation = computed<number | null>(() => {
+	const normalizedCursorLocation = computed<number | null>(() => {
 		if (!options.enabled.value) {
 			return null;
 		}
 
 		const total = options.totalBytes.value;
-		const provided = options.getCursorLocationProp();
-		const source = provided !== undefined ? provided : internalCursor.value;
+		const source = options.cursorLocation.value;
 
 		if (source === null) {
 			return null;
@@ -62,15 +53,6 @@ export function useCursor(options: CursorOptions): CursorResult {
 
 		return total > 0 ? clamp(Math.trunc(index), 0, total - 1) : 0;
 	});
-
-	function emitIfChanged(next: number | null) {
-		const prev = cursorLocation.value;
-		if (prev === next) {
-			return;
-		}
-		options.emitCursorLocationUpdate(next);
-		options.emitCursorChange({ index: next });
-	}
 
 	function ensureCursorVisible(index: number) {
 		if (!options.enabled.value) {
@@ -138,10 +120,7 @@ export function useCursor(options: CursorOptions): CursorResult {
 
 		const total = options.totalBytes.value;
 		if (total <= 0) {
-			if (!isControlled.value) {
-				internalCursor.value = null;
-			}
-			emitIfChanged(null);
+			options.cursorLocation.value = null;
 			return;
 		}
 
@@ -153,11 +132,7 @@ export function useCursor(options: CursorOptions): CursorResult {
 			}
 		}
 
-		if (!isControlled.value) {
-			internalCursor.value = next;
-		}
-
-		emitIfChanged(next);
+		options.cursorLocation.value = next;
 	}
 
 	const lastAppliedIndex = ref<number | null>(null);
@@ -194,7 +169,7 @@ export function useCursor(options: CursorOptions): CursorResult {
 			return;
 		}
 
-		const nextIndex = cursorLocation.value;
+		const nextIndex = normalizedCursorLocation.value;
 		const prevIndex = lastAppliedIndex.value;
 
 		if (prevIndex !== null && prevIndex !== nextIndex) {
@@ -259,7 +234,7 @@ export function useCursor(options: CursorOptions): CursorResult {
 
 		event.preventDefault();
 
-		const current = cursorLocation.value ?? 0;
+		const current = normalizedCursorLocation.value ?? 0;
 		setCursorLocation(current + (delta ?? 0));
 	}
 
@@ -274,7 +249,7 @@ export function useCursor(options: CursorOptions): CursorResult {
 	);
 
 	watch(
-		[cursorLocation, options.enabled],
+		[normalizedCursorLocation, options.enabled],
 		async () => {
 			await nextTick();
 			syncCursorHighlight();
@@ -282,7 +257,7 @@ export function useCursor(options: CursorOptions): CursorResult {
 		{ flush: "post" },
 	);
 
-	watch(cursorLocation, (next, prev) => {
+	watch(normalizedCursorLocation, (next, prev) => {
 		if (!options.enabled.value) {
 			return;
 		}
@@ -315,5 +290,5 @@ export function useCursor(options: CursorOptions): CursorResult {
 		lastAppliedIndex.value = null;
 	});
 
-	return { cursorLocation, setCursorLocation };
+	return { cursorLocation: normalizedCursorLocation, setCursorLocation };
 }

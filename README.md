@@ -53,10 +53,8 @@ const windowData = ref(backingFile.slice(0, 16 * 48));
 
 | Prop | Default | Description |
 |------|---------|-------------|
-| `modelValue` | **required** | The currently visible `Uint8Array`. Use with `v-model`. |
 | `dataMode` / `data-mode` | `auto` | Data handling mode: `auto`, `buffer`, or `window`. |
 | `expandToContent` / `expand-to-content` | `false` | Disables internal scrolling/virtualization and expands the component height to fit the full buffer (expects the full data in `v-model`). |
-| `windowOffset` | `0` | Absolute start offset represented by `modelValue`. Supports two-way binding with `v-model:window-offset` - updates when scrolling to new data, and scrolls when changed externally. |
 | `totalSize` | `modelValue.length` | Total bytes available. |
 | `bytesPerRow` | `16` | Number of bytes to display per row. |
 | `uppercase` | `false` | Whether to display hex values in uppercase. |
@@ -70,7 +68,16 @@ const windowData = ref(backingFile.slice(0, 16 * 48));
 | `statusbar` | `null` | Status bar placement: `'top'`, `'bottom'`, or `null` to hide. Shows byte info on hover and selection details. |
 | `statusbarLayout` | — | Configuration object controlling which items appear in the status bar and their placement (`left`, `middle`, `right` sections). |
 | `cursor` | `false` | Enable keyboard/click cursor navigation. Navigate with arrow keys when focused or click bytes to move cursor. |
-| `cursorLocation` | `null` | Controlled cursor location (absolute byte index). Use with `v-model:cursorLocation` for two-way binding. |
+
+## Models
+
+VueHex uses Vue 3's `defineModel` for two-way data binding. These support `v-model` syntax:
+
+| Model | Type | Default | Description |
+|-------|------|---------|-------------|
+| `v-model` (modelValue) | `Uint8Array` | `new Uint8Array(0)` | The currently visible data buffer. In buffer mode, this is the entire dataset; in window mode, this is the current slice. |
+| `v-model:windowOffset` | `number` | `0` | Absolute byte offset of the current window. Automatically updates when scrolling, and scrolls the viewer when changed externally. Use for two-way sync of scroll position. |
+| `v-model:cursorLocation` | `number \| null` | `null` | Current cursor position (absolute byte index). Only active when `cursor` prop is `true`. Automatically updates when navigating with keyboard/mouse. |
 
 ## Events
 
@@ -78,13 +85,9 @@ VueHex emits several events to enable interactive features:
 
 | Event | Payload | Description |
 |-------|---------|-------------|
-| `update:modelValue` | `Uint8Array` | Emitted when the data changes (for `v-model` binding). |
-| `update:windowOffset` | `number` | Emitted when the component scrolls to a new data window (for `v-model:window-offset` binding). |
-| `updateVirtualData` | `{ offset: number, length: number }` | Emitted when the component needs more data in windowed mode. |
+| `updateVirtualData` | `{ offset: number, length: number }` | Emitted when the component needs more data in windowed mode. Load the requested byte range and update `v-model` with the new data. |
 | `byte-click` | `{ index: number, byte: number, kind: 'hex' \| 'ascii' }` | Emitted when a user clicks on a specific byte cell. `index` is the absolute byte position, `byte` is the value (0-255), and `kind` indicates whether the hex or ASCII column was clicked. |
 | `selection-change` | `{ start: number \| null, end: number \| null, length: number }` | Emitted when the selection range changes. `start` and `end` are absolute byte positions (inclusive), or `null` if nothing is selected. `length` is the number of selected bytes. |
-| `cursor-change` | `{ index: number \| null }` | Emitted when the cursor position changes (requires `cursor` prop). |
-| `update:cursorLocation` | `number \| null` | Emitted for `v-model:cursorLocation` binding. |
 | `row-hover-on` / `row-hover-off` | `{ offset: number }` | Emitted when hovering over/leaving a row. |
 | `hex-hover-on` / `hex-hover-off` | `{ index: number, byte: number }` | Emitted when hovering over/leaving a hex cell. |
 | `ascii-hover-on` / `ascii-hover-off` | `{ index: number, byte: number }` | Emitted when hovering over/leaving an ASCII cell. |

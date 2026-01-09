@@ -525,21 +525,21 @@ export const Cursor: Story = {
     cursor
     v-model:cursorLocation="cursorLocation"
     style="height: 320px"
-    @cursor-change="handleCursorChange"
   />
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import VueHex from "vuehex";
 
 const data = ref(new Uint8Array(await file.arrayBuffer()));
 const cursorLocation = ref<number | null>(0);
 
-function handleCursorChange(payload: { index: number | null }) {
-  // Persist cursor updates (or treat as a transient navigation aid).
-  cursorLocation.value = payload.index;
-}
+// cursorLocation automatically updates via v-model
+// You can watch it to react to cursor changes
+watch(cursorLocation, (newLocation) => {
+  console.log('Cursor moved to:', newLocation);
+});
 </script>`,
 			},
 		},
@@ -550,17 +550,11 @@ function handleCursorChange(payload: { index: number | null }) {
 			const dataLength = Math.max(1, (args.bytesPerRow ?? 16) * 80);
 			const fullData = ref(sliceDemoData(0, dataLength));
 			const cursorLocation = ref<number | null>(0);
-			const lastCursorEvent = ref<number | null>(null);
-			function handleCursorChange(payload: { index: number | null }) {
-				lastCursorEvent.value = payload.index;
-			}
 			return {
 				args,
 				fullData,
 				dataLength,
 				cursorLocation,
-				lastCursorEvent,
-				handleCursorChange,
 			};
 		},
 		template: `
@@ -574,10 +568,11 @@ function handleCursorChange(payload: { index: number | null }) {
 			      </p>
 			    </header>
 			    <div class="story-panel">
-			      <p class="story-label">Controlled state</p>
-			      <p class="story-value">cursorLocation: {{ cursorLocation === null ? 'null' : cursorLocation.toLocaleString() }}</p>
-			      <p class="story-label" style="margin-top: 0.75rem;">Last cursor-change event</p>
-			      <p class="story-value">{{ lastCursorEvent === null ? 'null' : lastCursorEvent.toLocaleString() }}</p>
+			      <p class="story-label">v-model:cursorLocation</p>
+			      <p class="story-value">{{ cursorLocation === null ? 'null' : cursorLocation.toLocaleString() }}</p>
+			      <p class="story-caption" style="margin-top: 0.5rem; opacity: 0.75;">
+			        The cursor location automatically updates via two-way binding when you navigate with arrow keys or click bytes.
+			      </p>
 			    </div>
 			    <div class="story-demo">
 			      <VueHex
@@ -585,7 +580,6 @@ function handleCursorChange(payload: { index: number | null }) {
 			        v-model="fullData"
 			        v-model:cursorLocation="cursorLocation"
 			        style="height: 320px"
-			        @cursor-change="handleCursorChange"
 			      />
 			    </div>
 			    <p class="story-caption">
