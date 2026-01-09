@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { action } from "storybook/actions";
 import { computed, ref } from "vue";
 import VueHex from "@/components/VueHex.vue";
 import "./vuehex-custom-theme.css";
@@ -177,6 +178,9 @@ function createVirtualDataController(windowLength: number) {
 	};
 
 	const handleUpdateVirtualData = (payload: VueHexWindowRequest) => {
+		// Log to Storybook actions panel
+		action("updateVirtualData")(payload);
+
 		const normalizedOffset = clamp(Math.trunc(payload.offset), 0, totalBytes);
 		const requestedLength = Math.max(
 			1,
