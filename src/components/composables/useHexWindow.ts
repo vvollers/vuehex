@@ -1,5 +1,5 @@
 import type { ComputedRef, Ref, ShallowRef } from "vue";
-import { computed, nextTick, ref, shallowRef } from "vue";
+import { computed, nextTick, ref, shallowRef, watch } from "vue";
 import type {
 	VueHexAsciiRenderer,
 	VueHexCellClassResolver,
@@ -133,6 +133,10 @@ export interface HexWindowOptions {
 	chunkRowCount: ComputedRef<number>;
 	/** Total bytes in the backing data source. */
 	totalBytes: ComputedRef<number>;
+	/** True when VueHex treats the provided data as the full buffer (no windowing). */
+	isSelfManagedData: ComputedRef<boolean>;
+	/** Two-way model tracking the current absolute offset (used for buffer mode scroll sync). */
+	windowOffset: Ref<number>;
 	/** Ensures the chunk containing a row is active; returns true if it changed. */
 	ensureChunkForRow: (row: number) => boolean;
 	/** Normalizes `chunkStartRow` to valid bounds/chunk boundaries. */
@@ -241,6 +245,11 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 	 * duplicate requests during rapid scrolling.
 	 */
 	const lastRequested = shallowRef<VueHexWindowRequest | null>(null);
+	/**
+	 * Tracks the last offset value derived from scrollTop (buffer mode).
+	 * Used to suppress feedback loops when syncing `windowOffset`.
+	 */
+	const lastSelfManagedScrollOffset = ref<number | null>(null);
 
 	/**
 	 * Row index of the data window provided by the host, used to detect coverage gaps.
@@ -341,6 +350,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 		const run = () => {
 			pendingScrollCheck.value = false;
 			applyPendingScroll();
+			updateSelfManagedWindowOffsetFromScroll();
 			updateRenderedSlice();
 			evaluateWindowRequest();
 		};
@@ -358,6 +368,56 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 	function handleScroll() {
 		scheduleWindowEvaluation();
 	}
+
+	/**
+	 * Syncs the buffer-mode `windowOffset` model based on the current scroll position.
+	 *
+	 * Why it exists: in buffer mode the host often treats `windowOffset` as the current
+	 * scroll position (top visible byte), so we update it from scrollTop.
+	 */
+	function updateSelfManagedWindowOffsetFromScroll() {
+		if (!options.isSelfManagedData.value) {
+			return;
+		}
+		const container = options.containerEl.value;
+		if (!container) {
+			return;
+		}
+		const rowHeightPx = options.rowHeightValue.value;
+		if (!(rowHeightPx > 0)) {
+			return;
+		}
+		const bytesPerRowValue = Math.max(options.bytesPerRow.value, 1);
+		const scrollTop = container.scrollTop;
+		const visibleRow = Math.floor(scrollTop / rowHeightPx);
+		const absoluteRow = options.chunkStartRow.value + visibleRow;
+		const nextOffset = Math.max(0, absoluteRow * bytesPerRowValue);
+
+		if (nextOffset === options.windowOffset.value) {
+			return;
+		}
+
+		lastSelfManagedScrollOffset.value = nextOffset;
+		options.windowOffset.value = nextOffset;
+	}
+
+	watch(
+		() => options.windowOffset.value,
+		(newOffset, oldOffset) => {
+			if (!options.isSelfManagedData.value) {
+				return;
+			}
+			if (newOffset === oldOffset) {
+				return;
+			}
+			if (newOffset === lastSelfManagedScrollOffset.value) {
+				return;
+			}
+			if (newOffset != null && Number.isFinite(newOffset) && newOffset >= 0) {
+				queueScrollToOffset(newOffset);
+			}
+		},
+	);
 
 	/**
 	 * Queues a scroll request to a specific byte offset, applying it once measurement is ready.

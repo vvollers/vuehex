@@ -101,7 +101,7 @@ function loadWindow({ offset, length }) {
     <tr>
       <td><code>theme</code></td>
       <td>—</td>
-      <td>Color theme: <code>'dark'</code>, <code>'light'</code>, <code>'terminal'</code>, <code>'sunset'</code>, or <code>'auto'</code>.</td>
+      <td>Color theme: <code>'auto'</code>, <code>'light'</code>, <code>'dark'</code>, <code>'terminal'</code>, <code>'sunset'</code>, or any custom token (emits <code>.vuehex-theme-&lt;token&gt;</code>).</td>
     </tr>
     <tr>
       <td><code>cellClassForByte</code></td>
@@ -407,7 +407,7 @@ Apply them directly:
 
 ## Built-in themes
 
-The component ships with four palettes so you can pick a vibe without defining a
+The component ships with five palettes so you can pick a vibe without defining a
 token sheet. Themes are pure CSS, so switching between them does not trigger
 re-computation inside VueHex. Override individual custom properties (such as
 `--vuehex-byte-color`) when you only need slight tweaks.

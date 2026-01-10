@@ -15,6 +15,23 @@ export interface VueHexWindowRequest {
 }
 
 /**
+ * Built-in theme keys supported by VueHex out of the box.
+ *
+ * Custom themes are also supported by passing any token to the `theme` prop
+ * (VueHex emits `.vuehex-theme-<token>`).
+ */
+export const VUE_HEX_BUILTIN_THEME_KEYS = [
+	"auto",
+	"light",
+	"dark",
+	"terminal",
+	"sunset",
+] as const;
+
+/** Union type of the built-in theme keys. */
+export type VueHexBuiltinThemeKey = (typeof VUE_HEX_BUILTIN_THEME_KEYS)[number];
+
+/**
  * Function that determines whether a given byte should be treated as printable ASCII for the viewer.
  */
 export type VueHexPrintableCheck = (byte: number) => boolean;

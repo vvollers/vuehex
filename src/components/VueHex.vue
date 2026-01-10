@@ -18,7 +18,7 @@
 			<VueHexStatusBar
 				v-if="showStatusBar"
 				ref="statusBarRef"
-				:placement="statusBarPlacement"
+				:placement="statusBarPlacement ?? 'bottom'"
 				:layout="props.statusbarLayout"
 				:uppercase="props.uppercase"
 				:is-printable="props.isPrintable"
@@ -64,22 +64,19 @@ import { useDataMode } from "./composables/useDataMode";
 import { useHexWindow } from "./composables/useHexWindow";
 import { useHoverLinking } from "./composables/useHoverLinking";
 import { useSelection } from "./composables/useSelection";
+import { useVueHexTheme } from "./composables/useVueHexTheme";
 import VueHexChunkNavigator from "./VueHexChunkNavigator.vue";
 import VueHexStatusBar from "./VueHexStatusBar.vue";
 import type {
 	VueHexAsciiRenderer,
-	VueHexCellClassResolver,
 	VueHexCellClassResolverInput,
 	VueHexPrintableCheck,
 	VueHexStatusBarLayout,
 	VueHexWindowRequest,
 } from "./vuehex-api";
-import {
-	DEFAULT_ASCII_CATEGORY_CELL_CLASS_RESOLVER,
-	DEFAULT_ASCII_RENDERER,
-	DEFAULT_PRINTABLE_CHECK,
-} from "./vuehex-api";
-import { clampBytesPerRow, normalizeThemeKey } from "./vuehex-utils";
+import { DEFAULT_ASCII_RENDERER, DEFAULT_PRINTABLE_CHECK } from "./vuehex-api";
+import { normalizeCellClassForByteResolver } from "./vuehex-resolvers";
+import { clampBytesPerRow } from "./vuehex-utils";
 
 /** Fallback row height used until the DOM is measured. */
 const DEFAULT_ROW_HEIGHT = 24;
@@ -302,52 +299,6 @@ const viewportRows = computed(() => {
 /** Amount of overscan rows to render, sanitized for downstream calculations. */
 const overscanRows = computed(() => Math.max(0, Math.trunc(props.overscan)));
 
-/** Normalized theme key derived from the consumer-specified string. */
-const themeKey = computed(() => {
-	const normalized = normalizeThemeKey(props.theme);
-	if (!normalized) {
-		return null;
-	}
-
-	if (
-		[
-			"default",
-			"deep-space",
-			"deep_space",
-			"deepspace",
-			"dark-mode",
-			"darkmode",
-		].includes(normalized)
-	) {
-		return "dark";
-	}
-
-	if (["light", "daylight", "light-mode", "lightmode"].includes(normalized)) {
-		return "light";
-	}
-
-	return normalized;
-});
-
-const themeClass = computed(() => {
-	const normalized = themeKey.value;
-	if (!normalized || normalized === "auto") {
-		return ["vuehex-theme-auto"];
-	}
-	return [`vuehex-theme-${normalized}`];
-});
-/** Classes applied to the scroll container, including theme modifiers. */
-const containerClass = computed(() => {
-	const classes = ["vuehex"];
-	classes.push(...themeClass.value);
-	if (isExpandToContent.value) {
-		classes.push("vuehex--expand-to-content");
-	}
-	if (!selectionEnabled.value) {
-		classes.push("vuehex-selection-disabled");
-	}
-	return classes;
-});
 /** Static class list for the table element. */
 const tableClass = computed(() => ["vuehex-table"]);
 
@@ -369,29 +320,6 @@ const {
 	uppercase,
 });
 
-const rootClassExtra = computed(() => [...themeClass.value]);
-
-const showStatusBar = computed(
-	() => props.statusbar === "top" || props.statusbar === "bottom",
-);
-
-const statusBarPlacement = computed(() =>
-	props.statusbar === "top" ? "top" : "bottom",
-);
-
-const viewerClassExtra = computed(() => {
-	const classes: string[] = [];
-	if (showStatusBar.value) {
-		classes.push("vuehex-viewer--with-statusbar");
-		classes.push(
-			statusBarPlacement.value === "top"
-				? "vuehex-viewer--statusbar-top"
-				: "vuehex-viewer--statusbar-bottom",
-		);
-	}
-	return classes;
-});
-
 type VueHexStatusBarHandle = {
 	handleHoverEvent: (event: string, payload: unknown) => void;
 };
@@ -407,43 +335,9 @@ const { handlePointerOver, handlePointerOut, clearHoverState } =
 		tbodyEl,
 	});
 
-const cellClassResolver = computed<VueHexCellClassResolver | undefined>(() => {
-	const input = props.cellClassForByte;
-	if (input === undefined) {
-		return DEFAULT_ASCII_CATEGORY_CELL_CLASS_RESOLVER;
-	}
-	if (input === null) {
-		return undefined;
-	}
-	if (typeof input === "function") {
-		return input;
-	}
-	if (Array.isArray(input)) {
-		const resolvers = input.filter(
-			(resolver): resolver is VueHexCellClassResolver =>
-				typeof resolver === "function",
-		);
-		if (resolvers.length === 0) {
-			return undefined;
-		}
-		return (payload) => {
-			const merged: Array<string | string[]> = [];
-			for (const resolver of resolvers) {
-				const resolved = resolver(payload);
-				if (resolved == null) {
-					continue;
-				}
-				merged.push(resolved);
-			}
-			if (merged.length === 0) {
-				return undefined;
-			}
-			return merged.flat();
-		};
-	}
-
-	return undefined;
-});
+const cellClassResolver = computed(() =>
+	normalizeCellClassForByteResolver(props.cellClassForByte),
+);
 
 /** Virtual window utilities that coordinate data requests and markup rendering. */
 const {
@@ -467,6 +361,8 @@ const {
 	chunkStartRow,
 	chunkRowCount,
 	totalBytes,
+	isSelfManagedData: isSelfManaged,
+	windowOffset,
 	ensureChunkForRow,
 	clampChunkStartToBounds,
 	getWindowState: () => currentWindow.value,
@@ -503,6 +399,19 @@ const { selectionEnabled, selectionRange, selectionCount } = useSelection({
 	emitSelectionChange: (payload) => emit("selection-change", payload),
 });
 
+const {
+	containerClass,
+	rootClassExtra,
+	showStatusBar,
+	statusBarPlacement,
+	viewerClassExtra,
+} = useVueHexTheme({
+	theme: toRef(props, "theme"),
+	isExpandToContent,
+	selectionEnabled,
+	statusbar: toRef(props, "statusbar"),
+});
+
 const cursorEnabled = computed(() => Boolean(props.cursor));
 
 useCursor({
@@ -531,22 +440,6 @@ function handleScroll() {
 		return;
 	}
 	handleVirtualScroll();
-
-	// Update windowOffset based on current scroll position (for buffer mode)
-	if (isSelfManaged.value) {
-		const container = containerEl.value;
-		if (container) {
-			// Calculate the byte offset at the top of the visible viewport
-			const scrollTop = container.scrollTop;
-			const visibleRow = Math.floor(scrollTop / rowHeightValue.value);
-			const absoluteRow = chunkStartRow.value + visibleRow;
-			const currentByteOffset = absoluteRow * bytesPerRow.value;
-
-			if (currentByteOffset !== windowOffset.value) {
-				windowOffset.value = currentByteOffset;
-			}
-		}
-	}
 }
 
 /** Pixel offset applied to translate the table to the rendered slice. */
@@ -628,6 +521,9 @@ watch(
 	() => windowOffset.value,
 	(newOffset, oldOffset) => {
 		if (newOffset === oldOffset) {
+			return;
+		}
+		if (isSelfManaged.value) {
 			return;
 		}
 		if (newOffset != null && Number.isFinite(newOffset) && newOffset >= 0) {
