@@ -15,13 +15,28 @@ import {
 	resolveFallbackChar,
 } from "../vuehex-utils";
 
-// Private constants for markup generation
+/**
+ * Precomputed lower-case hex strings for 0..255.
+ *
+ * Why it exists: table rendering is a hot path; avoiding `toString(16)` in the
+ * inner loop reduces GC pressure and keeps scrolling smooth.
+ */
 const HEX_LOWER: readonly string[] = Array.from({ length: 256 }, (_, value) =>
 	value.toString(16).padStart(2, "0"),
 );
+
+/**
+ * Upper-case version of `HEX_LOWER`.
+ *
+ * Why it exists: allows switching casing without branching per-cell.
+ */
 const HEX_UPPER: readonly string[] = HEX_LOWER.map((value) =>
 	value.toUpperCase(),
 );
+
+/**
+ * Placeholder tokens used for short final rows so the grid remains aligned.
+ */
 const PLACEHOLDER_HEX = "--";
 const PLACEHOLDER_ASCII = "--";
 
@@ -98,45 +113,97 @@ function escapeClassAttribute(classes: string[]): string {
 }
 
 export interface HexWindowOptions {
+	/** Scroll container element (scrollTop source of truth). */
 	containerEl: Ref<HTMLDivElement | undefined>;
+	/** Table body element where HTML markup is injected. */
 	tbodyEl: Ref<HTMLTableSectionElement | undefined>;
+	/** Bytes per row (affects layout + offset-to-row conversions). */
 	bytesPerRow: ComputedRef<number>;
+	/** Measured row height (null until measured). */
 	rowHeight: Ref<number | null>;
+	/** Row height value used for calculations (fallback when not measured). */
 	rowHeightValue: ComputedRef<number>;
+	/** Number of visible rows in the viewport. */
 	viewportRows: ComputedRef<number>;
+	/** Rows to render above/below viewport to reduce flicker. */
 	overscanRows: ComputedRef<number>;
+	/** Active chunk start row (0-based). */
 	chunkStartRow: Ref<number>;
+	/** Total rows available within the active chunk. */
 	chunkRowCount: ComputedRef<number>;
+	/** Total bytes in the backing data source. */
 	totalBytes: ComputedRef<number>;
+	/** Ensures the chunk containing a row is active; returns true if it changed. */
 	ensureChunkForRow: (row: number) => boolean;
+	/** Normalizes `chunkStartRow` to valid bounds/chunk boundaries. */
 	clampChunkStartToBounds: () => void;
+	/** Reads the latest window state (offset + data) from the host/component. */
 	getWindowState: () => VueHexWindow;
+	/** Casing preference for hex rendering. */
 	getUppercase: () => boolean;
+	/** Determines whether bytes are printable for ASCII rendering. */
 	getPrintableChecker: () => VueHexPrintableCheck;
+	/** Converts a byte into an ASCII glyph (when printable). */
 	getAsciiRenderer: () => VueHexAsciiRenderer;
+	/** Optional class resolver for per-cell highlighting. */
 	getCellClassResolver: () => VueHexCellClassResolver | undefined;
+	/** Replacement character for non-printable bytes. */
 	getNonPrintableChar: () => string;
+	/** Current selection range (inclusive) for embedding selection classes. */
 	getSelectionRange: () => { start: number; end: number } | null;
+	/** Issues a window request to the host (used only in windowed mode). */
 	requestWindow: (request: VueHexWindowRequest) => void;
+	/** Clears hover state when markup changes. */
 	clearHoverState: () => void;
 }
 
 export interface HexWindowResult {
+	/** Rendered HTML for the visible table slice (consumed via `v-html`). */
 	markup: ShallowRef<string>;
+	/** Normalized bytes backing the current rendered/windowed slice. */
 	normalizedBytes: ShallowRef<Uint8Array<ArrayBufferLike>>;
+	/** HTML-safe replacement for non-printable ASCII characters. */
 	fallbackAsciiChar: ShallowRef<string>;
+	/** Absolute start row of the currently rendered markup slice. */
 	renderStartRow: Ref<number>;
+	/** Count of rows currently rendered from `normalizedBytes`. */
 	renderedRows: ComputedRef<number>;
+	/** Absolute start row of the current externally-provided window (`windowOffset`). */
 	startRow: ComputedRef<number>;
+	/** Schedules a recalculation of visible rows and window requests. */
 	scheduleWindowEvaluation: () => void;
+	/** Scroll handler for the container; coalesces work via RAF. */
 	handleScroll: () => void;
+	/** Immediately scrolls to ensure an absolute byte offset is visible. */
 	scrollToByte: (offset: number) => void;
+	/** Queues a scroll-to-offset to be applied on the next evaluation tick. */
 	queueScrollToOffset: (offset: number) => void;
+	/** Syncs internal buffers from the current external window state. */
 	updateFromWindowState: () => void;
+	/** Regenerates markup for the current visible slice. */
 	updateRenderedSlice: () => void;
+	/** Measures row height from the DOM when possible (used for scroll math). */
 	measureRowHeight: () => void;
 }
 
+/**
+ * Owns the virtualized "rendered window" for VueHex.
+ *
+ * Why it exists:
+ * - Generates the table body's HTML markup (via `v-html`) for only the rows that
+ *   should be visible (plus overscan), rather than rendering the full dataset.
+ * - Keeps scrolling smooth by translating scrollTop into a rendered row slice.
+ * - Coordinates external window requests for huge datasets ("windowed mode")
+ *   while also supporting "buffer mode" where all bytes are locally available.
+ *
+ * How it is used:
+ * - VueHex provides refs to the scroll container and `tbody`, plus rendering
+ *   preferences (bytesPerRow, casing, ASCII rendering, class resolvers).
+ * - `handleScroll` and `scheduleWindowEvaluation` are called on scroll to update
+ *   markup and to request more data when needed.
+ * - Works in tandem with chunking (`chunkStartRow`, `chunkRowCount`) to keep the
+ *   virtual scroll height bounded for very large inputs.
+ */
 export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 	/**
 	 * HTML markup for the visible table slice, consumed by the component via v-html.
@@ -157,14 +224,29 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 	 */
 	const renderStartRow = ref(0);
 
+	/**
+	 * When set, the next evaluation tick will attempt to scroll to this absolute
+	 * byte offset.
+	 *
+	 * Why it exists: some scroll requests arrive before the container exists or
+	 * before row height has been measured.
+	 */
 	const pendingScrollByte = ref<number | null>(null);
+	/**
+	 * Guards scheduling so multiple scroll events collapse into a single update.
+	 */
 	const pendingScrollCheck = ref(false);
+	/**
+	 * Remembers the last requested window from the host so we can avoid emitting
+	 * duplicate requests during rapid scrolling.
+	 */
 	const lastRequested = shallowRef<VueHexWindowRequest | null>(null);
 
 	/**
 	 * Row index of the data window provided by the host, used to detect coverage gaps.
 	 */
 	const startRow = computed(() => {
+		// Why: used to translate between host-provided `windowOffset` and row indices.
 		const windowData = options.getWindowState();
 		return Math.floor(
 			windowData.offset / Math.max(options.bytesPerRow.value, 1),
@@ -175,6 +257,8 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 	 * Number of rows currently rendered from the normalized byte buffer.
 	 */
 	const renderedRows = computed(() => {
+		// Why: used to determine whether the current window already covers what we
+		// need, and to size subsequent window requests.
 		const bytes = normalizedBytes.value.length;
 		if (bytes === 0) {
 			return 0;
@@ -189,22 +273,28 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 	 * Refreshes local window state from the external data source and schedules downstream updates.
 	 */
 	function updateFromWindowState() {
+		// Step 1: ensure chunk bounds are consistent with current sizing.
 		options.clampChunkStartToBounds();
 
+		// Step 2: normalize the host-provided data into a consistent Uint8Array.
 		const windowData = options.getWindowState();
 		const normalized = normalizeSource(windowData.data);
 		normalizedBytes.value = normalized;
 
+		// Step 3: resolve the fallback ASCII char to a safe single glyph.
 		const fallbackAscii = resolveFallbackChar(options.getNonPrintableChar());
 		fallbackAsciiChar.value = fallbackAscii;
 
+		// Step 4: record what we have so we can skip redundant future requests.
 		lastRequested.value = {
 			offset: windowData.offset,
 			length: normalized.length,
 		};
 
+		// Step 5: rebuild the visible slice immediately.
 		updateRenderedSlice();
 
+		// Step 6: after DOM updates, measure row height and re-evaluate windowing.
 		nextTick(() => {
 			measureRowHeight();
 			scheduleWindowEvaluation();
@@ -242,6 +332,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 			return;
 		}
 
+		// Why: requestAnimationFrame collapses frequent scroll events.
 		pendingScrollCheck.value = true;
 		const hasRaf =
 			typeof window !== "undefined" &&
@@ -333,19 +424,23 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 	 * Recomputes the visible markup slice based on scroll position, overscan, and window bounds.
 	 */
 	function updateRenderedSlice() {
+		// ---- Inputs and early exits -------------------------------------------------
 		const data = normalizedBytes.value;
 		const bytesPerRowValue = Math.max(options.bytesPerRow.value, 1);
 		const windowStart = options.getWindowState().offset;
 
 		if (data.length === 0) {
+			// No data available: clear markup and keep offsets consistent.
 			markup.value = "";
 			renderStartRow.value = Math.floor(windowStart / bytesPerRowValue);
 			options.clearHoverState();
 			return;
 		}
 
+		// Window bounds (in bytes) for the currently available data slice.
 		const windowEnd = windowStart + data.length;
 
+		// ---- Determine render bounds (in bytes) ------------------------------------
 		let renderStart = windowStart;
 		let renderEnd = windowEnd;
 
@@ -359,6 +454,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 			options.rowHeightValue.value > 0 &&
 			bytesPerRowValue > 0
 		) {
+			// Translate scrollTop into an absolute row, then convert to a byte offset.
 			const scrollTop = container.scrollTop;
 			const topRowWithinChunk = Math.floor(
 				scrollTop / options.rowHeightValue.value,
@@ -375,9 +471,11 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 			);
 
 			if (renderStart >= windowEnd) {
+				// If we overshot, back up to at least one row of data.
 				renderStart = Math.max(windowEnd - bytesPerRowValue, windowStart);
 			}
 
+			// Snap start to a row boundary relative to the window start.
 			const relativeStart = renderStart - windowStart;
 			const alignedRelative =
 				Math.floor(relativeStart / bytesPerRowValue) * bytesPerRowValue;
@@ -387,18 +485,21 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 				Math.max(windowEnd - 1, windowStart),
 			);
 
+			// Request enough bytes for (viewport + overscan above/below).
 			const totalRowsNeeded = Math.max(viewportRowCount + overscanCount * 2, 1);
 			const requiredLength = totalRowsNeeded * bytesPerRowValue;
 			renderEnd = Math.min(windowEnd, renderStart + requiredLength);
 		}
 
 		if (renderEnd <= renderStart) {
+			// Defensive: invalid bounds; clear markup.
 			markup.value = "";
 			renderStartRow.value = Math.floor(renderStart / bytesPerRowValue);
 			options.clearHoverState();
 			return;
 		}
 
+		// ---- Slice data and render -------------------------------------------------
 		const relativeStart = renderStart - windowStart;
 		const relativeEnd = Math.min(
 			data.length,
@@ -425,6 +526,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 		);
 
 		if (markup.value !== nextMarkup) {
+			// Any markup change invalidates hover targets; clear linked hover state.
 			options.clearHoverState();
 			markup.value = nextMarkup;
 		}
@@ -449,6 +551,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 			return "";
 		}
 
+		// Lookup tables and layout helpers.
 		const hexLookup = uppercase ? HEX_UPPER : HEX_LOWER;
 		const useColumnSplit = bytesPerRow % 2 === 0;
 		const columnBreakIndex = useColumnSplit ? bytesPerRow / 2 : -1;
@@ -508,6 +611,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 		let markupIndex = 0;
 
 		for (let offset = 0; offset < bytes.length; offset += bytesPerRow) {
+			// Each outer loop iteration renders one <tr> (row).
 			const remaining = Math.min(bytesPerRow, bytes.length - offset);
 			const rowOffset = baseOffset + offset;
 
@@ -528,7 +632,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 				// Fast path for classes: standard classes + value class
 				let classString = `${col.hexStatic} vuehex-byte--value-${value}`;
 
-				// Add selection class if in range
+				// Selection: embed classes into markup so CSS can style selected cells.
 				if (
 					selectionRange &&
 					absoluteIndex >= selectionRange.start &&
@@ -537,6 +641,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 					classString += " vuehex-selected";
 				}
 
+				// Optional per-cell class resolver provided by consumers.
 				if (resolveCellClass) {
 					const resolved = resolveCellClass({
 						kind: "hex",
@@ -596,7 +701,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 					classString = `${col.asciiNonPrintable} vuehex-ascii-char--value-${value}`;
 				}
 
-				// Add selection classes if in range
+				// Selection: ASCII gets an additional marker for styling differences.
 				if (
 					selectionRange &&
 					absoluteIndex >= selectionRange.start &&
@@ -605,6 +710,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 					classString += " vuehex-selected vuehex-selected--ascii";
 				}
 
+				// Optional per-cell class resolver provided by consumers.
 				if (resolveCellClass) {
 					const resolved = resolveCellClass({
 						kind: "ascii",
@@ -648,6 +754,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 	 * Determines whether a new data window should be requested from the host application.
 	 */
 	function evaluateWindowRequest() {
+		// ---- Preconditions ----------------------------------------------------------
 		if (options.viewportRows.value === 0) {
 			return;
 		}
@@ -688,6 +795,8 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 			Math.max(chunkEndRow - 1, chunkStartRowValue),
 		);
 
+		// ---- Compute request window (rows -> bytes) --------------------------------
+
 		const desiredRows = Math.max(options.viewportRows.value + overscan * 2, 1);
 		const availableRowsInChunk = Math.max(chunkEndRow - desiredStartRow, 0);
 		const rowsToRequest = Math.min(availableRowsInChunk, desiredRows);
@@ -717,6 +826,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 		const windowEndRow = windowStartRow + renderedRows.value;
 
 		if (windowStartRow <= desiredStartRow && windowEndRow >= desiredEndRow) {
+			// Current window already covers what the viewport needs.
 			return;
 		}
 
@@ -725,6 +835,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 			lastRequested.value.offset === desiredOffset &&
 			lastRequested.value.length === desiredLength
 		) {
+			// Avoid spamming identical requests.
 			return;
 		}
 

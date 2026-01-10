@@ -2,6 +2,12 @@ import type { Ref } from "vue";
 import { ref } from "vue";
 import { parseIndexAttribute } from "../vuehex-utils";
 
+/**
+ * Typed emitter contract for hover events forwarded by VueHex.
+ *
+ * Why it exists: keeps the composable decoupled from the Vue component instance
+ * while still allowing consumers to observe hover state.
+ */
 type HoverEmit = (
 	event:
 		| "row-hover-on"
@@ -14,16 +20,36 @@ type HoverEmit = (
 ) => void;
 
 export interface HoverLinkingOptions {
+	/** Event emitter from VueHex; hover events are forwarded to component consumers. */
 	emit: HoverEmit;
+	/** Table body element containing rendered cells (used for class toggling). */
 	tbodyEl: Ref<HTMLTableSectionElement | undefined>;
 }
 
 export interface HoverLinkingResult {
+	/** Pointer-over handler (attach to the table body). */
 	handlePointerOver: (event: PointerEvent) => void;
+	/** Pointer-out handler (attach to the table body). */
 	handlePointerOut: (event: PointerEvent) => void;
+	/** Clears any active hover state and linked highlighting. */
 	clearHoverState: () => void;
 }
 
+/**
+ * Links hover state between rows, hex cells, and ASCII cells.
+ *
+ * Why it exists:
+ * - Keeps hex/ASCII columns visually synchronized on hover.
+ * - Emits semantic hover events (row/hex/ascii enter/leave) for consumers.
+ * - Debounces DOM class updates to avoid excessive work during pointer movement.
+ *
+ * How it is used:
+ * - VueHex forwards `pointerover`/`pointerout` events from the rendered `tbody`.
+ * - The composable reads `data-*` attributes embedded in the markup to determine
+ *   which row/cell is under the pointer and emits matching events.
+ * - `clearHoverState` is called when the pointer leaves the table or when the
+ *   rendered markup changes.
+ */
 export function useHoverLinking(
 	options: HoverLinkingOptions,
 ): HoverLinkingResult {
