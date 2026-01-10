@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => {
 			target: "esnext",
 			cssCodeSplit: !isDemo,
 			outDir: isDemo ? "dist-demo" : "dist",
+			copyPublicDir: false,
 
 			...(isDemo
 				? {
