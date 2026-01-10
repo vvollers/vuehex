@@ -339,6 +339,18 @@ const cellClassResolver = computed(() =>
 	normalizeCellClassForByteResolver(props.cellClassForByte),
 );
 
+/**
+ * Remembers the most recent window start offset requested by VueHex.
+ *
+ * Why it exists:
+ * - In windowed mode, VueHex requests a window that typically starts *before* the
+ *   top visible row (overscan).
+ * - We still update `v-model:windowOffset` so the host can load the correct slice,
+ *   but we must NOT treat that update as a command to scroll the container to the
+ *   window start, otherwise scrolling appears to "snap back".
+ */
+const lastRequestedWindowOffset = ref<number | null>(null);
+
 /** Virtual window utilities that coordinate data requests and markup rendering. */
 const {
 	markup,
@@ -376,6 +388,7 @@ const {
 		if (!shouldRequestVirtualData.value) {
 			return;
 		}
+		lastRequestedWindowOffset.value = request.offset;
 		windowOffset.value = request.offset;
 		emit("updateVirtualData", request);
 	},
@@ -524,6 +537,12 @@ watch(
 			return;
 		}
 		if (isSelfManaged.value) {
+			return;
+		}
+		if (
+			lastRequestedWindowOffset.value != null &&
+			newOffset === lastRequestedWindowOffset.value
+		) {
 			return;
 		}
 		if (newOffset != null && Number.isFinite(newOffset) && newOffset >= 0) {
