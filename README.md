@@ -1,6 +1,6 @@
 # VueHex
 
-VueHex is a fast, virtualized hex viewer component for Vue 3. It can be used both for cleanly displaying binary data and for efficiently viewing very large datasets.
+VueHex is a fast, virtualized hex viewer/editor component for Vue 3. It can be used both for cleanly viewing and editing binary data and for efficiently handling very large datasets.
 
 * No dependencies
 * Small package (~64KB minimized / ~15KB zipped)
@@ -207,7 +207,7 @@ VueHex solves this with optimized **virtual scrolling**:
 
 The above technique works very well, but unfortunately it has a limit. Browsers impose limits on element dimensions to prevent rendering engine crashes. Most modern browsers cap `max-height` at around **33,554,432 pixels** (Chrome/Edge) or **17,895,698 pixels** (Firefox). Once your calculated scroll container height exceeds this limit, virtualization breaks—the scrollbar becomes inaccurate, and you can't reach data beyond the cap.
 
-For a hex viewer with 16 bytes per row and 24px row height:
+For a hex viewer/editor with 16 bytes per row and 24px row height:
 - **Firefox limit:** ~746,000 rows = ~11.4 MB of data
 - **Chrome limit:** ~1.4 million rows = ~21.4 MB of data
 

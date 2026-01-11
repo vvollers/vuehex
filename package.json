@@ -2,7 +2,7 @@
 	"name": "vuehex",
 	"version": "0.5.8",
 	"private": false,
-	"description": "A fast and flexible Vue 3 component for displaying binary data as a hexadecimal view",
+	"description": "A fast and flexible Vue 3 component for viewing and editing binary data as a hexadecimal view",
 	"author": "Vincent Vollers",
 	"license": "MIT",
 	"type": "module",
