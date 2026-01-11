@@ -36,6 +36,21 @@ export interface SelectionOptions {
 	/** Forces markup regeneration so selection CSS classes are embedded. */
 	updateRenderedSlice: () => void;
 
+	/**
+	 * When true, selection can only be started/updated via Shift+click.
+	 *
+	 * Why it exists: in cursor/editable modes, normal clicks should move the cursor
+	 * without implicitly selecting a single byte.
+	 */
+	requireShiftToSelect?: ComputedRef<boolean>;
+	/**
+	 * Optional cursor index used as the anchor when shift-clicking with no existing selection.
+	 *
+	 * Why it exists: supports common UX where click moves cursor, then shift-click
+	 * selects the range from the cursor to the clicked byte.
+	 */
+	cursorIndex?: ComputedRef<number | null>;
+
 	/** Optional emitter for click events on individual bytes. */
 	emitByteClick?: (payload: {
 		index: number;
@@ -62,6 +77,10 @@ export interface SelectionResult {
 	selectionRange: ComputedRef<{ start: number; end: number } | null>;
 	/** Number of selected bytes. */
 	selectionCount: ComputedRef<number>;
+	/** Clears any active selection (no-op if none). */
+	clearSelection: () => void;
+	/** Copies the current selection to the clipboard (no-op if none). */
+	copySelectionToClipboard: () => Promise<boolean>;
 }
 
 interface SelectionState {
@@ -169,6 +188,14 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 	const isPointerSelecting = ref(false);
 	/** Pointer ID for the active drag gesture (prevents multi-pointer confusion). */
 	const activePointerId = ref<number | null>(null);
+	/**
+	 * Remembers the last non-shift click index when Shift is required to select.
+	 *
+	 * Why it exists: cursor and selection both listen to pointerdown; depending on
+	 * listener order, the cursor location may update before selection logic runs.
+	 * This cached index ensures click → Shift+click reliably selects a range.
+	 */
+	const lastNonShiftClickIndex = ref<number | null>(null);
 	let selectionSyncHandle: number | null = null;
 
 	/**
@@ -287,6 +314,7 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 		if (event.button !== 0) {
 			return;
 		}
+		const shiftToSelect = options.requireShiftToSelect?.value ?? false;
 		const payload = getSelectionPayloadFromElement(
 			event.target as Element | null,
 		);
@@ -315,8 +343,33 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 			finishPointerSelection();
 			return;
 		}
+
+		// In cursor/editable mode, normal clicks should not start a selection.
+		if (shiftToSelect && !event.shiftKey) {
+			lastNonShiftClickIndex.value = payload.index;
+			clearSelection();
+			finishPointerSelection();
+			return;
+		}
+
 		event.preventDefault();
 		options.containerEl.value?.focus();
+
+		if (shiftToSelect && event.shiftKey && !existing) {
+			const cursorAnchor =
+				lastNonShiftClickIndex.value ?? options.cursorIndex?.value;
+			if (cursorAnchor != null && Number.isFinite(cursorAnchor)) {
+				selectionState.value = {
+					mode: payload.mode,
+					anchor: cursorAnchor,
+					focus: payload.index,
+				};
+				isPointerSelecting.value = false;
+				activePointerId.value = null;
+				scheduleSelectionSync();
+				return;
+			}
+		}
 
 		if (event.shiftKey && existing && existing.mode === payload.mode) {
 			selectionState.value = {
@@ -426,12 +479,32 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 	/**
 	 * Writes text to the clipboard using the async Clipboard API when available.
 	 */
-	function writeTextToClipboard(text: string) {
-		if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-			navigator.clipboard.writeText(text).catch(() => {
-				console.error("Failed to write text to clipboard.");
-			});
+	async function writeTextToClipboard(text: string): Promise<boolean> {
+		if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+			return false;
 		}
+		try {
+			await navigator.clipboard.writeText(text);
+			return true;
+		} catch {
+			console.error("Failed to write text to clipboard.");
+			return false;
+		}
+	}
+
+	async function copySelectionToClipboard(): Promise<boolean> {
+		if (!selectionEnabled.value) {
+			return false;
+		}
+		const state = selectionState.value;
+		if (!state) {
+			return false;
+		}
+		const text = buildSelectionText(state);
+		if (!text) {
+			return false;
+		}
+		return writeTextToClipboard(text);
 	}
 
 	/**
@@ -446,16 +519,8 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 		const key = event.key.toLowerCase();
 		const isCopy = (event.ctrlKey || event.metaKey) && key === "c";
 		if (isCopy) {
-			const state = selectionState.value;
-			if (!state) {
-				return;
-			}
-			const text = buildSelectionText(state);
-			if (!text) {
-				return;
-			}
 			event.preventDefault();
-			writeTextToClipboard(text);
+			void copySelectionToClipboard();
 			return;
 		}
 		if (event.key === "Escape") {
@@ -516,5 +581,7 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 		selectionEnabled,
 		selectionRange,
 		selectionCount,
+		clearSelection,
+		copySelectionToClipboard,
 	};
 }

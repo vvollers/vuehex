@@ -74,9 +74,26 @@ export type VueHexEditIntent =
 			column: VueHexEditorColumn;
 	  }
 	| {
+			kind: "overwrite-bytes";
+			index: number;
+			values: number[];
+			column: VueHexEditorColumn;
+	  }
+	| {
+			kind: "insert-bytes";
+			index: number;
+			values: number[];
+			column: VueHexEditorColumn;
+	  }
+	| {
 			kind: "delete-byte";
 			index: number;
 			direction: "backspace" | "delete";
+	  }
+	| {
+			kind: "delete-range";
+			start: number;
+			end: number;
 	  };
 
 /**

@@ -68,6 +68,7 @@ const windowData = ref(backingFile.slice(0, 16 * 48));
 | `statusbar` | `null` | Status bar placement: `'top'`, `'bottom'`, or `null` to hide. Shows byte info on hover and selection details. |
 | `statusbarLayout` | — | Configuration object controlling which items appear in the status bar and their placement (`left`, `middle`, `right` sections). |
 | `cursor` | `false` | Enable keyboard/click cursor navigation. Navigate with arrow keys when focused or click bytes to move cursor. |
+| `editable` | `false` | Enable editor mode. Typing/paste/cut emit `edit` intents. Cursor is automatically enabled while editing. |
 
 ## Models
 
@@ -86,11 +87,93 @@ VueHex emits several events to enable interactive features:
 | Event | Payload | Description |
 |-------|---------|-------------|
 | `updateVirtualData` | `{ offset: number, length: number }` | Emitted when the component needs more data in windowed mode. Load the requested byte range and update `v-model` with the new data. |
+| `edit` | `VueHexEditIntent` | Emitted when `editable` is enabled and the user types, deletes, pastes, or cuts. In windowed mode, the parent should apply the intent to the backing store and refresh `v-model`. |
 | `byte-click` | `{ index: number, byte: number, kind: 'hex' \| 'ascii' }` | Emitted when a user clicks on a specific byte cell. `index` is the absolute byte position, `byte` is the value (0-255), and `kind` indicates whether the hex or ASCII column was clicked. |
 | `selection-change` | `{ start: number \| null, end: number \| null, length: number }` | Emitted when the selection range changes. `start` and `end` are absolute byte positions (inclusive), or `null` if nothing is selected. `length` is the number of selected bytes. |
 | `row-hover-on` / `row-hover-off` | `{ offset: number }` | Emitted when hovering over/leaving a row. |
 | `hex-hover-on` / `hex-hover-off` | `{ index: number, byte: number }` | Emitted when hovering over/leaving a hex cell. |
 | `ascii-hover-on` / `ascii-hover-off` | `{ index: number, byte: number }` | Emitted when hovering over/leaving an ASCII cell. |
+
+## Editable mode
+
+Set `editable` to turn VueHex into a hex editor. VueHex emits a single `edit` event describing user intent.
+
+Editing highlights:
+
+- Click hex vs ASCII to choose the active column (or press `Tab` to toggle).
+- Press `Insert` to toggle insert/overwrite mode.
+- Hex typing commits after two nibbles.
+- Selection integrates with editing: typing/paste replaces the selection; `Delete`/`Backspace` delete the selection.
+- Clipboard shortcuts:
+    - `Ctrl/Cmd+C` copy selection
+    - `Ctrl/Cmd+V` paste (hex column treats clipboard as hex bytes; whitespace is ignored)
+    - `Ctrl/Cmd+X` cut (copy + delete selection)
+
+### Buffer mode (self-managed)
+
+In `data-mode="buffer"`, VueHex will apply edits to `v-model` automatically. Listening to `@edit` is optional.
+
+```vue
+<template>
+    <VueHex v-model="bytes" data-mode="buffer" editable style="height: 320px" />
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import VueHex from "vuehex";
+
+const bytes = ref(new Uint8Array(await file.arrayBuffer()));
+</script>
+```
+
+### Window mode (parent-managed)
+
+In `data-mode="window"`, VueHex does not own the full dataset. The parent is responsible for applying `edit` intents to the backing store and then refreshing `windowData`.
+
+```vue
+<template>
+    <VueHex
+        v-model="windowData"
+        data-mode="window"
+        :window-offset="windowOffset"
+        :total-size="store.length"
+        :get-selection-data="getSelectionData"
+        editable
+        style="height: 320px"
+        @updateVirtualData="handleUpdateVirtualData"
+        @edit="handleEdit"
+    />
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import VueHex, { type VueHexEditIntent, type VueHexWindowRequest } from "vuehex";
+
+const store = ref(new Uint8Array(await file.arrayBuffer()));
+const windowOffset = ref(0);
+const windowData = ref(new Uint8Array());
+let windowLength = 0x4000;
+
+function handleUpdateVirtualData(request: VueHexWindowRequest) {
+    windowOffset.value = request.offset;
+    windowLength = request.length ?? windowLength;
+    windowData.value = store.value.slice(windowOffset.value, windowOffset.value + windowLength);
+}
+
+function getSelectionData(start: number, end: number) {
+    const from = Math.min(start, end);
+    const to = Math.max(start, end);
+    return store.value.slice(from, to + 1);
+}
+
+function handleEdit(intent: VueHexEditIntent) {
+    // Apply the intent to your backing store, then refresh windowData.
+    // (See Storybook "Editable (windowed)" / docs guide for a complete apply function.)
+    store.value = applyEditIntent(store.value, intent);
+    windowData.value = store.value.slice(windowOffset.value, windowOffset.value + windowLength);
+}
+</script>
+```
 
 ## Styling options
 

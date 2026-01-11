@@ -6,6 +6,7 @@ import "./vuehex-custom-theme.css";
 import type {
 	VueHexCellClassResolver,
 	VueHexCellClassResolverInput,
+	VueHexEditIntent,
 	VueHexStatusBarLayout,
 	VueHexWindowRequest,
 } from "@/components/vuehex-api";
@@ -146,6 +147,106 @@ function clamp(value: number, min: number, max: number): number {
 		return max;
 	}
 	return value;
+}
+
+function clampByte(value: number): number {
+	const normalized = Math.trunc(value);
+	if (!Number.isFinite(normalized)) {
+		return 0;
+	}
+	return Math.max(0, Math.min(255, normalized));
+}
+
+function applyEditIntent(
+	bytes: Uint8Array,
+	intent: VueHexEditIntent,
+): Uint8Array {
+	switch (intent.kind) {
+		case "overwrite-byte": {
+			const index = Math.max(0, Math.trunc(intent.index));
+			const requiredLength = Math.max(bytes.length, index + 1);
+			const next = new Uint8Array(requiredLength);
+			next.set(bytes, 0);
+			next[index] = clampByte(intent.value);
+			return next;
+		}
+		case "insert-byte": {
+			const index = Math.max(
+				0,
+				Math.min(bytes.length, Math.trunc(intent.index)),
+			);
+			const next = new Uint8Array(bytes.length + 1);
+			next.set(bytes.subarray(0, index), 0);
+			next[index] = clampByte(intent.value);
+			next.set(bytes.subarray(index), index + 1);
+			return next;
+		}
+		case "overwrite-bytes": {
+			const index = Math.max(0, Math.trunc(intent.index));
+			const values = intent.values.map(clampByte);
+			const requiredLength = Math.max(bytes.length, index + values.length);
+			const next = new Uint8Array(requiredLength);
+			next.set(bytes, 0);
+			for (let i = 0; i < values.length; i += 1) {
+				next[index + i] = values[i] ?? 0;
+			}
+			return next;
+		}
+		case "insert-bytes": {
+			const index = Math.max(
+				0,
+				Math.min(bytes.length, Math.trunc(intent.index)),
+			);
+			const values = intent.values.map(clampByte);
+			const next = new Uint8Array(bytes.length + values.length);
+			next.set(bytes.subarray(0, index), 0);
+			next.set(values, index);
+			next.set(bytes.subarray(index), index + values.length);
+			return next;
+		}
+		case "delete-byte": {
+			if (bytes.length <= 0) {
+				return bytes;
+			}
+			const index = Math.trunc(intent.index);
+			const removeIndex = intent.direction === "backspace" ? index - 1 : index;
+			if (removeIndex < 0 || removeIndex >= bytes.length) {
+				return bytes;
+			}
+			const next = new Uint8Array(bytes.length - 1);
+			next.set(bytes.subarray(0, removeIndex), 0);
+			next.set(bytes.subarray(removeIndex + 1), removeIndex);
+			return next;
+		}
+		case "delete-range": {
+			if (bytes.length <= 0) {
+				return bytes;
+			}
+			const start = Math.max(
+				0,
+				Math.min(bytes.length - 1, Math.trunc(intent.start)),
+			);
+			const end = Math.max(
+				0,
+				Math.min(bytes.length - 1, Math.trunc(intent.end)),
+			);
+			const from = Math.min(start, end);
+			const to = Math.max(start, end);
+			const removeCount = Math.max(0, to - from + 1);
+			if (removeCount <= 0) {
+				return bytes;
+			}
+			const next = new Uint8Array(bytes.length - removeCount);
+			next.set(bytes.subarray(0, from), 0);
+			next.set(bytes.subarray(to + 1), from);
+			return next;
+		}
+		default: {
+			const _exhaustive: never = intent;
+			void _exhaustive;
+			return bytes;
+		}
+	}
 }
 
 function sliceDemoData(offset: number, length: number): Uint8Array {
@@ -645,7 +746,7 @@ function onEdit(intent: VueHexEditIntent) {
 			      <p class="story-card__eyebrow">Editor</p>
 			      <h3 class="story-card__title">Editable mode</h3>
 			      <p class="story-card__subtitle">
-			        Click hex/ASCII to choose a column; <code>Tab</code> toggles; <code>Insert</code> switches overwrite/insert.
+			        Click hex/ASCII to choose a column; <code>Tab</code> toggles; <code>Insert</code> switches overwrite/insert; selection + paste work too.
 			      </p>
 			    </header>
 			    <div class="story-demo">
@@ -657,7 +758,143 @@ function onEdit(intent: VueHexEditIntent) {
 			      />
 			    </div>
 			    <p class="story-caption">
-			      Edit intents are logged to the actions panel via <code>@edit</code>.
+			      Edit intents are logged to the actions panel via <code>@edit</code>. Tip: select a range, then type/paste (or <code>Ctrl/Cmd+X</code> to cut).
+			    </p>
+			  </section>
+			</div>
+			`,
+	}),
+};
+
+export const EditableWindowed: Story = {
+	name: "Editable (windowed)",
+	args: {
+		dataMode: "window",
+		editable: true,
+		cursor: true,
+	},
+	parameters: {
+		docs: {
+			source: {
+				language: "vue",
+				code: `<template>
+  <VueHex
+    v-model="windowData"
+    data-mode="window"
+    :window-offset="windowOffset"
+    :total-size="store.length"
+    :get-selection-data="getSelectionData"
+    editable
+    style="height: 320px"
+    @updateVirtualData="handleUpdateVirtualData"
+    @edit="handleEdit"
+  />
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import VueHex, { type VueHexEditIntent, type VueHexWindowRequest } from "vuehex";
+
+const store = ref(new Uint8Array(await file.arrayBuffer()));
+const windowOffset = ref(0);
+const windowData = ref(new Uint8Array());
+let windowLength = 0x4000;
+
+function handleUpdateVirtualData(request: VueHexWindowRequest) {
+  windowOffset.value = request.offset;
+  windowLength = request.length ?? windowLength;
+  windowData.value = store.value.slice(windowOffset.value, windowOffset.value + windowLength);
+}
+
+function getSelectionData(start: number, end: number) {
+  const from = Math.min(start, end);
+  const to = Math.max(start, end);
+  return store.value.slice(from, to + 1);
+}
+
+function handleEdit(intent: VueHexEditIntent) {
+  // Apply the intent to your backing store, then refresh windowData.
+  store.value = applyEditIntent(store.value, intent);
+  windowOffset.value = Math.max(0, Math.min(windowOffset.value, store.value.length));
+  windowData.value = store.value.slice(windowOffset.value, windowOffset.value + windowLength);
+}
+</script>`,
+			},
+		},
+	},
+	render: (args) => ({
+		components: { VueHex },
+		setup() {
+			const store = ref(sliceDemoData(0, SELF_MANAGED_BYTES));
+			const windowOffset = ref(0);
+			const windowData = ref(new Uint8Array());
+			const windowLength = ref(0x4000);
+
+			const refreshWindow = () => {
+				const start = clamp(windowOffset.value, 0, store.value.length);
+				const end = Math.min(store.value.length, start + windowLength.value);
+				windowData.value = store.value.slice(start, end);
+			};
+
+			const handleUpdateVirtualData = (payload: VueHexWindowRequest) => {
+				action("updateVirtualData")(payload);
+				windowOffset.value = clamp(payload.offset, 0, store.value.length);
+				windowLength.value = Math.max(1, payload.length ?? windowLength.value);
+				refreshWindow();
+			};
+
+			const getSelectionData = (
+				selectionStart: number,
+				selectionEnd: number,
+			) => {
+				const from = Math.min(selectionStart, selectionEnd);
+				const to = Math.max(selectionStart, selectionEnd);
+				return store.value.slice(from, to + 1);
+			};
+
+			const handleEdit = (intent: VueHexEditIntent) => {
+				action("edit")(intent);
+				store.value = applyEditIntent(store.value, intent);
+				windowOffset.value = clamp(windowOffset.value, 0, store.value.length);
+				refreshWindow();
+			};
+
+			refreshWindow();
+
+			return {
+				args,
+				store,
+				windowOffset,
+				windowData,
+				handleUpdateVirtualData,
+				getSelectionData,
+				handleEdit,
+			};
+		},
+		template: `
+			<div class="story-viewport story-viewport--column">
+			  <section class="story-stack">
+			    <header class="story-card__header">
+			      <p class="story-card__eyebrow">Editor contract</p>
+			      <h3 class="story-card__title">Editable + windowed data</h3>
+			      <p class="story-card__subtitle">
+			        In <code>data-mode="window"</code>, VueHex emits edit intents; you apply them to your backing store and refresh <code>windowData</code>.
+			      </p>
+			    </header>
+			    <div class="story-demo">
+			      <VueHex
+			        v-bind="args"
+			        v-model="windowData"
+			        :window-offset="windowOffset"
+			        :total-size="store.length"
+			        :get-selection-data="getSelectionData"
+			        style="height: 320px"
+			        @updateVirtualData="handleUpdateVirtualData"
+			        @edit="handleEdit"
+			      />
+			    </div>
+			    <p class="story-caption">
+			      Try paste in hex mode (whitespace is ignored). Cut uses <code>Ctrl/Cmd+X</code>.
 			    </p>
 			  </section>
 			</div>

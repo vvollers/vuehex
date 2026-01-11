@@ -401,12 +401,20 @@ const {
 	clearHoverState,
 });
 
-const { selectionEnabled, selectionRange, selectionCount } = useSelection({
+const {
+	selectionEnabled,
+	selectionRange,
+	selectionCount,
+	clearSelection,
+	copySelectionToClipboard,
+} = useSelection({
 	containerEl,
 	tbodyEl,
 	markup,
 	getSelectionDataProp: () => props.getSelectionData,
 	isSelfManagedData: isSelfManaged,
+	requireShiftToSelect: computed(() => cursorEnabled.value || isEditable.value),
+	cursorIndex: computed(() => cursorLocation.value ?? null),
 	totalBytes,
 	getSelfManagedBytes: () => currentWindow.value.data,
 	getUppercase: () => uppercase.value,
@@ -480,6 +488,9 @@ const { activeColumn: editorActiveColumn, editorMode } = useEditing({
 	uppercase,
 	cursorIndex: cursorApi.cursorLocation,
 	setCursorIndex: cursorApi.setCursorLocation,
+	selectionRange,
+	clearSelection,
+	copySelectionToClipboard,
 	totalBytes,
 	isSelfManagedData: isSelfManaged,
 	getSelfManagedBytes: () => currentWindow.value.data,

@@ -144,6 +144,11 @@ function loadWindow({ offset, length }) {
       <td>Enable keyboard cursor navigation.</td>
     </tr>
     <tr>
+      <td><code>editable</code></td>
+      <td><code>false</code></td>
+      <td>Enable editor mode (typing/paste emits <code>edit</code> intents). Cursor is automatically enabled while editing.</td>
+    </tr>
+    <tr>
       <td><code>cursorLocation</code></td>
       <td><code>null</code></td>
       <td>Controlled cursor location. Supports <code>v-model:cursorLocation</code>.</td>
@@ -201,6 +206,11 @@ VueHex uses Vue 3's <code>defineModel</code> for two-way data binding. These sup
       <td><code>updateVirtualData</code></td>
       <td><code>&#123; offset: number, length: number &#125;</code></td>
       <td>Emitted when the component needs more data in windowed mode.</td>
+    </tr>
+    <tr>
+      <td><code>edit</code></td>
+      <td><code>VueHexEditIntent</code></td>
+      <td>Emitted when <code>editable</code> is enabled and the user types, deletes, pastes, or cuts.</td>
     </tr>
     <tr>
       <td><code>byte-click</code></td>
@@ -312,6 +322,62 @@ Behavior highlights:
 - To use an external provider, set `data-mode="window"` and provide `total-size` + an `updateVirtualData` handler.
 
 <Canvas of={VueHexStories.SelfManagedDataset} />
+
+## Editable mode (hex editor)
+
+Turn the viewer into an editor by setting the <code>editable</code> prop. VueHex will accept keyboard input (when focused) and emit a single <code>edit</code> event describing what the user is trying to do.
+
+### Interaction model
+
+- **Active column**: click in the hex or ASCII column to choose which column you are editing; press <code>Tab</code> to toggle.
+- **Insert vs overwrite**: overwrite is the default; press <code>Insert</code> to toggle insert mode.
+- **Hex typing**: two nibbles commit a byte (e.g. <code>A</code> then <code>F</code> writes <code>0xAF</code>). Moving the cursor clears any half-entered nibble.
+- **Selection**: click-drag selects bytes; typing/paste replaces the selection; <code>Delete</code>/<code>Backspace</code> deletes the selection.
+- **Clipboard**:
+  - <code>Ctrl/Cmd+C</code> copies selection (hex selection copies space-separated hex bytes; ASCII copies characters)
+  - <code>Ctrl/Cmd+V</code> pastes
+    - in **hex column**: clipboard is treated as hex data; whitespace is ignored
+    - in **ASCII column**: clipboard is pasted as text (bytes are clamped to 0–255)
+  - <code>Ctrl/Cmd+X</code> cuts selection (copy + delete)
+
+### Buffer mode (self-managed)
+
+In <code>data-mode=&quot;buffer&quot;</code>, VueHex can apply edits to <code>v-model</code> automatically. Listening to <code>@edit</code> is optional (useful for undo/redo, persistence, telemetry).
+
+<Canvas of={VueHexStories.Editable} />
+
+### Window mode (parent-managed)
+
+In <code>data-mode=&quot;window&quot;</code>, VueHex does not own the full dataset.
+
+You should:
+
+- Handle <code>@updateVirtualData</code> to load the requested window into <code>v-model</code>
+- Provide <code>getSelectionData</code> so copy/cut can fetch bytes outside the current window
+- Handle <code>@edit</code> by applying the intent to your backing store and then refreshing <code>v-model</code> (and <code>total-size</code>)
+
+The intent is designed to be simple to apply:
+
+```ts
+import type { VueHexEditIntent } from "vuehex";
+
+// Applies the intent to your backing bytes. You may clamp, reject, or normalize
+// intents depending on your use case (fixed-size files vs growable buffers).
+function applyEditIntent(bytes: Uint8Array, intent: VueHexEditIntent): Uint8Array {
+  switch (intent.kind) {
+    case "overwrite-byte":
+    case "insert-byte":
+    case "overwrite-bytes":
+    case "insert-bytes":
+    case "delete-byte":
+    case "delete-range":
+      // See the "Editable (windowed)" story for a complete implementation.
+      return bytes;
+  }
+}
+```
+
+<Canvas of={VueHexStories.EditableWindowed} />
 
 ## Chunk navigator + linked hover
 

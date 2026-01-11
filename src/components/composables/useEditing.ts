@@ -64,6 +64,40 @@ function formatByteHex(value: number, uppercase: boolean): string {
 	return uppercase ? raw.toUpperCase() : raw;
 }
 
+function normalizeHexClipboardText(text: string): string {
+	return text.replace(/\s+/g, "");
+}
+
+function parseHexBytesFromText(text: string): number[] | null {
+	const normalized = normalizeHexClipboardText(text);
+	if (!normalized) {
+		return [];
+	}
+	if (/[^0-9a-fA-F]/.test(normalized)) {
+		return null;
+	}
+	const evenLength = normalized.length - (normalized.length % 2);
+	const bytes: number[] = [];
+	for (let i = 0; i < evenLength; i += 2) {
+		const pair = normalized.slice(i, i + 2);
+		const value = Number.parseInt(pair, 16);
+		if (!Number.isFinite(value)) {
+			return null;
+		}
+		bytes.push(value);
+	}
+	return bytes;
+}
+
+function parseAsciiBytesFromText(text: string): number[] {
+	const bytes: number[] = [];
+	for (const char of Array.from(text)) {
+		const codePoint = char.codePointAt(0) ?? 0;
+		bytes.push(clampByte(codePoint));
+	}
+	return bytes;
+}
+
 export interface EditingOptions {
 	enabled: ComputedRef<boolean>;
 	containerEl: Ref<HTMLDivElement | undefined>;
@@ -72,6 +106,9 @@ export interface EditingOptions {
 	uppercase: ComputedRef<boolean>;
 	cursorIndex: ComputedRef<number | null>;
 	setCursorIndex: (index: number | null) => void;
+	selectionRange: ComputedRef<{ start: number; end: number } | null>;
+	clearSelection: () => void;
+	copySelectionToClipboard: () => Promise<boolean>;
 	totalBytes: ComputedRef<number>;
 	isSelfManagedData: ComputedRef<boolean>;
 	getSelfManagedBytes: () => Uint8Array;
@@ -154,6 +191,34 @@ export function useEditing(options: EditingOptions): EditingResult {
 				options.setSelfManagedBytes(next);
 				return;
 			}
+			case "overwrite-bytes": {
+				const values = intent.values.map(clampByte);
+				if (!values.length) {
+					return;
+				}
+				const index = Math.max(0, Math.min(total, intent.index));
+				const requiredLength = Math.max(total, index + values.length);
+				const next = new Uint8Array(requiredLength);
+				next.set(bytes, 0);
+				for (let i = 0; i < values.length; i += 1) {
+					next[index + i] = values[i] ?? 0;
+				}
+				options.setSelfManagedBytes(next);
+				return;
+			}
+			case "insert-bytes": {
+				const values = intent.values.map(clampByte);
+				if (!values.length) {
+					return;
+				}
+				const index = Math.max(0, Math.min(total, intent.index));
+				const next = new Uint8Array(total + values.length);
+				next.set(bytes.subarray(0, index), 0);
+				next.set(values, index);
+				next.set(bytes.subarray(index), index + values.length);
+				options.setSelfManagedBytes(next);
+				return;
+			}
 			case "delete-byte": {
 				if (total <= 0) {
 					return;
@@ -166,6 +231,27 @@ export function useEditing(options: EditingOptions): EditingResult {
 				const next = new Uint8Array(total - 1);
 				next.set(bytes.subarray(0, removeIndex), 0);
 				next.set(bytes.subarray(removeIndex + 1), removeIndex);
+				options.setSelfManagedBytes(next);
+				return;
+			}
+			case "delete-range": {
+				if (total <= 0) {
+					return;
+				}
+				const start = Math.max(
+					0,
+					Math.min(total - 1, Math.trunc(intent.start)),
+				);
+				const end = Math.max(0, Math.min(total - 1, Math.trunc(intent.end)));
+				const from = Math.min(start, end);
+				const to = Math.max(start, end);
+				const removeCount = Math.max(0, to - from + 1);
+				if (removeCount <= 0) {
+					return;
+				}
+				const next = new Uint8Array(total - removeCount);
+				next.set(bytes.subarray(0, from), 0);
+				next.set(bytes.subarray(to + 1), from);
 				options.setSelfManagedBytes(next);
 				return;
 			}
@@ -219,7 +305,37 @@ export function useEditing(options: EditingOptions): EditingResult {
 		}
 	}
 
+	function deleteSelectionIfAny(): { start: number } | null {
+		const range = options.selectionRange.value;
+		if (!range) {
+			return null;
+		}
+		resetPendingHexInput();
+		options.clearSelection();
+		options.setCursorIndex(range.start);
+		emitAndMaybeApply({
+			kind: "delete-range",
+			start: range.start,
+			end: range.end,
+		});
+
+		if (options.isSelfManagedData.value) {
+			const nextTotal = options.totalBytes.value;
+			if (nextTotal <= 0) {
+				options.setCursorIndex(null);
+			} else {
+				options.setCursorIndex(Math.min(range.start, nextTotal - 1));
+			}
+		}
+
+		return { start: range.start };
+	}
+
 	function applyDelete(direction: "backspace" | "delete") {
+		if (options.selectionRange.value) {
+			deleteSelectionIfAny();
+			return;
+		}
 		const index = normalizedCursorIndex.value;
 		if (index == null) {
 			return;
@@ -264,12 +380,20 @@ export function useEditing(options: EditingOptions): EditingResult {
 	}
 
 	function handleHexKey(event: KeyboardEvent) {
-		const index = normalizedCursorIndex.value;
-		if (index == null) {
+		// Do not treat modifier shortcuts (copy/paste/etc.) as editing input.
+		// Without this, Ctrl/Cmd+C in the hex column looks like the hex digit "c".
+		if (event.ctrlKey || event.metaKey || event.altKey) {
 			return;
 		}
+
 		const nibble = nibbleToValue(event.key);
 		if (nibble == null) {
+			return;
+		}
+
+		const selectionResult = deleteSelectionIfAny();
+		const index = selectionResult?.start ?? normalizedCursorIndex.value;
+		if (index == null) {
 			return;
 		}
 
@@ -319,14 +443,16 @@ export function useEditing(options: EditingOptions): EditingResult {
 	}
 
 	function handleAsciiKey(event: KeyboardEvent) {
-		const index = normalizedCursorIndex.value;
-		if (index == null) {
-			return;
-		}
 		if (event.ctrlKey || event.metaKey || event.altKey) {
 			return;
 		}
 		if (event.key.length !== 1) {
+			return;
+		}
+
+		const selectionResult = deleteSelectionIfAny();
+		const index = selectionResult?.start ?? normalizedCursorIndex.value;
+		if (index == null) {
 			return;
 		}
 
@@ -340,12 +466,76 @@ export function useEditing(options: EditingOptions): EditingResult {
 		finalizeByteEdit(index, clampByte(code), "ascii");
 	}
 
+	function applyPasteValues(values: number[], column: VueHexEditorColumn) {
+		const selectionResult = deleteSelectionIfAny();
+		const index = selectionResult?.start ?? normalizedCursorIndex.value;
+		if (index == null) {
+			return;
+		}
+		resetPendingHexInput();
+
+		const intent: VueHexEditIntent =
+			editorMode.value === "insert"
+				? { kind: "insert-bytes", index, values, column }
+				: { kind: "overwrite-bytes", index, values, column };
+		emitAndMaybeApply(intent);
+
+		if (options.isSelfManagedData.value) {
+			const nextTotal = options.totalBytes.value;
+			if (nextTotal > 0) {
+				options.setCursorIndex(Math.min(index + values.length, nextTotal - 1));
+			}
+		}
+	}
+
+	function handlePaste(event: ClipboardEvent) {
+		if (!options.enabled.value) {
+			return;
+		}
+		const text = event.clipboardData?.getData("text") ?? "";
+		if (!text) {
+			return;
+		}
+
+		if (activeColumn.value === "hex") {
+			const values = parseHexBytesFromText(text);
+			if (!values) {
+				return;
+			}
+			event.preventDefault();
+			applyPasteValues(values, "hex");
+			return;
+		}
+
+		event.preventDefault();
+		applyPasteValues(parseAsciiBytesFromText(text), "ascii");
+	}
+
+	async function handleCut(event: KeyboardEvent) {
+		if (!options.enabled.value) {
+			return;
+		}
+		if (!options.selectionRange.value) {
+			return;
+		}
+		event.preventDefault();
+		await options.copySelectionToClipboard();
+		deleteSelectionIfAny();
+	}
+
 	function handleKeydown(event: KeyboardEvent) {
 		if (!options.enabled.value) {
 			return;
 		}
 
 		handleNavigationKey(event);
+
+		const lower = event.key.toLowerCase();
+		const isCut = (event.ctrlKey || event.metaKey) && lower === "x";
+		if (isCut) {
+			void handleCut(event);
+			return;
+		}
 
 		if (event.key === "Tab") {
 			event.preventDefault();
@@ -363,6 +553,11 @@ export function useEditing(options: EditingOptions): EditingResult {
 		}
 
 		if (event.key === "Backspace") {
+			if (options.selectionRange.value) {
+				event.preventDefault();
+				deleteSelectionIfAny();
+				return;
+			}
 			// If half-entered hex, backspace just clears the pending nibble.
 			if (pendingHexFirstNibble.value != null && activeColumn.value === "hex") {
 				event.preventDefault();
@@ -411,6 +606,7 @@ export function useEditing(options: EditingOptions): EditingResult {
 		if (container) {
 			container.addEventListener("keydown", handleKeydown);
 			container.addEventListener("pointerdown", handlePointerDown);
+			container.addEventListener("paste", handlePaste);
 		}
 	});
 
@@ -419,6 +615,7 @@ export function useEditing(options: EditingOptions): EditingResult {
 		if (container) {
 			container.removeEventListener("keydown", handleKeydown);
 			container.removeEventListener("pointerdown", handlePointerDown);
+			container.removeEventListener("paste", handlePaste);
 		}
 
 		const tbody = options.tbodyEl.value;
