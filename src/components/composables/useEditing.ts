@@ -128,6 +128,36 @@ export function useEditing(options: EditingOptions): EditingResult {
 	const activeColumn = ref<VueHexEditorColumn>("hex");
 	const editorMode = ref<VueHexEditorMode>("overwrite");
 
+	// Some browsers do not dispatch Ctrl/Cmd+V "paste" events to a focusable div.
+	// A hidden textarea is the most reliable way to receive paste data without
+	// relying on the async clipboard API (permissions/HTTPS/etc.).
+	const pasteCaptureEl = ref<HTMLTextAreaElement | null>(null);
+
+	function ensurePasteCaptureEl(container: HTMLDivElement) {
+		if (pasteCaptureEl.value) {
+			return;
+		}
+		const el = document.createElement("textarea");
+		el.setAttribute("aria-hidden", "true");
+		el.tabIndex = -1;
+		el.autocomplete = "off";
+		el.autocapitalize = "off";
+		el.spellcheck = false;
+
+		Object.assign(el.style, {
+			position: "fixed",
+			left: "-10000px",
+			top: "0",
+			width: "1px",
+			height: "1px",
+			opacity: "0",
+			pointerEvents: "none",
+		} satisfies Partial<CSSStyleDeclaration>);
+
+		container.appendChild(el);
+		pasteCaptureEl.value = el;
+	}
+
 	interface HistoryEntry {
 		undo: VueHexEditIntent[];
 		redo: VueHexEditIntent[];
@@ -183,16 +213,24 @@ export function useEditing(options: EditingOptions): EditingResult {
 
 		switch (intent.kind) {
 			case "overwrite-byte": {
-				if (intent.index < 0 || intent.index >= total) {
+				if (intent.index < 0 || intent.index > total) {
 					return null;
 				}
-				const previous = bytes[intent.index] ?? 0;
+				const index = Math.trunc(intent.index);
+				if (index === total) {
+					// Appending a new byte: undo by deleting the appended byte.
+					return {
+						redo: [{ ...intent, index }],
+						undo: [{ kind: "delete-range", start: index, end: index }],
+					};
+				}
+				const previous = bytes[index] ?? 0;
 				return {
-					redo: [intent],
+					redo: [{ ...intent, index }],
 					undo: [
 						{
 							kind: "overwrite-byte",
-							index: intent.index,
+							index,
 							value: previous,
 							column: intent.column,
 						},
@@ -459,8 +497,16 @@ export function useEditing(options: EditingOptions): EditingResult {
 		}
 		const cell = findCellForIndex(tbody, "hex", index);
 		const value = readByteValueFromCell(cell);
-		if (cell && value != null) {
+		if (!cell) {
+			return;
+		}
+		if (value != null) {
 			cell.textContent = formatByteHex(value, options.uppercase.value);
+			return;
+		}
+		// EOF ghost cell has no data-byte-value; restore its placeholder.
+		if (index === options.totalBytes.value) {
+			cell.textContent = "__";
 		}
 	}
 
@@ -470,11 +516,20 @@ export function useEditing(options: EditingOptions): EditingResult {
 
 		switch (intent.kind) {
 			case "overwrite-byte": {
-				if (intent.index < 0 || intent.index >= total) {
+				if (intent.index < 0 || intent.index > total) {
+					return;
+				}
+				const index = Math.trunc(intent.index);
+				// Support appending when editing the EOF ghost cell.
+				if (index === total) {
+					const next = new Uint8Array(total + 1);
+					next.set(bytes, 0);
+					next[index] = clampByte(intent.value);
+					options.setSelfManagedBytes(next);
 					return;
 				}
 				const next = bytes.slice();
-				next[intent.index] = clampByte(intent.value);
+				next[index] = clampByte(intent.value);
 				options.setSelfManagedBytes(next);
 				return;
 			}
@@ -626,7 +681,7 @@ export function useEditing(options: EditingOptions): EditingResult {
 			if (nextTotal <= 0) {
 				options.setCursorIndex(null);
 			} else {
-				options.setCursorIndex(Math.min(range.start, nextTotal - 1));
+				options.setCursorIndex(Math.min(range.start, nextTotal));
 			}
 		}
 
@@ -654,8 +709,8 @@ export function useEditing(options: EditingOptions): EditingResult {
 			const nextTotal = options.totalBytes.value;
 			if (nextTotal <= 0) {
 				options.setCursorIndex(null);
-			} else if (index >= nextTotal) {
-				options.setCursorIndex(nextTotal - 1);
+			} else if (index > nextTotal) {
+				options.setCursorIndex(nextTotal);
 			}
 		}
 	}
@@ -665,6 +720,9 @@ export function useEditing(options: EditingOptions): EditingResult {
 		value: number,
 		column: VueHexEditorColumn,
 	) {
+		const wasAtEofGhost =
+			options.isSelfManagedData.value && index === options.totalBytes.value;
+
 		const intent: VueHexEditIntent =
 			editorMode.value === "insert"
 				? { kind: "insert-byte", index, value, column }
@@ -674,9 +732,17 @@ export function useEditing(options: EditingOptions): EditingResult {
 
 		if (options.isSelfManagedData.value) {
 			// Advance cursor after successful character entry.
+			if (wasAtEofGhost) {
+				// Appending creates a new EOF ghost one byte later; wait for reactive
+				// total-bytes to update before moving.
+				void nextTick(() => {
+					options.setCursorIndex(index + 1);
+				});
+				return;
+			}
 			const nextTotal = options.totalBytes.value;
 			if (nextTotal > 0) {
-				options.setCursorIndex(Math.min(index + 1, nextTotal - 1));
+				options.setCursorIndex(Math.min(index + 1, nextTotal));
 			}
 		}
 	}
@@ -736,6 +802,8 @@ export function useEditing(options: EditingOptions): EditingResult {
 			const original = readByteValueFromCell(cell);
 			if (original != null) {
 				cell.textContent = formatByteHex(original, options.uppercase.value);
+			} else if (index === options.totalBytes.value) {
+				cell.textContent = "__";
 			}
 		}
 
@@ -782,6 +850,8 @@ export function useEditing(options: EditingOptions): EditingResult {
 			if (index == null) {
 				return;
 			}
+			const wasAtEofGhost =
+				options.isSelfManagedData.value && index === options.totalBytes.value;
 			resetPendingHexInput();
 
 			const intent: VueHexEditIntent =
@@ -791,14 +861,36 @@ export function useEditing(options: EditingOptions): EditingResult {
 			emitAndMaybeApply(intent);
 
 			if (options.isSelfManagedData.value) {
+				if (wasAtEofGhost) {
+					void nextTick(() => {
+						options.setCursorIndex(index + values.length);
+					});
+					return;
+				}
 				const nextTotal = options.totalBytes.value;
 				if (nextTotal > 0) {
-					options.setCursorIndex(
-						Math.min(index + values.length, nextTotal - 1),
-					);
+					options.setCursorIndex(Math.min(index + values.length, nextTotal));
 				}
 			}
 		});
+	}
+
+	function applyPasteText(text: string) {
+		if (!options.enabled.value) {
+			return;
+		}
+		if (!text) {
+			return;
+		}
+		if (activeColumn.value === "hex") {
+			const values = parseHexBytesFromText(text);
+			if (!values) {
+				return;
+			}
+			applyPasteValues(values, "hex");
+			return;
+		}
+		applyPasteValues(parseAsciiBytesFromText(text), "ascii");
 	}
 
 	function handlePaste(event: ClipboardEvent) {
@@ -809,19 +901,45 @@ export function useEditing(options: EditingOptions): EditingResult {
 		if (!text) {
 			return;
 		}
+		event.preventDefault();
+		applyPasteText(text);
 
-		if (activeColumn.value === "hex") {
-			const values = parseHexBytesFromText(text);
-			if (!values) {
-				return;
-			}
-			event.preventDefault();
-			applyPasteValues(values, "hex");
+		// Keep keyboard navigation/editing on the main container.
+		options.containerEl.value?.focus?.({ preventScroll: true });
+		if (pasteCaptureEl.value) {
+			pasteCaptureEl.value.value = "";
+		}
+	}
+
+	async function handlePasteShortcut(event: KeyboardEvent) {
+		if (!options.enabled.value) {
 			return;
 		}
 
+		const container = options.containerEl.value;
+		const capture = pasteCaptureEl.value;
+		if (container && capture) {
+			// Do NOT preventDefault: we want the browser to dispatch an actual paste
+			// event to the currently-focused element (the hidden textarea).
+			capture.value = "";
+			capture.focus({ preventScroll: true });
+			capture.select();
+			return;
+		}
+
+		// Fallback to async clipboard read when capture element is missing.
+		const clipboard =
+			typeof navigator !== "undefined" ? navigator.clipboard : undefined;
+		if (!clipboard?.readText) {
+			return;
+		}
 		event.preventDefault();
-		applyPasteValues(parseAsciiBytesFromText(text), "ascii");
+		try {
+			const text = await clipboard.readText();
+			applyPasteText(text);
+		} catch {
+			// Ignore clipboard permission errors.
+		}
 	}
 
 	async function handleCut(event: KeyboardEvent) {
@@ -852,6 +970,11 @@ export function useEditing(options: EditingOptions): EditingResult {
 		const isCut = (event.ctrlKey || event.metaKey) && lower === "x";
 		if (isCut) {
 			void handleCut(event);
+			return;
+		}
+		const isPaste = (event.ctrlKey || event.metaKey) && lower === "v";
+		if (isPaste) {
+			void handlePasteShortcut(event);
 			return;
 		}
 
@@ -928,6 +1051,7 @@ export function useEditing(options: EditingOptions): EditingResult {
 	onMounted(() => {
 		const container = options.containerEl.value;
 		if (container) {
+			ensurePasteCaptureEl(container);
 			container.addEventListener("keydown", handleKeydown);
 			container.addEventListener("pointerdown", handlePointerDown);
 			container.addEventListener("paste", handlePaste);
@@ -940,6 +1064,11 @@ export function useEditing(options: EditingOptions): EditingResult {
 			container.removeEventListener("keydown", handleKeydown);
 			container.removeEventListener("pointerdown", handlePointerDown);
 			container.removeEventListener("paste", handlePaste);
+		}
+
+		if (pasteCaptureEl.value) {
+			pasteCaptureEl.value.parentElement?.removeChild(pasteCaptureEl.value);
+			pasteCaptureEl.value = null;
 		}
 
 		const tbody = options.tbodyEl.value;

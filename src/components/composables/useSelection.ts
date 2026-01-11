@@ -170,7 +170,13 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 		if (!state) {
 			return null;
 		}
-		return getOrderedRange(state.anchor, state.focus);
+		const total = options.totalBytes.value;
+		if (total <= 0) {
+			return null;
+		}
+		const anchor = clamp(Math.trunc(state.anchor), 0, total - 1);
+		const focus = clamp(Math.trunc(state.focus), 0, total - 1);
+		return getOrderedRange(anchor, focus);
 	});
 
 	/** Number of selected bytes. */
@@ -248,11 +254,25 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 		}
 		if (cell.hasAttribute("data-hex-index")) {
 			const index = parseIndexAttribute(cell, "data-hex-index");
-			return index !== null ? { mode: "hex", index } : null;
+			if (index === null) {
+				return null;
+			}
+			// Do not allow selection to include the EOF "ghost" byte.
+			if (index < 0 || index >= options.totalBytes.value) {
+				return null;
+			}
+			return { mode: "hex", index };
 		}
 		if (cell.hasAttribute("data-ascii-index")) {
 			const index = parseIndexAttribute(cell, "data-ascii-index");
-			return index !== null ? { mode: "ascii", index } : null;
+			if (index === null) {
+				return null;
+			}
+			// Do not allow selection to include the EOF "ghost" byte.
+			if (index < 0 || index >= options.totalBytes.value) {
+				return null;
+			}
+			return { mode: "ascii", index };
 		}
 		return null;
 	}
@@ -517,7 +537,22 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 			return;
 		}
 		const key = event.key.toLowerCase();
-		const isCopy = (event.ctrlKey || event.metaKey) && key === "c";
+		const hasModifier = event.ctrlKey || event.metaKey;
+		const isSelectAll = hasModifier && key === "a";
+		if (isSelectAll) {
+			event.preventDefault();
+			const total = options.totalBytes.value;
+			if (total <= 0) {
+				clearSelection();
+				return;
+			}
+			const mode = selectionState.value?.mode ?? "hex";
+			selectionState.value = { mode, anchor: 0, focus: total - 1 };
+			finishPointerSelection();
+			scheduleSelectionSync();
+			return;
+		}
+		const isCopy = hasModifier && key === "c";
 		if (isCopy) {
 			event.preventDefault();
 			void copySelectionToClipboard();

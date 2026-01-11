@@ -56,6 +56,8 @@ import type { CSSProperties } from "vue";
 import { computed, ref, useSlots } from "vue";
 import type {
 	VueHexAsciiRenderer,
+	VueHexEditorColumn,
+	VueHexEditorMode,
 	VueHexPrintableCheck,
 	VueHexStatusBarComponent,
 	VueHexStatusBarComponentName,
@@ -76,6 +78,10 @@ interface VueHexStatusBarProps {
 	nonPrintableChar?: string;
 	selectionRange: { start: number; end: number } | null;
 	selectionCount: number;
+	editable?: boolean;
+	editorMode?: VueHexEditorMode | null;
+	editorColumn?: VueHexEditorColumn | null;
+	totalBytes?: number;
 }
 
 const props = withDefaults(defineProps<VueHexStatusBarProps>(), {
@@ -86,6 +92,10 @@ const props = withDefaults(defineProps<VueHexStatusBarProps>(), {
 	nonPrintableChar: ".",
 	selectionRange: null,
 	selectionCount: 0,
+	editable: false,
+	editorMode: null,
+	editorColumn: null,
+	totalBytes: undefined,
 });
 
 const slots = useSlots();
@@ -242,8 +252,104 @@ function isBuiltInStatusBarName(
 		name === "hex" ||
 		name === "ascii" ||
 		name === "selection" ||
+		name === "editable" ||
+		name === "mode" ||
+		name === "column" ||
+		name === "total" ||
 		name === "slot"
 	);
+}
+
+function formatNumber(value: number): string {
+	const normalized = Math.max(0, Math.trunc(value));
+	// Use Intl when available so we get locale grouping.
+	try {
+		const formatter = new Intl.NumberFormat(undefined);
+		return formatter.format(normalized);
+	} catch {
+		return String(normalized);
+	}
+}
+
+function formatHumanBytes(totalBytes: number, decimals: number): string {
+	const value = Math.max(0, Math.trunc(totalBytes));
+	if (value < 1024) {
+		return `${value} B`;
+	}
+	const units = ["KiB", "MiB", "GiB", "TiB", "PiB", "EiB"];
+	let size = value;
+	let unitIndex = -1;
+	while (size >= 1024 && unitIndex < units.length - 1) {
+		size /= 1024;
+		unitIndex += 1;
+	}
+	const places = Math.max(0, Math.min(6, Math.trunc(decimals)));
+	const rounded = places > 0 ? size.toFixed(places) : String(Math.round(size));
+	const unit = units[Math.max(0, unitIndex)] ?? "KiB";
+	return `${rounded} ${unit}`;
+}
+
+function formatTotalBytesValue(
+	totalBytes: number | undefined,
+	config: unknown,
+) {
+	if (totalBytes == null) {
+		return "";
+	}
+	const normalized = Math.max(0, Math.trunc(totalBytes));
+	const format = getConfigString(config, "format");
+	if (format === "human") {
+		const decimals = getConfigNumber(config, "decimals") ?? 1;
+		return formatHumanBytes(normalized, decimals);
+	}
+	if (format === "hex") {
+		const upper = Boolean(props.uppercase);
+		const pad = Math.max(0, Math.trunc(getConfigNumber(config, "pad") ?? 0));
+		const raw = normalized.toString(16);
+		const value = (upper ? raw.toUpperCase() : raw).padStart(pad, "0");
+		const prefix = getConfigBoolean(config, "prefix") ?? true;
+		return prefix ? `0x${value}` : value;
+	}
+	const value = formatNumber(normalized);
+	const unit = getConfigBoolean(config, "unit") ?? false;
+	return unit ? `${value} bytes` : value;
+}
+
+function formatEditableValue(editable: boolean, config: unknown): string {
+	const short = getConfigBoolean(config, "short") ?? true;
+	if (editable) {
+		return short ? "EDIT" : "Editable";
+	}
+	const showWhenFalse = getConfigBoolean(config, "showWhenFalse") ?? false;
+	if (!showWhenFalse) {
+		return "";
+	}
+	return short ? "VIEW" : "Read-only";
+}
+
+function formatEditorModeValue(mode: VueHexEditorMode | null, config: unknown) {
+	if (!props.editable || !mode) {
+		return "";
+	}
+	const short = getConfigBoolean(config, "short") ?? true;
+	if (mode === "insert") {
+		return short ? "INS" : "Insert";
+	}
+	return short ? "OVR" : "Overwrite";
+}
+
+function formatEditorColumnValue(
+	column: VueHexEditorColumn | null,
+	config: unknown,
+) {
+	if (!props.editable || !column) {
+		return "";
+	}
+	const short = getConfigBoolean(config, "short") ?? true;
+	if (column === "hex") {
+		return short ? "HEX" : "Hex";
+	}
+	return short ? "ASCII" : "ASCII";
 }
 
 function getConfigString(config: unknown, key: string): string | null {
@@ -349,6 +455,18 @@ function resolveDefaultValueMinWidth(
 	if (name === "ascii") {
 		return "3ch";
 	}
+	if (name === "editable") {
+		return "4ch";
+	}
+	if (name === "mode") {
+		return "3ch";
+	}
+	if (name === "column") {
+		return "5ch";
+	}
+	if (name === "total") {
+		return "10ch";
+	}
 	return null;
 }
 
@@ -410,7 +528,15 @@ function renderStatusBarItem(
 				? "Hex"
 				: name === "ascii"
 					? "ASCII"
-					: "Selection");
+					: name === "selection"
+						? "Selection"
+						: name === "editable"
+							? "Edit"
+							: name === "mode"
+								? "Mode"
+								: name === "column"
+									? "Col"
+									: "Total");
 
 	if (name === "offset") {
 		return {
@@ -441,6 +567,72 @@ function renderStatusBarItem(
 			name,
 			label,
 			value: formatAsciiValue(cursorAscii.value, component.config),
+			visible: true,
+			valueStyle: resolveValueStyle(name, component.config),
+		};
+	}
+
+	if (name === "editable") {
+		const value = formatEditableValue(
+			Boolean(props.editable),
+			component.config,
+		);
+		const visible =
+			Boolean(value) ||
+			(getConfigBoolean(component.config, "showWhenFalse") ?? false);
+		return {
+			kind: "builtin",
+			key,
+			name,
+			label,
+			value,
+			visible,
+			valueStyle: resolveValueStyle(name, component.config),
+		};
+	}
+	if (name === "mode") {
+		const value = formatEditorModeValue(
+			props.editorMode ?? null,
+			component.config,
+		);
+		const visible =
+			Boolean(value) ||
+			(getConfigBoolean(component.config, "showWhenEmpty") ?? false);
+		return {
+			kind: "builtin",
+			key,
+			name,
+			label,
+			value,
+			visible,
+			valueStyle: resolveValueStyle(name, component.config),
+		};
+	}
+	if (name === "column") {
+		const value = formatEditorColumnValue(
+			props.editorColumn ?? null,
+			component.config,
+		);
+		const visible =
+			Boolean(value) ||
+			(getConfigBoolean(component.config, "showWhenEmpty") ?? false);
+		return {
+			kind: "builtin",
+			key,
+			name,
+			label,
+			value,
+			visible,
+			valueStyle: resolveValueStyle(name, component.config),
+		};
+	}
+	if (name === "total") {
+		return {
+			kind: "builtin",
+			key,
+			name,
+			label,
+			value: formatTotalBytesValue(props.totalBytes, component.config),
 			visible: true,
 			valueStyle: resolveValueStyle(name, component.config),
 		};

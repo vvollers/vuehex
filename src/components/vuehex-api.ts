@@ -118,6 +118,10 @@ export type VueHexStatusBarComponentName =
 	| "hex"
 	| "ascii"
 	| "selection"
+	| "editable"
+	| "mode"
+	| "column"
+	| "total"
 	| "slot";
 
 /**

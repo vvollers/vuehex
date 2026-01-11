@@ -476,6 +476,20 @@
 	visibility: hidden;
 }
 
+.vuehex-byte--ghost,
+.vuehex-ascii-char--ghost {
+	opacity: 0.45;
+	color: var(--vuehex-offset-color);
+}
+
+.vuehex.vuehex-editor .vuehex-byte--ghost.vuehex-cursor,
+.vuehex.vuehex-editor .vuehex-ascii-char--ghost.vuehex-cursor {
+	opacity: 1;
+	color: var(--vuehex-byte-color);
+	outline: 1px dashed var(--vuehex-ui-focus-ring-color);
+	outline-offset: 1px;
+}
+
 /* Dark theme */
 .vuehex-theme-dark {
 	--vuehex-background: #0f172a;

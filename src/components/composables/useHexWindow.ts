@@ -40,6 +40,9 @@ const HEX_UPPER: readonly string[] = HEX_LOWER.map((value) =>
 const PLACEHOLDER_HEX = "--";
 const PLACEHOLDER_ASCII = "--";
 
+const GHOST_HEX = "__";
+const GHOST_ASCII = "_";
+
 /**
  * Escapes a provided ASCII representation so it can be safely interpolated into HTML.
  */
@@ -133,6 +136,10 @@ export interface HexWindowOptions {
 	chunkRowCount: ComputedRef<number>;
 	/** Total bytes in the backing data source. */
 	totalBytes: ComputedRef<number>;
+	/** Total bytes that can actually be requested from the host (excludes the editable EOF ghost). */
+	requestTotalBytes: ComputedRef<number>;
+	/** When true, renders a single EOF ghost byte at index == requestTotalBytes. */
+	includeGhostEnd?: ComputedRef<boolean>;
 	/** True when VueHex treats the provided data as the full buffer (no windowing). */
 	isSelfManagedData: ComputedRef<boolean>;
 	/** Two-way model tracking the current absolute offset (used for buffer mode scroll sync). */
@@ -488,8 +495,36 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 		const data = normalizedBytes.value;
 		const bytesPerRowValue = Math.max(options.bytesPerRow.value, 1);
 		const windowStart = options.getWindowState().offset;
+		const includeGhost = options.includeGhostEnd?.value ?? false;
+		const dataTotal = options.requestTotalBytes.value;
 
 		if (data.length === 0) {
+			// Buffer mode can be truly empty; when editable, render a single EOF ghost byte.
+			if (includeGhost && dataTotal === 0 && windowStart === 0) {
+				renderStartRow.value = 0;
+				const printableCheck = options.getPrintableChecker();
+				const asciiRenderer = options.getAsciiRenderer();
+				const selectionRange = options.getSelectionRange();
+				const nextMarkup = buildHexTableMarkup(
+					new Uint8Array(0),
+					bytesPerRowValue,
+					options.getUppercase(),
+					fallbackAsciiChar.value,
+					0,
+					1,
+					0,
+					printableCheck,
+					asciiRenderer,
+					selectionRange,
+					options.getCellClassResolver(),
+				);
+				if (markup.value !== nextMarkup) {
+					options.clearHoverState();
+					markup.value = nextMarkup;
+				}
+				return;
+			}
+
 			// No data available: clear markup and keep offsets consistent.
 			markup.value = "";
 			renderStartRow.value = Math.floor(windowStart / bytesPerRowValue);
@@ -499,10 +534,13 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 
 		// Window bounds (in bytes) for the currently available data slice.
 		const windowEnd = windowStart + data.length;
+		const ghostIndex = includeGhost ? dataTotal : null;
+		const windowVisualEnd =
+			includeGhost && windowEnd === dataTotal ? windowEnd + 1 : windowEnd;
 
 		// ---- Determine render bounds (in bytes) ------------------------------------
 		let renderStart = windowStart;
-		let renderEnd = windowEnd;
+		let renderEnd = windowVisualEnd;
 
 		const container = options.containerEl.value;
 		const viewportRowCount = options.viewportRows.value;
@@ -527,12 +565,12 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 			renderStart = clamp(
 				desiredStartByte - overscanBytes,
 				Math.max(windowStart, chunkStartByte),
-				windowEnd,
+				windowVisualEnd,
 			);
 
-			if (renderStart >= windowEnd) {
+			if (renderStart >= windowVisualEnd) {
 				// If we overshot, back up to at least one row of data.
-				renderStart = Math.max(windowEnd - bytesPerRowValue, windowStart);
+				renderStart = Math.max(windowVisualEnd - bytesPerRowValue, windowStart);
 			}
 
 			// Snap start to a row boundary relative to the window start.
@@ -542,13 +580,13 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 			renderStart = clamp(
 				windowStart + alignedRelative,
 				windowStart,
-				Math.max(windowEnd - 1, windowStart),
+				Math.max(windowVisualEnd - 1, windowStart),
 			);
 
 			// Request enough bytes for (viewport + overscan above/below).
 			const totalRowsNeeded = Math.max(viewportRowCount + overscanCount * 2, 1);
 			const requiredLength = totalRowsNeeded * bytesPerRowValue;
-			renderEnd = Math.min(windowEnd, renderStart + requiredLength);
+			renderEnd = Math.min(windowVisualEnd, renderStart + requiredLength);
 		}
 
 		if (renderEnd <= renderStart) {
@@ -561,10 +599,8 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 
 		// ---- Slice data and render -------------------------------------------------
 		const relativeStart = renderStart - windowStart;
-		const relativeEnd = Math.min(
-			data.length,
-			relativeStart + (renderEnd - renderStart),
-		);
+		const renderByteCount = renderEnd - renderStart;
+		const relativeEnd = Math.min(data.length, relativeStart + renderByteCount);
 
 		const slice = data.subarray(relativeStart, relativeEnd);
 		renderStartRow.value = Math.floor(renderStart / bytesPerRowValue);
@@ -579,6 +615,8 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 			options.getUppercase(),
 			fallbackAsciiChar.value,
 			renderStart,
+			renderByteCount,
+			ghostIndex,
 			printableCheck,
 			asciiRenderer,
 			selectionRange,
@@ -602,12 +640,14 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 		uppercase: boolean,
 		fallbackAscii: string,
 		baseOffset: number,
+		renderByteCount: number,
+		ghostIndex: number | null,
 		isPrintable: VueHexPrintableCheck,
 		renderAscii: VueHexAsciiRenderer,
 		selectionRange: { start: number; end: number } | null,
 		resolveCellClass?: VueHexCellClassResolver,
 	): string {
-		if (bytes.length === 0) {
+		if (renderByteCount <= 0) {
 			return "";
 		}
 
@@ -664,15 +704,15 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 		const spanClose = "</span>";
 
 		// Pre-allocate array with accurate size estimation
-		const estimatedRows = Math.ceil(bytes.length / bytesPerRow);
+		const estimatedRows = Math.ceil(renderByteCount / bytesPerRow);
 		// Each row emits ~2*bytesPerRow cells + a small fixed overhead.
 		const estimatedSize = estimatedRows * (2 * bytesPerRow + 20);
 		const markup: string[] = new Array(estimatedSize);
 		let markupIndex = 0;
 
-		for (let offset = 0; offset < bytes.length; offset += bytesPerRow) {
+		for (let offset = 0; offset < renderByteCount; offset += bytesPerRow) {
 			// Each outer loop iteration renders one <tr> (row).
-			const remaining = Math.min(bytesPerRow, bytes.length - offset);
+			const remaining = Math.min(bytesPerRow, renderByteCount - offset);
 			const rowOffset = baseOffset + offset;
 
 			// Row opening
@@ -685,9 +725,30 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 
 			// Hex bytes
 			for (let index = 0; index < remaining; index += 1) {
-				const value = bytes[offset + index] as number;
 				const absoluteIndex = rowOffset + index;
 				const col = colData[index];
+				const localIndex = offset + index;
+
+				if (ghostIndex !== null && absoluteIndex === ghostIndex) {
+					const classString = `${col.hexStatic} vuehex-byte--ghost`;
+					markup[markupIndex++] =
+						spanClassOpen +
+						classString +
+						hexIndexAttr +
+						absoluteIndex +
+						spanContentOpen +
+						GHOST_HEX +
+						spanClose;
+					continue;
+				}
+
+				if (localIndex < 0 || localIndex >= bytes.length) {
+					// Defensive: we only expect a single trailing ghost beyond the actual bytes.
+					markup[markupIndex++] = col.hexPlaceholder;
+					continue;
+				}
+
+				const value = bytes[localIndex] as number;
 
 				// Fast path for classes: standard classes + value class
 				let classString = `${col.hexStatic} vuehex-byte--value-${value}`;
@@ -737,9 +798,29 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 
 			// ASCII characters
 			for (let index = 0; index < remaining; index += 1) {
-				const value = bytes[offset + index] as number;
 				const absoluteIndex = rowOffset + index;
 				const col = colData[index];
+				const localIndex = offset + index;
+
+				if (ghostIndex !== null && absoluteIndex === ghostIndex) {
+					const classString = `${col.asciiPrintable} vuehex-ascii-char--ghost`;
+					markup[markupIndex++] =
+						spanClassOpen +
+						classString +
+						asciiIndexAttr +
+						absoluteIndex +
+						spanContentOpen +
+						escapeAsciiChar(GHOST_ASCII) +
+						spanClose;
+					continue;
+				}
+
+				if (localIndex < 0 || localIndex >= bytes.length) {
+					markup[markupIndex++] = col.asciiPlaceholder;
+					continue;
+				}
+
+				const value = bytes[localIndex] as number;
 
 				let asciiContent = fallbackAscii;
 				let classString: string;
@@ -865,11 +946,19 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 			return;
 		}
 
-		const desiredOffset = desiredStartRow * bytesPerRowValue;
-		const maxPossibleBytes = Math.max(
-			options.totalBytes.value - desiredOffset,
-			0,
-		);
+		const includeGhost = options.includeGhostEnd?.value ?? false;
+		const requestTotal = options.requestTotalBytes.value;
+
+		let requestStartRow = desiredStartRow;
+		// If we can render a ghost EOF byte, allow scrolling to an extra row beyond
+		// the real data end, but clamp requests to the last *data* row.
+		if (includeGhost && requestTotal > 0) {
+			const lastDataRow = Math.floor((requestTotal - 1) / bytesPerRowValue);
+			requestStartRow = Math.min(requestStartRow, lastDataRow);
+		}
+
+		const requestOffset = requestStartRow * bytesPerRowValue;
+		const maxPossibleBytes = Math.max(requestTotal - requestOffset, 0);
 		const desiredLength = Math.min(
 			maxPossibleBytes,
 			rowsToRequest * bytesPerRowValue,
@@ -880,26 +969,26 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 		}
 
 		const desiredEndRow =
-			desiredStartRow + Math.ceil(desiredLength / bytesPerRowValue);
+			requestStartRow + Math.ceil(desiredLength / bytesPerRowValue);
 
 		const windowStartRow = startRow.value;
 		const windowEndRow = windowStartRow + renderedRows.value;
 
-		if (windowStartRow <= desiredStartRow && windowEndRow >= desiredEndRow) {
+		if (windowStartRow <= requestStartRow && windowEndRow >= desiredEndRow) {
 			// Current window already covers what the viewport needs.
 			return;
 		}
 
 		if (
 			lastRequested.value &&
-			lastRequested.value.offset === desiredOffset &&
+			lastRequested.value.offset === requestOffset &&
 			lastRequested.value.length === desiredLength
 		) {
 			// Avoid spamming identical requests.
 			return;
 		}
 
-		lastRequested.value = { offset: desiredOffset, length: desiredLength };
+		lastRequested.value = { offset: requestOffset, length: desiredLength };
 		options.requestWindow(lastRequested.value);
 	}
 

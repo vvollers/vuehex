@@ -26,6 +26,10 @@
 				:non-printable-char="props.nonPrintableChar"
 				:selection-range="selectionRange"
 				:selection-count="selectionCount"
+				:editable="isEditable"
+				:editor-mode="editorMode"
+				:editor-column="editorActiveColumn"
+				:total-bytes="dataTotalBytes"
 			>
 				<template #statusbar-left>
 					<slot name="statusbar-left" />
@@ -195,6 +199,8 @@ const props = withDefaults(defineProps<VueHexProps>(), {
 	statusbarLayout: null,
 });
 
+const isEditable = computed(() => Boolean(props.editable));
+
 const emit = defineEmits<{
 	(event: "updateVirtualData", payload: VueHexWindowRequest): void;
 	(event: "edit", payload: VueHexEditIntent): void;
@@ -247,7 +253,7 @@ const currentWindow = computed(() => ({
 }));
 
 /** Total bytes in the backing data; feeds navigation decisions. */
-const totalBytes = computed(() => {
+const dataTotalBytes = computed(() => {
 	if (isExpandToContent.value) {
 		return currentWindow.value.data.length;
 	}
@@ -257,6 +263,15 @@ const totalBytes = computed(() => {
 	}
 	return currentWindow.value.data.length;
 });
+
+/**
+ * Visual total bytes used for rendering/cursor navigation.
+ *
+ * In editable mode we add a single EOF "ghost" byte so users can append.
+ */
+const visualTotalBytes = computed(() =>
+	isEditable.value ? dataTotalBytes.value + 1 : dataTotalBytes.value,
+);
 
 const shouldRequestVirtualData = computed(() => isWindowed.value);
 
@@ -319,7 +334,7 @@ const {
 	selectChunk,
 } = useChunking({
 	showNavigator: computed(() => Boolean(props.showChunkNavigator)),
-	totalBytes,
+	totalBytes: visualTotalBytes,
 	bytesPerRow,
 	rowHeightValue,
 	maxVirtualHeight: effectiveMaxVirtualHeight,
@@ -378,7 +393,9 @@ const {
 	overscanRows,
 	chunkStartRow,
 	chunkRowCount,
-	totalBytes,
+	totalBytes: visualTotalBytes,
+	requestTotalBytes: dataTotalBytes,
+	includeGhostEnd: isEditable,
 	isSelfManagedData: isSelfManaged,
 	windowOffset,
 	ensureChunkForRow,
@@ -415,7 +432,7 @@ const {
 	isSelfManagedData: isSelfManaged,
 	requireShiftToSelect: computed(() => cursorEnabled.value || isEditable.value),
 	cursorIndex: computed(() => cursorLocation.value ?? null),
-	totalBytes,
+	totalBytes: dataTotalBytes,
 	getSelfManagedBytes: () => currentWindow.value.data,
 	getUppercase: () => uppercase.value,
 	getPrintableChecker: () => printableCheck.value,
@@ -439,7 +456,6 @@ const {
 	statusbar: toRef(props, "statusbar"),
 });
 
-const isEditable = computed(() => Boolean(props.editable));
 const cursorEnabled = computed(() => Boolean(props.cursor) || isEditable.value);
 
 const editorModeClass = ref<string | null>(null);
@@ -465,7 +481,7 @@ const cursorApi = useCursor({
 	containerEl,
 	tbodyEl,
 	markup,
-	totalBytes,
+	totalBytes: visualTotalBytes,
 	bytesPerRow,
 	rowHeightValue,
 	viewportRows,
@@ -491,7 +507,7 @@ const { activeColumn: editorActiveColumn, editorMode } = useEditing({
 	selectionRange,
 	clearSelection,
 	copySelectionToClipboard,
-	totalBytes,
+	totalBytes: dataTotalBytes,
 	isSelfManagedData: isSelfManaged,
 	getSelfManagedBytes: () => currentWindow.value.data,
 	setSelfManagedBytes: (bytes) => {
@@ -625,7 +641,7 @@ watch(
 
 watch(
 	[
-		totalBytes,
+		visualTotalBytes,
 		bytesPerRow,
 		viewportRows,
 		overscanRows,

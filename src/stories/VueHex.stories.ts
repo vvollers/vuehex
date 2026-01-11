@@ -706,6 +706,20 @@ export const Editable: Story = {
 	args: {
 		dataMode: "buffer",
 		editable: true,
+		statusbar: "bottom",
+		statusbarLayout: {
+			left: [
+				"editable",
+				"mode",
+				"column",
+				{ name: "offset", config: { format: "hex", pad: 8 } },
+			],
+			middle: ["hex", "ascii"],
+			right: [
+				"selection",
+				{ name: "total", config: { format: "human", decimals: 1 } },
+			],
+		},
 	},
 	parameters: {
 		docs: {
@@ -778,6 +792,20 @@ export const EditableWindowed: Story = {
 		dataMode: "window",
 		editable: true,
 		cursor: true,
+		statusbar: "bottom",
+		statusbarLayout: {
+			left: [
+				"editable",
+				"mode",
+				"column",
+				{ name: "offset", config: { format: "hex", pad: 8 } },
+			],
+			middle: ["hex", "ascii"],
+			right: [
+				"selection",
+				{ name: "total", config: { format: "human", decimals: 1 } },
+			],
+		},
 	},
 	parameters: {
 		docs: {
