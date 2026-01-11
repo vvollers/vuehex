@@ -786,6 +786,48 @@ function onEdit(intent: VueHexEditIntent) {
 	}),
 };
 
+export const StatusBarEditorItems: Story = {
+	name: "Status bar (editor items)",
+	args: {
+		dataMode: "buffer",
+		editable: false,
+		statusbar: "bottom",
+		statusbarLayout: {
+			left: [
+				"editable",
+				{ name: "mode", config: { placeholder: "—" } },
+				{ name: "column", config: { placeholder: "—" } },
+				{ name: "total", config: { format: "human", decimals: 1 } },
+			],
+			right: ["selection"],
+		},
+	},
+	render: (args) => ({
+		components: { VueHex },
+		setup() {
+			const fullData = ref(sliceDemoData(0, SELF_MANAGED_BYTES));
+			return { args, fullData };
+		},
+		template: `
+			<div class="story-viewport story-viewport--column">
+			  <section class="story-stack">
+			    <header class="story-card__header">
+			      <p class="story-card__eyebrow">UI</p>
+			      <h3 class="story-card__title">Status bar editor items</h3>
+			      <p class="story-card__subtitle">
+			        You can include <code>editable</code>, <code>mode</code>, and <code>column</code> in the status bar layout even when <code>editable</code> is false.
+			        When editor state is unavailable, <code>mode</code>/<code>column</code> show a placeholder.
+			      </p>
+			    </header>
+			    <div class="story-demo">
+			      <VueHex v-bind="args" v-model="fullData" style="height: 260px" />
+			    </div>
+			  </section>
+			</div>
+			`,
+	}),
+};
+
 export const EditableWindowed: Story = {
 	name: "Editable (windowed)",
 	args: {

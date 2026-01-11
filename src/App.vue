@@ -12,6 +12,11 @@
           <span class="file-button">Select File</span>
         </label>
         <span v-if="fileName" class="file-name">{{ fileName }}</span>
+    <label class="switch">
+      <input type="checkbox" v-model="isEditMode" />
+      <span class="switch-ui" aria-hidden="true"></span>
+      <span class="switch-text">Edit mode</span>
+    </label>
       </header>
 
       <main class="demo-main">
@@ -19,11 +24,13 @@
           v-model="fileData"
           v-model:window-offset="offset"
           statusbar="top"
+		      :statusbar-layout="statusbarLayout"
           :theme="selectedTheme"
           :cell-class-for-byte="selectedHighlighting"
           :is-printable="selectedPreset.isPrintable"
           :render-ascii="selectedPreset.renderAscii"
           :cursor="true"
+		      :editable="isEditMode"
           :bytes-per-row="16"
           :show-chunk-navigator="true"
           chunk-navigator-placement="left"
@@ -73,11 +80,14 @@ import VueHex from "./components/VueHex.vue";
 import {
 	VUE_HEX_ASCII_PRESETS,
 	type VueHexCellClassResolver,
+	type VueHexStatusBarLayout,
 } from "./components/vuehex-api";
 import "./assets/vuehex.css";
 
 const fileData = ref<Uint8Array>(new Uint8Array(0));
 const offset = ref<number>(0);
+
+const isEditMode = ref(false);
 
 const fileName = ref<string>("");
 const selectedPresetKey = ref<"standard" | "latin1" | "visibleWhitespace">(
@@ -93,6 +103,17 @@ const selectedTheme = ref<"auto" | "light" | "dark" | "terminal" | "sunset">(
 const selectedPreset = computed(
 	() => VUE_HEX_ASCII_PRESETS[selectedPresetKey.value],
 );
+
+const statusbarLayout = computed<VueHexStatusBarLayout>(() => ({
+	left: [
+		"editable",
+		"mode",
+		"column",
+		{ name: "total", config: { format: "human" } },
+	],
+	middle: ["selection"],
+	right: ["offset", "hex", "ascii"],
+}));
 
 // Custom highlighting resolvers
 const highlightNullBytes: VueHexCellClassResolver = ({ byte }) => {
@@ -239,6 +260,70 @@ body {
   font-style: normal;
 }
 
+.switch {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #e6edf3;
+  font-size: 0.875rem;
+  user-select: none;
+  cursor: pointer;
+  position: relative;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.switch-ui {
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: #30363d;
+  border: 1px solid #484f58;
+  position: relative;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.switch-ui::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #7d8590;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
+}
+
+.switch input:checked + .switch-ui {
+  background: #238636;
+  border-color: #2ea043;
+}
+
+.switch input:checked + .switch-ui::after {
+  transform: translateX(16px);
+  background: #ffffff;
+}
+
+.switch input:focus-visible + .switch-ui {
+  outline: 2px solid #1f6feb;
+  outline-offset: 2px;
+}
+
+.switch-text {
+  line-height: 1;
+}
+
 .demo-main {
   flex: 1;
   padding: 1rem;
@@ -325,6 +410,19 @@ body {
 
   .file-name {
     color: #57606a;
+  }
+
+  .switch {
+    color: #24292f;
+  }
+
+  .switch-ui {
+    background: #d0d7de;
+    border-color: #d0d7de;
+  }
+
+  .switch-ui::after {
+    background: #57606a;
   }
 
   .control-label {

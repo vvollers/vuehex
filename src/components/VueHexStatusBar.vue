@@ -317,19 +317,18 @@ function formatTotalBytesValue(
 
 function formatEditableValue(editable: boolean, config: unknown): string {
 	const short = getConfigBoolean(config, "short") ?? true;
-	if (editable) {
-		return short ? "EDIT" : "Editable";
-	}
-	const showWhenFalse = getConfigBoolean(config, "showWhenFalse") ?? false;
-	if (!showWhenFalse) {
-		return "";
-	}
-	return short ? "VIEW" : "Read-only";
+	return editable
+		? short
+			? "EDIT"
+			: "Editable"
+		: short
+			? "VIEW"
+			: "Read-only";
 }
 
 function formatEditorModeValue(mode: VueHexEditorMode | null, config: unknown) {
-	if (!props.editable || !mode) {
-		return "";
+	if (!mode) {
+		return getConfigString(config, "placeholder") ?? "—";
 	}
 	const short = getConfigBoolean(config, "short") ?? true;
 	if (mode === "insert") {
@@ -342,8 +341,8 @@ function formatEditorColumnValue(
 	column: VueHexEditorColumn | null,
 	config: unknown,
 ) {
-	if (!props.editable || !column) {
-		return "";
+	if (!column) {
+		return getConfigString(config, "placeholder") ?? "—";
 	}
 	const short = getConfigBoolean(config, "short") ?? true;
 	if (column === "hex") {
@@ -577,16 +576,13 @@ function renderStatusBarItem(
 			Boolean(props.editable),
 			component.config,
 		);
-		const visible =
-			Boolean(value) ||
-			(getConfigBoolean(component.config, "showWhenFalse") ?? false);
 		return {
 			kind: "builtin",
 			key,
 			name,
 			label,
 			value,
-			visible,
+			visible: true,
 			valueStyle: resolveValueStyle(name, component.config),
 		};
 	}
@@ -595,16 +591,13 @@ function renderStatusBarItem(
 			props.editorMode ?? null,
 			component.config,
 		);
-		const visible =
-			Boolean(value) ||
-			(getConfigBoolean(component.config, "showWhenEmpty") ?? false);
 		return {
 			kind: "builtin",
 			key,
 			name,
 			label,
 			value,
-			visible,
+			visible: true,
 			valueStyle: resolveValueStyle(name, component.config),
 		};
 	}
@@ -613,16 +606,13 @@ function renderStatusBarItem(
 			props.editorColumn ?? null,
 			component.config,
 		);
-		const visible =
-			Boolean(value) ||
-			(getConfigBoolean(component.config, "showWhenEmpty") ?? false);
 		return {
 			kind: "builtin",
 			key,
 			name,
 			label,
 			value,
-			visible,
+			visible: true,
 			valueStyle: resolveValueStyle(name, component.config),
 		};
 	}

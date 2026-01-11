@@ -555,12 +555,18 @@ Built-in component names:
 - `hex`
 - `ascii`
 - `selection`
+- `editable`
+- `mode`
+- `column`
+- `total`
 - `slot`
 
 Notes:
 
 - Unknown component names are ignored.
 - When omitted, `statusbarLayout` defaults to `left: ["offset", "hex", "ascii"], right: ["selection"]`.
+- Hover-driven items (`offset`, `hex`, `ascii`) reflect the cell under the mouse, not the keyboard cursor.
+- Editor items (`editable`, `mode`, `column`) render whenever they are included in the layout (they do not auto-hide when `editable` is false).
 
 ### Custom slot components
 
@@ -605,10 +611,14 @@ const layout: VueHexStatusBarLayout = {
 ### Supported config keys
 
 - Common: `label`, `valueMinWidth` (CSS length), `valueWidth` (CSS length)
-- `offset`: `format` ("hex"), `pad` (number), `prefix` (boolean)
+- `offset`: `format` ("hex" | "decimal"), `pad` (number), `prefix` (boolean)
 - `hex`: `prefix` (boolean)
 - `ascii`: `quote` (boolean)
 - `selection`: `showWhenEmpty` (boolean)
+- `editable`: `short` (boolean)
+- `mode`: `short` (boolean), `placeholder` (string)
+- `column`: `short` (boolean), `placeholder` (string)
+- `total`: `format` ("human" | "hex"), `decimals` (number, for "human"), `unit` (boolean), `pad` (number, for "hex"), `prefix` (boolean, for "hex")
 
 ## Cursor
 

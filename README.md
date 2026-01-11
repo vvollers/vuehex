@@ -448,17 +448,72 @@ Customize individual chunk items with access to chunk data and active state:
 
 Both slots are optional. If not provided, VueHex uses the default chunk navigator appearance.
 
-## Status Bar Slots
+## Status bar
 
-When using the status bar (`statusbar="top"` or `statusbar="bottom"`), you can provide custom content via slots. Use the `statusbarLayout` prop with the `"slot"` component name to control where your custom content appears.
+Enable the status bar by setting `statusbar="top"` or `statusbar="bottom"`. You can control which items appear (and where) using `statusbarLayout`.
 
-### Available slots
+### Layout
 
-- `#statusbar-left` - Content for the left section
-- `#statusbar-middle` - Content for the middle section  
-- `#statusbar-right` - Content for the right section
+`statusbarLayout` splits the status bar into three sections:
 
-### Example
+- `left` (left-aligned)
+- `middle` (centered)
+- `right` (right-aligned)
+
+Each section is an array of **status bar components** (strings or `{ name, config }` objects). Unknown component names are ignored.
+
+When `statusbarLayout` is omitted, VueHex defaults to:
+
+- `left: ["offset", "hex", "ascii"]`
+- `right: ["selection"]`
+
+### Built-in components
+
+- `offset`: hovered byte offset (respects `uppercase` + `isPrintable`/`renderAscii` where relevant)
+- `hex`: hovered byte value as a 2-digit hex string
+- `ascii`: hovered byte rendered as ASCII (or `nonPrintableChar`)
+- `selection`: selection summary (`"<count> bytes (start–end)"`)
+- `editable`: editor state label (`VIEW` / `EDIT`)
+- `mode`: editor mode (`INS` / `OVR`) or placeholder when not available
+- `column`: active editor column (`HEX` / `ASCII`) or placeholder when not available
+- `total`: total size in bytes (derived from `totalSize` when provided; otherwise `v-model.length`). Does not include the EOF "ghost" cell.
+- `slot`: renders one of the status bar slots (see below)
+
+Notes:
+
+- The hover-driven items (`offset`, `hex`, `ascii`) reflect the cell under the mouse, not the keyboard cursor.
+- Editor items (`editable`, `mode`, `column`) render whenever they are included in the layout (they do not auto-hide when `editable` is false).
+
+### Per-component configuration (`config`)
+
+All built-ins support:
+
+- `label` (string): overrides the label text
+- `valueMinWidth` (string): CSS length (e.g. `"10ch"`) for stable widths
+- `valueWidth` (string): CSS length (e.g. `"120px"`)
+
+Component-specific keys:
+
+- `offset`: `format` (`"hex"` or `"decimal"`), `pad` (number), `prefix` (boolean)
+- `hex`: `prefix` (boolean)
+- `ascii`: `quote` (boolean)
+- `selection`: `showWhenEmpty` (boolean)
+- `editable`: `short` (boolean)
+- `mode`: `short` (boolean), `placeholder` (string)
+- `column`: `short` (boolean), `placeholder` (string)
+- `total`: `format` (`"human"` or `"hex"`), `decimals` (number, for `"human"`), `unit` (boolean), `pad` (number, for `"hex"`), `prefix` (boolean, for `"hex"`)
+
+### Slot components
+
+Use the built-in `"slot"` component name to render your own custom content inside the status bar.
+
+Available slots:
+
+- `#statusbar-left`
+- `#statusbar-middle`
+- `#statusbar-right`
+
+Example:
 
 ```vue
 <VueHex
@@ -467,20 +522,20 @@ When using the status bar (`statusbar="top"` or `statusbar="bottom"`), you can p
     :statusbar-layout="{
         left: ['offset', 'slot', 'hex'],
         middle: ['ascii'],
-        right: ['selection', 'slot']
+        right: ['selection', 'slot'],
     }"
 >
     <template #statusbar-left>
         <span>Mode: RO</span>
     </template>
-    
+
     <template #statusbar-right>
         <span>Endian: LE</span>
     </template>
 </VueHex>
 ```
 
-The `"slot"` entry in `statusbarLayout` determines where your custom content renders relative to built-in status bar items. You can place it at any position within each section array.
+The `"slot"` entry controls where your slot content renders relative to built-in items.
 
 ## License
 
