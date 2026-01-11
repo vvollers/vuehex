@@ -108,10 +108,15 @@ Editing highlights:
     - `Ctrl/Cmd+C` copy selection
     - `Ctrl/Cmd+V` paste (hex column treats clipboard as hex bytes; whitespace is ignored)
     - `Ctrl/Cmd+X` cut (copy + delete selection)
+- Undo/redo shortcuts:
+    - `Ctrl/Cmd+Z` undo
+    - `Ctrl/Cmd+Y` redo (also `Ctrl/Cmd+Shift+Z`)
 
 ### Buffer mode (self-managed)
 
 In `data-mode="buffer"`, VueHex will apply edits to `v-model` automatically. Listening to `@edit` is optional.
+
+Undo/redo is built-in in this mode and is implemented as a compact history of edit diffs (not full buffer snapshots).
 
 ```vue
 <template>
@@ -129,6 +134,8 @@ const bytes = ref(new Uint8Array(await file.arrayBuffer()));
 ### Window mode (parent-managed)
 
 In `data-mode="window"`, VueHex does not own the full dataset. The parent is responsible for applying `edit` intents to the backing store and then refreshing `windowData`.
+
+For undo/redo in windowed mode, VueHex emits `{ kind: "undo" }` / `{ kind: "redo" }` intents on the `edit` event and the parent should implement history.
 
 ```vue
 <template>

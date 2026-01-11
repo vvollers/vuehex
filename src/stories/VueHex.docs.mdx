@@ -339,6 +339,9 @@ Turn the viewer into an editor by setting the <code>editable</code> prop. VueHex
     - in **hex column**: clipboard is treated as hex data; whitespace is ignored
     - in **ASCII column**: clipboard is pasted as text (bytes are clamped to 0–255)
   - <code>Ctrl/Cmd+X</code> cuts selection (copy + delete)
+- **Undo/redo**:
+  - <code>Ctrl/Cmd+Z</code> undo
+  - <code>Ctrl/Cmd+Y</code> redo (also <code>Ctrl/Cmd+Shift+Z</code>)
 
 ### Buffer mode (self-managed)
 
@@ -371,6 +374,8 @@ function applyEditIntent(bytes: Uint8Array, intent: VueHexEditIntent): Uint8Arra
     case "insert-bytes":
     case "delete-byte":
     case "delete-range":
+    case "undo":
+    case "redo":
       // See the "Editable (windowed)" story for a complete implementation.
       return bytes;
   }

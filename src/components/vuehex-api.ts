@@ -94,6 +94,14 @@ export type VueHexEditIntent =
 			kind: "delete-range";
 			start: number;
 			end: number;
+	  }
+	| {
+			/** Undo the most recent edit action (Ctrl/Cmd+Z). */
+			kind: "undo";
+	  }
+	| {
+			/** Redo the most recently undone edit action (Ctrl/Cmd+Y or Ctrl/Cmd+Shift+Z). */
+			kind: "redo";
 	  };
 
 /**

@@ -15,6 +15,8 @@ import type {
 
 const ACTIVE_COLUMN_CLASS = "vuehex-cursor--active-column";
 
+const DEFAULT_HISTORY_LIMIT = 200;
+
 function isHexDigit(key: string): boolean {
 	return /^[0-9a-fA-F]$/.test(key);
 }
@@ -125,6 +127,300 @@ export interface EditingResult {
 export function useEditing(options: EditingOptions): EditingResult {
 	const activeColumn = ref<VueHexEditorColumn>("hex");
 	const editorMode = ref<VueHexEditorMode>("overwrite");
+
+	interface HistoryEntry {
+		undo: VueHexEditIntent[];
+		redo: VueHexEditIntent[];
+		cursorBefore: number | null;
+		cursorAfter: number | null;
+	}
+
+	const undoStack: HistoryEntry[] = [];
+	const redoStack: HistoryEntry[] = [];
+	let activeHistoryTransaction: HistoryEntry | null = null;
+	let isApplyingHistory = false;
+
+	function pushHistoryEntry(entry: HistoryEntry) {
+		if (!entry.redo.length || !entry.undo.length) {
+			return;
+		}
+		redoStack.length = 0;
+		undoStack.push(entry);
+		if (undoStack.length > DEFAULT_HISTORY_LIMIT) {
+			undoStack.shift();
+		}
+	}
+
+	function runHistoryTransaction(action: () => void) {
+		if (!options.isSelfManagedData.value || isApplyingHistory) {
+			action();
+			return;
+		}
+		if (activeHistoryTransaction) {
+			action();
+			return;
+		}
+		const cursorBefore = options.cursorIndex.value;
+		activeHistoryTransaction = {
+			undo: [],
+			redo: [],
+			cursorBefore,
+			cursorAfter: cursorBefore,
+		};
+		action();
+		const finished = activeHistoryTransaction;
+		activeHistoryTransaction = null;
+		finished.cursorAfter = options.cursorIndex.value;
+		pushHistoryEntry(finished);
+	}
+
+	function computeHistoryForIntent(
+		intent: VueHexEditIntent,
+	): { undo: VueHexEditIntent[]; redo: VueHexEditIntent[] } | null {
+		const bytes = options.getSelfManagedBytes();
+		const total = bytes.length;
+		const columnForUndo = activeColumn.value;
+
+		switch (intent.kind) {
+			case "overwrite-byte": {
+				if (intent.index < 0 || intent.index >= total) {
+					return null;
+				}
+				const previous = bytes[intent.index] ?? 0;
+				return {
+					redo: [intent],
+					undo: [
+						{
+							kind: "overwrite-byte",
+							index: intent.index,
+							value: previous,
+							column: intent.column,
+						},
+					],
+				};
+			}
+			case "insert-byte": {
+				const index = Math.max(0, Math.min(total, Math.trunc(intent.index)));
+				const normalized: VueHexEditIntent = { ...intent, index };
+				return {
+					redo: [normalized],
+					undo: [{ kind: "delete-range", start: index, end: index }],
+				};
+			}
+			case "overwrite-bytes": {
+				const values = intent.values.map(clampByte);
+				if (!values.length) {
+					return null;
+				}
+				const index = Math.max(0, Math.trunc(intent.index));
+				const preTotal = total;
+				const newTotal = Math.max(preTotal, index + values.length);
+				const overlapEnd = Math.min(preTotal, index + values.length);
+				const overlapLen = Math.max(0, overlapEnd - index);
+
+				const undo: VueHexEditIntent[] = [];
+				if (newTotal > preTotal) {
+					undo.push({
+						kind: "delete-range",
+						start: preTotal,
+						end: newTotal - 1,
+					});
+				}
+				if (overlapLen > 0) {
+					const previous = Array.from(
+						bytes.subarray(index, index + overlapLen),
+					);
+					undo.push({
+						kind: "overwrite-bytes",
+						index,
+						values: previous,
+						column: intent.column,
+					});
+				}
+				if (!undo.length) {
+					return null;
+				}
+				return {
+					redo: [
+						{ kind: "overwrite-bytes", index, values, column: intent.column },
+					],
+					undo,
+				};
+			}
+			case "insert-bytes": {
+				const values = intent.values.map(clampByte);
+				if (!values.length) {
+					return null;
+				}
+				const index = Math.max(0, Math.min(total, Math.trunc(intent.index)));
+				return {
+					redo: [
+						{ kind: "insert-bytes", index, values, column: intent.column },
+					],
+					undo: [
+						{
+							kind: "delete-range",
+							start: index,
+							end: index + values.length - 1,
+						},
+					],
+				};
+			}
+			case "delete-byte": {
+				if (total <= 0) {
+					return null;
+				}
+				const index = Math.trunc(intent.index);
+				const removeIndex =
+					intent.direction === "backspace" ? index - 1 : index;
+				if (removeIndex < 0 || removeIndex >= total) {
+					return null;
+				}
+				const removed = bytes[removeIndex] ?? 0;
+				return {
+					redo: [intent],
+					undo: [
+						{
+							kind: "insert-byte",
+							index: removeIndex,
+							value: removed,
+							column: columnForUndo,
+						},
+					],
+				};
+			}
+			case "delete-range": {
+				if (total <= 0) {
+					return null;
+				}
+				const start = Math.max(
+					0,
+					Math.min(total - 1, Math.trunc(intent.start)),
+				);
+				const end = Math.max(0, Math.min(total - 1, Math.trunc(intent.end)));
+				const from = Math.min(start, end);
+				const to = Math.max(start, end);
+				const removed = Array.from(bytes.subarray(from, to + 1));
+				if (!removed.length) {
+					return null;
+				}
+				const normalized: VueHexEditIntent = {
+					kind: "delete-range",
+					start: from,
+					end: to,
+				};
+				return {
+					redo: [normalized],
+					undo: [
+						{
+							kind: "insert-bytes",
+							index: from,
+							values: removed,
+							column: columnForUndo,
+						},
+					],
+				};
+			}
+			case "undo":
+			case "redo": {
+				return null;
+			}
+			default: {
+				const _exhaustive: never = intent;
+				return _exhaustive;
+			}
+		}
+	}
+
+	function recordHistoryIntent(intent: VueHexEditIntent) {
+		if (!options.isSelfManagedData.value || isApplyingHistory) {
+			return;
+		}
+		const computed = computeHistoryForIntent(intent);
+		if (!computed) {
+			return;
+		}
+		if (!activeHistoryTransaction) {
+			const cursorBefore = options.cursorIndex.value;
+			const cursorAfter = cursorBefore;
+			pushHistoryEntry({
+				undo: computed.undo,
+				redo: computed.redo,
+				cursorBefore,
+				cursorAfter,
+			});
+			return;
+		}
+		activeHistoryTransaction.redo.push(...computed.redo);
+		activeHistoryTransaction.undo = [
+			...computed.undo,
+			...activeHistoryTransaction.undo,
+		];
+	}
+
+	function applyHistoryIntents(
+		intents: VueHexEditIntent[],
+		cursorTarget: number | null,
+	) {
+		if (!options.isSelfManagedData.value) {
+			return;
+		}
+		resetPendingHexInput();
+		options.clearSelection();
+		isApplyingHistory = true;
+		try {
+			for (const intent of intents) {
+				options.emitEdit(intent);
+				applyToSelfManaged(intent);
+			}
+		} finally {
+			isApplyingHistory = false;
+		}
+		options.setCursorIndex(cursorTarget);
+	}
+
+	function handleUndoRedo(event: KeyboardEvent): boolean {
+		const lower = event.key.toLowerCase();
+		const hasModifier = event.ctrlKey || event.metaKey;
+		if (!hasModifier) {
+			return false;
+		}
+
+		const isUndo = lower === "z" && !event.shiftKey;
+		const isRedo = lower === "y" || (lower === "z" && event.shiftKey);
+		if (!isUndo && !isRedo) {
+			return false;
+		}
+		if (!options.enabled.value) {
+			return true;
+		}
+		event.preventDefault();
+		resetPendingHexInput();
+
+		// Windowed/parent-managed mode: host is responsible for maintaining history.
+		if (!options.isSelfManagedData.value) {
+			options.emitEdit({ kind: isUndo ? "undo" : "redo" });
+			return true;
+		}
+
+		if (isUndo) {
+			const entry = undoStack.pop();
+			if (!entry) {
+				return true;
+			}
+			redoStack.push(entry);
+			applyHistoryIntents(entry.undo, entry.cursorBefore);
+			return true;
+		}
+
+		const entry = redoStack.pop();
+		if (!entry) {
+			return true;
+		}
+		undoStack.push(entry);
+		applyHistoryIntents(entry.redo, entry.cursorAfter);
+		return true;
+	}
 
 	const pendingHexFirstNibble = ref<string | null>(null);
 	const pendingHexIndex = ref<number | null>(null);
@@ -255,6 +551,11 @@ export function useEditing(options: EditingOptions): EditingResult {
 				options.setSelfManagedBytes(next);
 				return;
 			}
+			case "undo":
+			case "redo": {
+				// Windowed mode can emit these as commands; buffer mode handles undo/redo internally.
+				return;
+			}
 			default: {
 				const _exhaustive: never = intent;
 				return _exhaustive;
@@ -299,6 +600,7 @@ export function useEditing(options: EditingOptions): EditingResult {
 	}
 
 	function emitAndMaybeApply(intent: VueHexEditIntent) {
+		recordHistoryIntent(intent);
 		options.emitEdit(intent);
 		if (options.isSelfManagedData.value) {
 			applyToSelfManaged(intent);
@@ -391,12 +693,10 @@ export function useEditing(options: EditingOptions): EditingResult {
 			return;
 		}
 
-		const selectionResult = deleteSelectionIfAny();
-		const index = selectionResult?.start ?? normalizedCursorIndex.value;
+		const index = normalizedCursorIndex.value;
 		if (index == null) {
 			return;
 		}
-
 		event.preventDefault();
 
 		const tbody = options.tbodyEl.value;
@@ -439,7 +739,11 @@ export function useEditing(options: EditingOptions): EditingResult {
 			}
 		}
 
-		finalizeByteEdit(index, nextByte, "hex");
+		runHistoryTransaction(() => {
+			const selectionResult = deleteSelectionIfAny();
+			const effectiveIndex = selectionResult?.start ?? index;
+			finalizeByteEdit(effectiveIndex, nextByte, "hex");
+		});
 	}
 
 	function handleAsciiKey(event: KeyboardEvent) {
@@ -450,42 +754,51 @@ export function useEditing(options: EditingOptions): EditingResult {
 			return;
 		}
 
-		const selectionResult = deleteSelectionIfAny();
-		const index = selectionResult?.start ?? normalizedCursorIndex.value;
-		if (index == null) {
-			return;
-		}
+		runHistoryTransaction(() => {
+			const selectionResult = deleteSelectionIfAny();
+			const index = selectionResult?.start ?? normalizedCursorIndex.value;
+			if (index == null) {
+				return;
+			}
 
-		event.preventDefault();
-		resetPendingHexInput();
+			event.preventDefault();
+			resetPendingHexInput();
 
-		const code = event.key.codePointAt(0);
-		if (code == null) {
-			return;
-		}
-		finalizeByteEdit(index, clampByte(code), "ascii");
+			const code = event.key.codePointAt(0);
+			if (code == null) {
+				return;
+			}
+			finalizeByteEdit(index, clampByte(code), "ascii");
+		});
 	}
 
 	function applyPasteValues(values: number[], column: VueHexEditorColumn) {
-		const selectionResult = deleteSelectionIfAny();
-		const index = selectionResult?.start ?? normalizedCursorIndex.value;
-		if (index == null) {
+		if (!values.length) {
 			return;
 		}
-		resetPendingHexInput();
-
-		const intent: VueHexEditIntent =
-			editorMode.value === "insert"
-				? { kind: "insert-bytes", index, values, column }
-				: { kind: "overwrite-bytes", index, values, column };
-		emitAndMaybeApply(intent);
-
-		if (options.isSelfManagedData.value) {
-			const nextTotal = options.totalBytes.value;
-			if (nextTotal > 0) {
-				options.setCursorIndex(Math.min(index + values.length, nextTotal - 1));
+		runHistoryTransaction(() => {
+			const selectionResult = deleteSelectionIfAny();
+			const index = selectionResult?.start ?? normalizedCursorIndex.value;
+			if (index == null) {
+				return;
 			}
-		}
+			resetPendingHexInput();
+
+			const intent: VueHexEditIntent =
+				editorMode.value === "insert"
+					? { kind: "insert-bytes", index, values, column }
+					: { kind: "overwrite-bytes", index, values, column };
+			emitAndMaybeApply(intent);
+
+			if (options.isSelfManagedData.value) {
+				const nextTotal = options.totalBytes.value;
+				if (nextTotal > 0) {
+					options.setCursorIndex(
+						Math.min(index + values.length, nextTotal - 1),
+					);
+				}
+			}
+		});
 	}
 
 	function handlePaste(event: ClipboardEvent) {
@@ -520,11 +833,16 @@ export function useEditing(options: EditingOptions): EditingResult {
 		}
 		event.preventDefault();
 		await options.copySelectionToClipboard();
-		deleteSelectionIfAny();
+		runHistoryTransaction(() => {
+			deleteSelectionIfAny();
+		});
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
 		if (!options.enabled.value) {
+			return;
+		}
+		if (handleUndoRedo(event)) {
 			return;
 		}
 
@@ -555,7 +873,9 @@ export function useEditing(options: EditingOptions): EditingResult {
 		if (event.key === "Backspace") {
 			if (options.selectionRange.value) {
 				event.preventDefault();
-				deleteSelectionIfAny();
+				runHistoryTransaction(() => {
+					deleteSelectionIfAny();
+				});
 				return;
 			}
 			// If half-entered hex, backspace just clears the pending nibble.
@@ -565,13 +885,17 @@ export function useEditing(options: EditingOptions): EditingResult {
 				return;
 			}
 			event.preventDefault();
-			applyDelete("backspace");
+			runHistoryTransaction(() => {
+				applyDelete("backspace");
+			});
 			return;
 		}
 
 		if (event.key === "Delete") {
 			event.preventDefault();
-			applyDelete("delete");
+			runHistoryTransaction(() => {
+				applyDelete("delete");
+			});
 			return;
 		}
 

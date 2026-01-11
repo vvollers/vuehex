@@ -241,6 +241,12 @@ function applyEditIntent(
 			next.set(bytes.subarray(to + 1), from);
 			return next;
 		}
+		case "undo":
+		case "redo": {
+			// The demo applier is stateless; history is handled by VueHex in buffer mode.
+			// Windowed-mode consumers should implement their own history if desired.
+			return bytes;
+		}
 		default: {
 			const _exhaustive: never = intent;
 			void _exhaustive;
