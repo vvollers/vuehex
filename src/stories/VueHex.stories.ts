@@ -204,6 +204,9 @@ const meta: Meta<typeof VueHex> = {
 	component: VueHex,
 	argTypes: {
 		modelValue: { control: false },
+		editable: {
+			control: { type: "boolean" },
+		},
 		dataMode: {
 			name: "data-mode",
 			control: { type: "select" },
@@ -584,6 +587,77 @@ watch(cursorLocation, (newLocation) => {
 			    </div>
 			    <p class="story-caption">
 			      Click inside the viewer to focus it, then use <code>↑ ↓ ← →</code>. The cursor is rendered in both the hex and ASCII columns.
+			    </p>
+			  </section>
+			</div>
+			`,
+	}),
+};
+
+export const Editable: Story = {
+	name: "Editable",
+	args: {
+		dataMode: "buffer",
+		editable: true,
+	},
+	parameters: {
+		docs: {
+			source: {
+				language: "vue",
+				code: `<template>
+  <VueHex
+    v-model="data"
+    data-mode="buffer"
+    editable
+    style="height: 320px"
+    @edit="onEdit"
+  />
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import VueHex, { type VueHexEditIntent } from "vuehex";
+
+const data = ref(new Uint8Array(await file.arrayBuffer()));
+
+function onEdit(intent: VueHexEditIntent) {
+  // Optional: listen for edit intents (e.g. for undo/redo, persistence, etc.)
+  console.log(intent);
+}
+</script>`,
+			},
+		},
+	},
+	render: (args) => ({
+		components: { VueHex },
+		setup() {
+			const fullData = ref(sliceDemoData(0, SELF_MANAGED_BYTES));
+			const handleEdit = (intent: unknown) => {
+				action("edit")(intent);
+			};
+
+			return { args, fullData, handleEdit };
+		},
+		template: `
+			<div class="story-viewport story-viewport--column">
+			  <section class="story-stack">
+			    <header class="story-card__header">
+			      <p class="story-card__eyebrow">Editor</p>
+			      <h3 class="story-card__title">Editable mode</h3>
+			      <p class="story-card__subtitle">
+			        Click hex/ASCII to choose a column; <code>Tab</code> toggles; <code>Insert</code> switches overwrite/insert.
+			      </p>
+			    </header>
+			    <div class="story-demo">
+			      <VueHex
+			        v-bind="args"
+			        v-model="fullData"
+			        style="height: 320px"
+			        @edit="handleEdit"
+			      />
+			    </div>
+			    <p class="story-caption">
+			      Edit intents are logged to the actions panel via <code>@edit</code>.
 			    </p>
 			  </section>
 			</div>

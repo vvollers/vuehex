@@ -371,6 +371,32 @@
 	outline-offset: -2px;
 }
 
+/* --- Editor mode ---------------------------------------------------------- */
+
+.vuehex.vuehex-editor {
+	/* No layout changes; only visual affordances. */
+}
+
+/* Subtle column focus so it's clear which side is being edited. */
+.vuehex.vuehex-editor.vuehex-editor--active-hex .vuehex-bytes {
+	background: rgba(59, 130, 246, 0.05);
+}
+
+.vuehex.vuehex-editor.vuehex-editor--active-ascii .vuehex-ascii {
+	background: rgba(59, 130, 246, 0.05);
+}
+
+/* Emphasize the cursor cell on the active column without hiding the other side. */
+.vuehex.vuehex-editor .vuehex-cursor.vuehex-cursor--active-column {
+	background: rgba(59, 130, 246, 0.22);
+}
+
+/* Mode hooks (useful for consumer overrides). */
+.vuehex.vuehex-editor.vuehex-editor--insert .vuehex-byte.vuehex-cursor,
+.vuehex.vuehex-editor.vuehex-editor--insert .vuehex-ascii-char.vuehex-cursor {
+	outline-style: dashed;
+}
+
 .vuehex-ascii-char.vuehex-selected--ascii {
 	outline-style: dashed;
 }

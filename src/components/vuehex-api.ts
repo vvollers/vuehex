@@ -48,6 +48,37 @@ export type VueHexSelectionDataProvider = (
 	selectionEnd: number,
 ) => Uint8Array;
 
+/** Which column the editor is currently targeting. */
+export type VueHexEditorColumn = "hex" | "ascii";
+
+/** Editing mode: overwrite replaces bytes; insert grows the buffer. */
+export type VueHexEditorMode = "overwrite" | "insert";
+
+/**
+ * Single edit intent emitted by VueHex when `editable` is enabled.
+ *
+ * Consumers that own the backing buffer should apply these intents to their
+ * data source and feed the updated bytes back via `v-model`.
+ */
+export type VueHexEditIntent =
+	| {
+			kind: "overwrite-byte";
+			index: number;
+			value: number;
+			column: VueHexEditorColumn;
+	  }
+	| {
+			kind: "insert-byte";
+			index: number;
+			value: number;
+			column: VueHexEditorColumn;
+	  }
+	| {
+			kind: "delete-byte";
+			index: number;
+			direction: "backspace" | "delete";
+	  };
+
 /**
  * Built-in status bar component identifiers.
  *

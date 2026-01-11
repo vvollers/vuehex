@@ -39,7 +39,7 @@
 			</VueHexStatusBar>
       <div
         ref="containerEl"
-        :class="containerClass"
+				:class="finalContainerClass"
         role="table"
         aria-label="Hex viewer"
 		:aria-disabled="isInteractive ? undefined : 'true'"
@@ -61,6 +61,7 @@ import { computed, onBeforeUnmount, onMounted, ref, toRef, watch } from "vue";
 import { useChunking } from "./composables/useChunking";
 import { useCursor } from "./composables/useCursor";
 import { useDataMode } from "./composables/useDataMode";
+import { useEditing } from "./composables/useEditing";
 import { useHexWindow } from "./composables/useHexWindow";
 import { useHoverLinking } from "./composables/useHoverLinking";
 import { useSelection } from "./composables/useSelection";
@@ -70,6 +71,7 @@ import VueHexStatusBar from "./VueHexStatusBar.vue";
 import type {
 	VueHexAsciiRenderer,
 	VueHexCellClassResolverInput,
+	VueHexEditIntent,
 	VueHexPrintableCheck,
 	VueHexStatusBarLayout,
 	VueHexWindowRequest,
@@ -160,6 +162,8 @@ interface VueHexProps {
 	statusbar?: "top" | "bottom" | null;
 	/** When true, enables keyboard/click cursor navigation and rendering. */
 	cursor?: boolean;
+	/** When true, enables editor mode (typing emits edit intents). */
+	editable?: boolean;
 	/**
 	 * Configures which items appear in the status bar and where they render.
 	 *
@@ -187,11 +191,13 @@ const props = withDefaults(defineProps<VueHexProps>(), {
 	chunkNavigatorPlacement: "right",
 	statusbar: null,
 	cursor: false,
+	editable: false,
 	statusbarLayout: null,
 });
 
 const emit = defineEmits<{
 	(event: "updateVirtualData", payload: VueHexWindowRequest): void;
+	(event: "edit", payload: VueHexEditIntent): void;
 	(
 		event: "byte-click",
 		payload: { index: number; byte: number; kind: "hex" | "ascii" },
@@ -425,9 +431,27 @@ const {
 	statusbar: toRef(props, "statusbar"),
 });
 
-const cursorEnabled = computed(() => Boolean(props.cursor));
+const isEditable = computed(() => Boolean(props.editable));
+const cursorEnabled = computed(() => Boolean(props.cursor) || isEditable.value);
 
-useCursor({
+const editorModeClass = ref<string | null>(null);
+const editorActiveColumnClass = ref<string | null>(null);
+
+const finalContainerClass = computed(() => {
+	const classes = [...containerClass.value];
+	if (isEditable.value) {
+		classes.push("vuehex-editor");
+		if (editorModeClass.value) {
+			classes.push(editorModeClass.value);
+		}
+		if (editorActiveColumnClass.value) {
+			classes.push(editorActiveColumnClass.value);
+		}
+	}
+	return classes;
+});
+
+const cursorApi = useCursor({
 	enabled: cursorEnabled,
 	isExpandToContent,
 	containerEl,
@@ -446,6 +470,43 @@ useCursor({
 
 const isInteractive = computed(
 	() => selectionEnabled.value || cursorEnabled.value,
+);
+
+const { activeColumn: editorActiveColumn, editorMode } = useEditing({
+	enabled: isEditable,
+	containerEl,
+	tbodyEl,
+	markup,
+	uppercase,
+	cursorIndex: cursorApi.cursorLocation,
+	setCursorIndex: cursorApi.setCursorLocation,
+	totalBytes,
+	isSelfManagedData: isSelfManaged,
+	getSelfManagedBytes: () => currentWindow.value.data,
+	setSelfManagedBytes: (bytes) => {
+		modelValue.value = bytes;
+	},
+	emitEdit: (intent) => emit("edit", intent),
+});
+
+watch(
+	[isEditable, editorActiveColumn, editorMode],
+	() => {
+		if (!isEditable.value) {
+			editorModeClass.value = null;
+			editorActiveColumnClass.value = null;
+			return;
+		}
+		editorModeClass.value =
+			editorMode.value === "insert"
+				? "vuehex-editor--insert"
+				: "vuehex-editor--overwrite";
+		editorActiveColumnClass.value =
+			editorActiveColumn.value === "ascii"
+				? "vuehex-editor--active-ascii"
+				: "vuehex-editor--active-hex";
+	},
+	{ immediate: true },
 );
 
 function handleScroll() {
