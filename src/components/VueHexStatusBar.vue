@@ -110,6 +110,18 @@ type VueHexHoverEvent =
 
 type VueHexHoverEmit = (event: VueHexHoverEvent, payload: unknown) => void;
 
+function normalizeNonNegativeInt(value: number): number {
+	return Math.max(0, Math.trunc(value));
+}
+
+const intlNumberFormatter: Intl.NumberFormat | null = (() => {
+	try {
+		return new Intl.NumberFormat(undefined);
+	} catch {
+		return null;
+	}
+})();
+
 function formatHexByte(byte: number, upper: boolean) {
 	const value = Math.max(0, Math.min(255, Math.trunc(byte)));
 	const hex = value.toString(16).padStart(2, "0");
@@ -230,20 +242,6 @@ const effectiveStatusBarLayout = computed<VueHexStatusBarLayout>(() => {
 	};
 });
 
-// Compute structure once (only when layout changes)
-const itemsStructure = computed(() => {
-	const normalize = (section: StatusBarSectionKey) => {
-		return (effectiveStatusBarLayout.value[section] ?? [])
-			.map(normalizeStatusBarComponent)
-			.filter((c): c is NormalizedStatusBarComponent => c !== null);
-	};
-	return {
-		left: normalize("left"),
-		middle: normalize("middle"),
-		right: normalize("right"),
-	};
-});
-
 function isBuiltInStatusBarName(
 	name: string,
 ): name is VueHexStatusBarComponentName {
@@ -260,19 +258,39 @@ function isBuiltInStatusBarName(
 	);
 }
 
+type BuiltinName = Exclude<VueHexStatusBarComponentName, "slot">;
+
+const DEFAULT_LABELS: Record<BuiltinName, string> = {
+	offset: "Offset",
+	hex: "Hex",
+	ascii: "ASCII",
+	selection: "Selection",
+	editable: "Edit",
+	mode: "Mode",
+	column: "Col",
+	total: "Total",
+};
+
+const DEFAULT_VALUE_MIN_WIDTH: Record<BuiltinName, string | null> = {
+	offset: "10ch",
+	hex: "4ch",
+	ascii: "3ch",
+	selection: null,
+	editable: "4ch",
+	mode: "3ch",
+	column: "5ch",
+	total: "10ch",
+};
+
 function formatNumber(value: number): string {
-	const normalized = Math.max(0, Math.trunc(value));
-	// Use Intl when available so we get locale grouping.
-	try {
-		const formatter = new Intl.NumberFormat(undefined);
-		return formatter.format(normalized);
-	} catch {
-		return String(normalized);
-	}
+	const normalized = normalizeNonNegativeInt(value);
+	return intlNumberFormatter
+		? intlNumberFormatter.format(normalized)
+		: String(normalized);
 }
 
 function formatHumanBytes(totalBytes: number, decimals: number): string {
-	const value = Math.max(0, Math.trunc(totalBytes));
+	const value = normalizeNonNegativeInt(totalBytes);
 	if (value < 1024) {
 		return `${value} B`;
 	}
@@ -296,7 +314,7 @@ function formatTotalBytesValue(
 	if (totalBytes == null) {
 		return "";
 	}
-	const normalized = Math.max(0, Math.trunc(totalBytes));
+	const normalized = normalizeNonNegativeInt(totalBytes);
 	const format = getConfigString(config, "format");
 	if (format === "human") {
 		const decimals = getConfigNumber(config, "decimals") ?? 1;
@@ -384,11 +402,11 @@ function formatOffsetValue(offset: number | null, config: unknown): string {
 	}
 	const format = getConfigString(config, "format");
 	if (format === "decimal") {
-		return String(Math.max(0, Math.trunc(offset)));
+		return String(normalizeNonNegativeInt(offset));
 	}
 	const upper = Boolean(props.uppercase);
 	const pad = Math.max(0, Math.trunc(getConfigNumber(config, "pad") ?? 0));
-	const raw = Math.max(0, Math.trunc(offset)).toString(16);
+	const raw = normalizeNonNegativeInt(offset).toString(16);
 	const value = (upper ? raw.toUpperCase() : raw).padStart(pad, "0");
 	const prefix = getConfigBoolean(config, "prefix") ?? true;
 	return prefix ? `0x${value}` : value;
@@ -430,43 +448,38 @@ type RenderedStatusBarItem = {
 function resolveStatusBarSlotName(
 	section: StatusBarSectionKey,
 ): "statusbar-left" | "statusbar-middle" | "statusbar-right" {
-	if (section === "left") {
-		return "statusbar-left";
+	switch (section) {
+		case "left":
+			return "statusbar-left";
+		case "middle":
+			return "statusbar-middle";
+		default:
+			return "statusbar-right";
 	}
-	if (section === "middle") {
-		return "statusbar-middle";
-	}
-	return "statusbar-right";
 }
 
 function resolveDefaultValueMinWidth(
 	name: VueHexStatusBarComponentName,
+	config: unknown,
 ): string | null {
 	if (name === "slot") {
 		return null;
 	}
-	if (name === "offset") {
-		return "10ch";
-	}
-	if (name === "hex") {
-		return "4ch";
-	}
-	if (name === "ascii") {
-		return "3ch";
-	}
+
 	if (name === "editable") {
-		return "4ch";
+		const short = getConfigBoolean(config, "short") ?? true;
+		return short ? "6ch" : "10ch";
 	}
 	if (name === "mode") {
-		return "3ch";
+		const short = getConfigBoolean(config, "short") ?? true;
+		return short ? "4ch" : "10ch";
 	}
 	if (name === "column") {
+		// "ASCII" is the longest built-in value.
 		return "5ch";
 	}
-	if (name === "total") {
-		return "10ch";
-	}
-	return null;
+
+	return DEFAULT_VALUE_MIN_WIDTH[name] ?? null;
 }
 
 function resolveValueStyle(
@@ -478,7 +491,7 @@ function resolveValueStyle(
 	}
 	const width = getConfigString(config, "valueWidth");
 	const minWidth = getConfigString(config, "valueMinWidth");
-	const defaultMinWidth = resolveDefaultValueMinWidth(name);
+	const defaultMinWidth = resolveDefaultValueMinWidth(name, config);
 
 	const style: CSSProperties = {};
 	if (width) {
@@ -518,144 +531,120 @@ function renderStatusBarItem(
 		};
 	}
 
-	const labelOverride = getConfigString(component.config, "label");
+	const builtinName = name as BuiltinName;
 	const label =
-		labelOverride ??
-		(name === "offset"
-			? "Offset"
-			: name === "hex"
-				? "Hex"
-				: name === "ascii"
-					? "ASCII"
-					: name === "selection"
-						? "Selection"
-						: name === "editable"
-							? "Edit"
-							: name === "mode"
-								? "Mode"
-								: name === "column"
-									? "Col"
-									: "Total");
+		getConfigString(component.config, "label") ?? DEFAULT_LABELS[builtinName];
+	const valueStyle = resolveValueStyle(name, component.config);
 
-	if (name === "offset") {
-		return {
-			kind: "builtin",
-			key,
-			name,
-			label,
-			value: formatOffsetValue(cursorOffset.value, component.config),
-			visible: true,
-			valueStyle: resolveValueStyle(name, component.config),
-		};
+	switch (name) {
+		case "offset":
+			return {
+				kind: "builtin",
+				key,
+				name,
+				label,
+				value: formatOffsetValue(cursorOffset.value, component.config),
+				visible: true,
+				valueStyle,
+			};
+		case "hex":
+			return {
+				kind: "builtin",
+				key,
+				name,
+				label,
+				value: formatHexValue(cursorHex.value, component.config),
+				visible: true,
+				valueStyle,
+			};
+		case "ascii":
+			return {
+				kind: "builtin",
+				key,
+				name,
+				label,
+				value: formatAsciiValue(cursorAscii.value, component.config),
+				visible: true,
+				valueStyle,
+			};
+		case "editable":
+			return {
+				kind: "builtin",
+				key,
+				name,
+				label,
+				value: formatEditableValue(Boolean(props.editable), component.config),
+				visible: true,
+				valueStyle,
+			};
+		case "mode":
+			return {
+				kind: "builtin",
+				key,
+				name,
+				label,
+				value: formatEditorModeValue(
+					props.editorMode ?? null,
+					component.config,
+				),
+				visible: true,
+				valueStyle,
+			};
+		case "column":
+			return {
+				kind: "builtin",
+				key,
+				name,
+				label,
+				value: formatEditorColumnValue(
+					props.editorColumn ?? null,
+					component.config,
+				),
+				visible: true,
+				valueStyle,
+			};
+		case "total":
+			return {
+				kind: "builtin",
+				key,
+				name,
+				label,
+				value: formatTotalBytesValue(props.totalBytes, component.config),
+				visible: true,
+				valueStyle,
+			};
+		case "selection": {
+			const summary = selectionSummary.value;
+			const showWhenEmpty = getConfigBoolean(component.config, "showWhenEmpty");
+			return {
+				kind: "builtin",
+				key,
+				name,
+				label,
+				value: summary,
+				visible: showWhenEmpty ? true : Boolean(summary),
+				valueStyle,
+			};
+		}
 	}
-	if (name === "hex") {
-		return {
-			kind: "builtin",
-			key,
-			name,
-			label,
-			value: formatHexValue(cursorHex.value, component.config),
-			visible: true,
-			valueStyle: resolveValueStyle(name, component.config),
-		};
-	}
-	if (name === "ascii") {
-		return {
-			kind: "builtin",
-			key,
-			name,
-			label,
-			value: formatAsciiValue(cursorAscii.value, component.config),
-			visible: true,
-			valueStyle: resolveValueStyle(name, component.config),
-		};
-	}
+}
 
-	if (name === "editable") {
-		const value = formatEditableValue(
-			Boolean(props.editable),
-			component.config,
-		);
-		return {
-			kind: "builtin",
-			key,
-			name,
-			label,
-			value,
-			visible: true,
-			valueStyle: resolveValueStyle(name, component.config),
-		};
-	}
-	if (name === "mode") {
-		const value = formatEditorModeValue(
-			props.editorMode ?? null,
-			component.config,
-		);
-		return {
-			kind: "builtin",
-			key,
-			name,
-			label,
-			value,
-			visible: true,
-			valueStyle: resolveValueStyle(name, component.config),
-		};
-	}
-	if (name === "column") {
-		const value = formatEditorColumnValue(
-			props.editorColumn ?? null,
-			component.config,
-		);
-		return {
-			kind: "builtin",
-			key,
-			name,
-			label,
-			value,
-			visible: true,
-			valueStyle: resolveValueStyle(name, component.config),
-		};
-	}
-	if (name === "total") {
-		return {
-			kind: "builtin",
-			key,
-			name,
-			label,
-			value: formatTotalBytesValue(props.totalBytes, component.config),
-			visible: true,
-			valueStyle: resolveValueStyle(name, component.config),
-		};
-	}
-
-	const summary = selectionSummary.value;
-	const showWhenEmpty = getConfigBoolean(component.config, "showWhenEmpty");
-	const visible = showWhenEmpty ? true : Boolean(summary);
-	return {
-		kind: "builtin",
-		key,
-		name,
-		label,
-		value: summary,
-		visible,
-		valueStyle: resolveValueStyle(name, component.config),
+const statusBarItems = computed(() => {
+	const renderSection = (section: StatusBarSectionKey) => {
+		const items = (effectiveStatusBarLayout.value[section] ?? [])
+			.map(normalizeStatusBarComponent)
+			.filter((c): c is NormalizedStatusBarComponent => c !== null);
+		return items
+			.map((component, index) =>
+				renderStatusBarItem(component, section, `${section}-${index}`),
+			)
+			.filter((item): item is RenderedStatusBarItem => item !== null);
 	};
-}
 
-function renderStatusBarSection(
-	section: StatusBarSectionKey,
-): RenderedStatusBarItem[] {
-	const items = itemsStructure.value[section];
-	return items
-		.map((component, index) =>
-			renderStatusBarItem(component, section, `${section}-${index}`),
-		)
-		.filter((item): item is RenderedStatusBarItem => item !== null);
-}
-
-const statusBarItems = computed(() => ({
-	left: renderStatusBarSection("left"),
-	middle: renderStatusBarSection("middle"),
-	right: renderStatusBarSection("right"),
-}));
+	return {
+		left: renderSection("left"),
+		middle: renderSection("middle"),
+		right: renderSection("right"),
+	};
+});
 </script>
