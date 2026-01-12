@@ -186,12 +186,28 @@ body {
 
 <style scoped>
 .demo-app {
+  /* Demo app theme tokens (dark by default). */
+  --demo-bg: #0d1117;
+  --demo-panel: #161b22;
+  --demo-border: #30363d;
+  --demo-text: #e6edf3;
+  --demo-muted: #7d8590;
+  --demo-control-bg: #0d1117;
+  --demo-control-border: #30363d;
+  --demo-control-text: #e6edf3;
+  --demo-control-hover-bg: #161b22;
+  --demo-control-hover-border: #484f58;
+  --demo-focus: #1f6feb;
+
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   height: 100vh;
-  background: #0d1117;
+  background: var(--demo-bg);
+  color: var(--demo-text);
+  /* Make native widgets (select/option, scrollbars) follow the scheme. */
+  color-scheme: dark;
   font-family: 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
 }
 
@@ -201,7 +217,7 @@ body {
   width: 90vw;
   max-width: 1800px;
   height: calc(100vh - 4rem);
-  background: #161b22;
+  background: var(--demo-panel);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
@@ -212,8 +228,8 @@ body {
   align-items: center;
   gap: 1rem;
   padding: 1rem 1.5rem;
-  background: #161b22;
-  border-bottom: 1px solid #30363d;
+  background: var(--demo-panel);
+  border-bottom: 1px solid var(--demo-border);
   flex-shrink: 0;
 }
 
@@ -221,7 +237,7 @@ body {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 600;
-  color: #e6edf3;
+  color: var(--demo-text);
   letter-spacing: -0.02em;
 }
 
@@ -255,7 +271,7 @@ body {
 }
 
 .file-name {
-  color: #7d8590;
+  color: var(--demo-muted);
   font-size: 0.875rem;
   font-style: normal;
 }
@@ -265,7 +281,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #e6edf3;
+  color: var(--demo-text);
   font-size: 0.875rem;
   user-select: none;
   cursor: pointer;
@@ -332,8 +348,8 @@ body {
 
 .demo-footer {
   padding: 1rem 1.5rem;
-  background: #161b22;
-  border-top: 1px solid #30363d;
+  background: var(--demo-panel);
+  border-top: 1px solid var(--demo-border);
   flex-shrink: 0;
 }
 
@@ -350,54 +366,74 @@ body {
   align-items: center;
   gap: 0.5rem;
   font-size: 0.875rem;
-  color: #e6edf3;
+  color: var(--demo-text);
 }
 
 .control-label span {
   font-weight: 500;
-  color: #7d8590;
+  color: var(--demo-muted);
 }
 
 .demo-select {
   padding: 0.375rem 0.75rem;
-  border: 1px solid #30363d;
+  border: 1px solid var(--demo-control-border);
   border-radius: 6px;
   font-size: 0.875rem;
-  background: #0d1117;
-  color: #e6edf3;
+  background: var(--demo-control-bg);
+  color: var(--demo-control-text);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .demo-select:hover {
-  border-color: #484f58;
-  background: #161b22;
+  border-color: var(--demo-control-hover-border);
+  background: var(--demo-control-hover-bg);
 }
 
 .demo-select:focus {
   outline: none;
-  border-color: #1f6feb;
+  border-color: var(--demo-focus);
   box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.15);
+}
+
+/* Best-effort: some browsers allow styling <option>, some don't. */
+.demo-select option {
+  background: var(--demo-control-bg);
+  color: var(--demo-control-text);
 }
 
 @media (prefers-color-scheme: light) {
   .demo-app {
-    background: #f6f8fa;
+  --demo-bg: #f6f8fa;
+  --demo-panel: #ffffff;
+  --demo-border: #d0d7de;
+  --demo-text: #24292f;
+  --demo-muted: #57606a;
+  --demo-control-bg: #ffffff;
+  --demo-control-border: #d0d7de;
+  --demo-control-text: #24292f;
+  --demo-control-hover-bg: #f6f8fa;
+  --demo-control-hover-border: #6e7781;
+  --demo-focus: #0969da;
+
+  background: var(--demo-bg);
+  color: var(--demo-text);
+  color-scheme: light;
   }
 
   .demo-container {
-    background: #ffffff;
-    border: 1px solid #d0d7de;
+	background: var(--demo-panel);
+	border: 1px solid var(--demo-border);
   }
 
   .demo-header,
   .demo-footer {
-    background: #ffffff;
-    border-color: #d0d7de;
+	background: var(--demo-panel);
+	border-color: var(--demo-border);
   }
 
   .demo-header h1 {
-    color: #24292f;
+	color: var(--demo-text);
   }
 
   .file-button {
@@ -409,11 +445,11 @@ body {
   }
 
   .file-name {
-    color: #57606a;
+	color: var(--demo-muted);
   }
 
   .switch {
-    color: #24292f;
+	color: var(--demo-text);
   }
 
   .switch-ui {
@@ -426,21 +462,22 @@ body {
   }
 
   .control-label {
-    color: #24292f;
+	color: var(--demo-text);
   }
 
   .control-label span {
-    color: #57606a;
+	color: var(--demo-muted);
   }
 
   .demo-select {
-    background: #ffffff;
-    color: #24292f;
-    border-color: #d0d7de;
+	background: var(--demo-control-bg);
+	color: var(--demo-control-text);
+	border-color: var(--demo-control-border);
   }
 
   .demo-select:hover {
-    border-color: #6e7781;
+	border-color: var(--demo-control-hover-border);
+	background: var(--demo-control-hover-bg);
   }
 }
 </style>
