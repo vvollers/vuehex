@@ -252,13 +252,18 @@
 	--vuehex-ascii-non-printable-color: rgba(148, 163, 184, 0.45);
 	--vuehex-ascii-column-border: rgba(148, 163, 184, 0.2);
 	--vuehex-mid-column-gutter: 1.5ch;
+	--vuehex-bytes-column-padding-right: 0.5ch;
+	--vuehex-ascii-column-padding-left: 0.5ch;
 	--vuehex-scrollbar-track: rgba(15, 23, 42, 0.3);
 	--vuehex-scrollbar-thumb: rgba(148, 163, 184, 0.4);
 	--vuehex-scrollbar-thumb-hover: rgba(148, 163, 184, 0.6);
 
 	font-family:
 		ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-		"Courier New", monospace;
+		"DejaVu Sans Mono", "Ubuntu Mono", "Courier New", monospace;
+	font-variant-ligatures: none;
+	font-variant-numeric: tabular-nums;
+	text-rendering: optimizeSpeed;
 	background: var(--vuehex-background);
 	color: var(--vuehex-foreground);
 	padding: 0 1rem;
@@ -304,9 +309,24 @@
 }
 
 .vuehex-table {
-	width: 100%;
+	/*
+		The Vue template sets an inline `width: 100%` style on the table for the
+		virtualization transform. That makes the table (and therefore its columns)
+		stretch to the container width, which can visually "push" the ASCII column
+		far to the right.
+
+		Force shrink-to-content so the ASCII column starts immediately after the
+		HEX bytes, and let the outer `.vuehex` scroller handle horizontal overflow.
+	*/
+	width: max-content !important;
+	min-width: max-content;
 	border-collapse: collapse;
-	table-layout: fixed;
+	/*
+		Allow the HEX column to grow with its contents (byte cells) so the HEX text
+		cannot visually spill into the ASCII column when font metrics differ across
+		operating systems.
+	*/
+	table-layout: auto;
 }
 
 .vuehex-inner {
@@ -342,8 +362,8 @@
 }
 
 .vuehex-bytes {
-	padding-right: 0.75rem;
-	width: 23.1rem;
+	padding-right: var(--vuehex-bytes-column-padding-right);
+	width: auto;
 }
 
 .vuehex-byte,
@@ -415,7 +435,7 @@
 }
 
 .vuehex-ascii {
-	padding-left: 0.75rem;
+	padding-left: var(--vuehex-ascii-column-padding-left);
 	border-left: 1px solid var(--vuehex-ascii-column-border);
 	color: var(--vuehex-ascii-color);
 }
@@ -503,6 +523,8 @@
 	--vuehex-ascii-non-printable-color: rgba(148, 163, 184, 0.35);
 	--vuehex-ascii-column-border: rgba(148, 163, 184, 0.24);
 	--vuehex-mid-column-gutter: 1.5ch;
+	--vuehex-bytes-column-padding-right: 0.5ch;
+	--vuehex-ascii-column-padding-left: 0.5ch;
 	--vuehex-scrollbar-track: rgba(15, 23, 42, 0.3);
 	--vuehex-scrollbar-thumb: rgba(148, 163, 184, 0.4);
 	--vuehex-scrollbar-thumb-hover: rgba(148, 163, 184, 0.6);
@@ -532,6 +554,8 @@
 	--vuehex-ascii-non-printable-color: rgba(100, 116, 139, 0.5);
 	--vuehex-ascii-column-border: rgba(148, 163, 184, 0.35);
 	--vuehex-mid-column-gutter: 1.5ch;
+	--vuehex-bytes-column-padding-right: 0.5ch;
+	--vuehex-ascii-column-padding-left: 0.5ch;
 	--vuehex-scrollbar-track: rgba(226, 232, 240, 0.6);
 	--vuehex-scrollbar-thumb: rgba(100, 116, 139, 0.4);
 	--vuehex-scrollbar-thumb-hover: rgba(100, 116, 139, 0.6);
@@ -568,6 +592,8 @@
 	--vuehex-ascii-non-printable-color: rgba(148, 163, 184, 0.35);
 	--vuehex-ascii-column-border: rgba(148, 163, 184, 0.24);
 	--vuehex-mid-column-gutter: 1.5ch;
+	--vuehex-bytes-column-padding-right: 0.5ch;
+	--vuehex-ascii-column-padding-left: 0.5ch;
 	--vuehex-ui-background: var(--vuehex-background);
 	--vuehex-ui-foreground: var(--vuehex-foreground);
 	--vuehex-ui-border-color: var(--vuehex-border-color);
@@ -597,6 +623,8 @@
 		--vuehex-ascii-non-printable-color: rgba(100, 116, 139, 0.5);
 		--vuehex-ascii-column-border: rgba(148, 163, 184, 0.35);
 		--vuehex-mid-column-gutter: 1.5ch;
+		--vuehex-bytes-column-padding-right: 0.5ch;
+		--vuehex-ascii-column-padding-left: 0.5ch;
 		--vuehex-ui-background: var(--vuehex-background);
 		--vuehex-ui-foreground: var(--vuehex-foreground);
 		--vuehex-ui-border-color: var(--vuehex-border-color);
@@ -647,6 +675,8 @@
 	--vuehex-ascii-non-printable-color: rgba(127, 255, 127, 0.35);
 	--vuehex-ascii-column-border: rgba(127, 255, 127, 0.25);
 	--vuehex-mid-column-gutter: 1.5ch;
+	--vuehex-bytes-column-padding-right: 0.5ch;
+	--vuehex-ascii-column-padding-left: 0.5ch;
 	--vuehex-ui-background: var(--vuehex-background);
 	--vuehex-ui-foreground: var(--vuehex-foreground);
 	--vuehex-ui-border-color: var(--vuehex-border-color);
@@ -676,6 +706,8 @@
 	--vuehex-ascii-non-printable-color: rgba(251, 191, 36, 0.4);
 	--vuehex-ascii-column-border: rgba(248, 113, 113, 0.25);
 	--vuehex-mid-column-gutter: 1.5ch;
+	--vuehex-bytes-column-padding-right: 0.5ch;
+	--vuehex-ascii-column-padding-left: 0.5ch;
 	--vuehex-ui-background: var(--vuehex-background);
 	--vuehex-ui-foreground: var(--vuehex-foreground);
 	--vuehex-ui-border-color: var(--vuehex-border-color);
