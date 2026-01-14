@@ -1,10 +1,20 @@
 # VueHex
 
+## Demo
+
+* https://vvollers.github.io/vuehex/demo/
+
+## Documentation/Examples
+
+* https://vvollers.github.io/vuehex/docs/
+
+## Description
+
 VueHex is a fast, virtualized hex viewer/editor component for Vue 3. It can be used both for cleanly viewing and editing binary data and for efficiently handling very large datasets.
 
 * No dependencies
-* Small package (~64KB minimized / ~15KB zipped)
-* Render local and remote data
+* Small package (~72KB minimized / ~18KB zipped)
+* Render any local or remote data
 * Can handle extremely large data sizes
 * Very flexible and themeable, can be as simple or as complicated as you wish
 
@@ -16,7 +26,7 @@ VueHex is a fast, virtualized hex viewer/editor component for Vue 3. It can be u
 npm install vuehex
 ```
 
-Optionally register the plugin once to make the `<VueHex>` component available everywhere and load the bundled styles:
+Register the plugin once to make the `<VueHex>` component available everywhere and load the bundled styles:
 
 ```ts
 import { createApp } from "vue";
