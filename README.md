@@ -1,21 +1,7 @@
 # VueHex
 
-<div align="center">
-    <a
-        href="https://vvollers.github.io/vuehex/demo/"
-        style="display:inline-block;padding:14px 26px;margin:10px 10px 0 10px;border-radius:10px;font-size:20px;font-weight:700;text-decoration:none;background:#2da44e;color:#fff;border:1px solid rgba(27,31,36,0.15);"
-    >
-        Live Demo
-    </a>
-    <a
-        href="https://vvollers.github.io/vuehex/docs/"
-        style="display:inline-block;padding:14px 26px;margin:10px 10px 0 10px;border-radius:10px;font-size:20px;font-weight:700;text-decoration:none;background:#0969da;color:#fff;border:1px solid rgba(27,31,36,0.15);"
-    >
-        Documentation
-    </a>
-</div>
-
-<br />
+[![Live Demo](https://img.shields.io/badge/Live_Demo-2da44e?style=for-the-badge)](https://vvollers.github.io/vuehex/demo/)
+[![Documentation](https://img.shields.io/badge/Documentation-0969da?style=for-the-badge)](https://vvollers.github.io/vuehex/docs/)
 
 ## Description
 
