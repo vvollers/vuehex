@@ -12,10 +12,10 @@
 
 Latest published build (updated by CI):
 
-- Version: unknown
-- npm tarball size: unknown
-- dist/ size (uncompressed): unknown
-- Updated: unknown
+- Version: 0.6.2
+- npm tarball size: 0 B (0 bytes)
+- dist/ size (uncompressed): 86.3 KB (88342 bytes)
+- Updated: 21222078008
 
 <!-- vuehex:build-info:end -->
 
