@@ -4,20 +4,7 @@
 [![Documentation](https://img.shields.io/badge/Documentation-0969da?style=for-the-badge)](https://vvollers.github.io/vuehex/docs/)
 [![CI](https://img.shields.io/github/actions/workflow/status/vvollers/vuehex/ci.yml?style=for-the-badge)](https://github.com/vvollers/vuehex/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/vuehex?style=for-the-badge&cacheSeconds=60)](https://www.npmjs.com/package/vuehex)
-[![size](https://img.shields.io/bundlejs/size/vuehex)](https://bundlejs.com/?q=vuehex)
-
-<!-- vuehex:build-info:start -->
-
-## Build info
-
-Latest published build (updated by CI):
-
-- Version: 0.6.2
-- npm tarball size: 0 B (0 bytes)
-- dist/ size (uncompressed): 86.3 KB (88342 bytes)
-- Updated: 21222078008
-
-<!-- vuehex:build-info:end -->
+[![size](https://deno.bundlejs.com/?q=vuehex&badge=detailed&badge-style=for-the-badge)](https://bundlejs.com/?q=vuehex)
 
 ## Description
 

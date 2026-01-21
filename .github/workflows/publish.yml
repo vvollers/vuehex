@@ -61,32 +61,6 @@ jobs:
       - name: Publish to npm
         run: npm publish --provenance --access public
 
-      - name: Pack (measure artifact size)
-        id: pack
-        run: |
-          TARBALL=$(npm pack --silent | tail -n 1 | tr -d '\r')
-          echo "tarball=$TARBALL" >> $GITHUB_OUTPUT
-          echo "Tarball: $TARBALL"
-          test -f "$TARBALL"
-          ls -l "$TARBALL"
-          TARBALL_BYTES=$(wc -c < "$TARBALL" | tr -d ' ')
-          echo "tarball_bytes=$TARBALL_BYTES" >> $GITHUB_OUTPUT
-          if [ -d dist ]; then
-            DIST_BYTES=$(du -sb dist | cut -f1 | tr -d ' ')
-            echo "dist_bytes=$DIST_BYTES" >> $GITHUB_OUTPUT
-          else
-            echo "dist_bytes=" >> $GITHUB_OUTPUT
-            echo "WARN: dist/ not found; dist_bytes left empty."
-          fi
-
-      - name: Update README build info
-        run: node scripts/update-readme-build-info.mjs
-        env:
-          VUEHEX_VERSION: ${{ steps.version.outputs.new_version }}
-          VUEHEX_TARBALL_BYTES: ${{ steps.pack.outputs.tarball_bytes }}
-          VUEHEX_DIST_BYTES: ${{ steps.pack.outputs.dist_bytes }}
-          VUEHEX_UPDATED_AT: ${{ steps.meta.outputs.utc }}
-
       - name: Commit README update
         run: |
           if git diff --quiet; then
