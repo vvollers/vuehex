@@ -3,8 +3,8 @@
 [![Live Demo](https://img.shields.io/badge/Live_Demo-2da44e?style=for-the-badge)](https://vvollers.github.io/vuehex/demo/)
 [![Documentation](https://img.shields.io/badge/Documentation-0969da?style=for-the-badge)](https://vvollers.github.io/vuehex/docs/)
 [![CI](https://img.shields.io/github/actions/workflow/status/vvollers/vuehex/ci.yml?style=for-the-badge)](https://github.com/vvollers/vuehex/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/vuehex?style=for-the-badge)](https://www.npmjs.com/package/vuehex)
-[![minzipped](https://img.shields.io/bundlephobia/minzip/vuehex?style=for-the-badge)](https://bundlephobia.com/package/vuehex)
+[![npm](https://img.shields.io/npm/v/vuehex?style=for-the-badge&cacheSeconds=60)](https://www.npmjs.com/package/vuehex)
+[![size](https://img.shields.io/bundlejs/size/vuehex?style=for-the-badge&cacheSeconds=60)](https://bundlejs.com/?q=vuehex)
 
 <!-- vuehex:build-info:start -->
 

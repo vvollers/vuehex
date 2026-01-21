@@ -23,6 +23,7 @@ function formatBytes(bytes) {
 
 function toNumber(value) {
 	if (value == null) return null;
+	if (typeof value === "string" && value.trim().length === 0) return null;
 	const n = Number(value);
 	return Number.isFinite(n) ? n : null;
 }

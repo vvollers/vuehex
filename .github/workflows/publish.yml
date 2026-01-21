@@ -36,6 +36,10 @@ jobs:
 
       - name: Type-check
         run: npm run type-check
+
+      - name: Build metadata (UTC timestamp)
+        id: meta
+        run: echo "utc=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
       
       - name: Configure Git
         run: |
@@ -60,10 +64,20 @@ jobs:
       - name: Pack (measure artifact size)
         id: pack
         run: |
-          TARBALL=$(npm pack --silent)
+          TARBALL=$(npm pack --silent | tail -n 1 | tr -d '\r')
           echo "tarball=$TARBALL" >> $GITHUB_OUTPUT
-          echo "tarball_bytes=$(stat -c%s \"$TARBALL\")" >> $GITHUB_OUTPUT
-          echo "dist_bytes=$(du -sb dist | cut -f1)" >> $GITHUB_OUTPUT
+          echo "Tarball: $TARBALL"
+          test -f "$TARBALL"
+          ls -l "$TARBALL"
+          TARBALL_BYTES=$(wc -c < "$TARBALL" | tr -d ' ')
+          echo "tarball_bytes=$TARBALL_BYTES" >> $GITHUB_OUTPUT
+          if [ -d dist ]; then
+            DIST_BYTES=$(du -sb dist | cut -f1 | tr -d ' ')
+            echo "dist_bytes=$DIST_BYTES" >> $GITHUB_OUTPUT
+          else
+            echo "dist_bytes=" >> $GITHUB_OUTPUT
+            echo "WARN: dist/ not found; dist_bytes left empty."
+          fi
 
       - name: Update README build info
         run: node scripts/update-readme-build-info.mjs
@@ -71,7 +85,7 @@ jobs:
           VUEHEX_VERSION: ${{ steps.version.outputs.new_version }}
           VUEHEX_TARBALL_BYTES: ${{ steps.pack.outputs.tarball_bytes }}
           VUEHEX_DIST_BYTES: ${{ steps.pack.outputs.dist_bytes }}
-          VUEHEX_UPDATED_AT: ${{ github.run_id }}
+          VUEHEX_UPDATED_AT: ${{ steps.meta.outputs.utc }}
 
       - name: Commit README update
         run: |
