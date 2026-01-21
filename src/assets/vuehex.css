@@ -310,15 +310,14 @@
 
 .vuehex-table {
 	/*
-		The Vue template sets an inline `width: 100%` style on the table for the
-		virtualization transform. That makes the table (and therefore its columns)
-		stretch to the container width, which can visually "push" the ASCII column
-		far to the right.
+		VueHex positions/transforms the table for virtualization. If the table is
+		forced to `width: 100%`, its columns stretch to the container width, which
+		can visually "push" the ASCII column far to the right.
 
 		Force shrink-to-content so the ASCII column starts immediately after the
 		HEX bytes, and let the outer `.vuehex` scroller handle horizontal overflow.
 	*/
-	width: max-content !important;
+	width: max-content;
 	min-width: max-content;
 	border-collapse: collapse;
 	/*

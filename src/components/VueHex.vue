@@ -566,7 +566,6 @@ const tableStyle = computed<CSSProperties>(() => {
 	if (isExpandToContent.value) {
 		return {
 			position: "static",
-			width: "100%",
 			transform: "none",
 		};
 	}
@@ -578,8 +577,6 @@ const tableStyle = computed<CSSProperties>(() => {
 		position: "absolute",
 		top: "0px",
 		left: "0px",
-		right: "0px",
-		width: "100%",
 		transform: transformValue,
 	};
 });

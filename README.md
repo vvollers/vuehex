@@ -542,6 +542,65 @@ Example:
 
 The `"slot"` entry controls where your slot content renders relative to built-in items.
 
+## Contributing
+
+Thanks for contributing! VueHex aims to stay fast, dependency-free, and easy to embed, so PRs are easiest to review when they’re small and well-scoped.
+
+### Local development
+
+Run the Vite dev server (for the workspace app):
+
+```bash
+npm run dev
+```
+
+Explore demos and component states via Storybook:
+
+```bash
+npm run storybook
+```
+
+Build the library (and generate type declarations):
+
+```bash
+npm run build
+```
+
+Build the demo site:
+
+```bash
+npm run build:demo
+```
+
+### Quality checks
+
+This repo uses Biome for formatting and linting:
+
+```bash
+npm run lint
+npm run format
+```
+
+Type-check with Vue’s TS tooling:
+
+```bash
+npm run type-check
+```
+
+### PR guidelines
+
+- Keep changes focused and easy to review
+- If you change behavior or add a feature, update Storybook docs/examples when possible
+- Keep public API changes intentional (props/events/types) and document them in the README and/or Storybook
+
+### Filing issues
+
+Bug reports are most actionable with:
+
+- A minimal reproduction (StackBlitz/link or small repo)
+- Browser + OS + Vue version
+- Whether you’re using `data-mode="buffer"` or `data-mode="window"` (and approximate dataset size)
+
 ## License
 
 MIT © Vincent Vollers
