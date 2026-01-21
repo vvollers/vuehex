@@ -30,6 +30,12 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run type-check
       
       - name: Configure Git
         run: |
@@ -50,6 +56,32 @@ jobs:
 
       - name: Publish to npm
         run: npm publish --provenance --access public
+
+      - name: Pack (measure artifact size)
+        id: pack
+        run: |
+          TARBALL=$(npm pack --silent)
+          echo "tarball=$TARBALL" >> $GITHUB_OUTPUT
+          echo "tarball_bytes=$(stat -c%s \"$TARBALL\")" >> $GITHUB_OUTPUT
+          echo "dist_bytes=$(du -sb dist | cut -f1)" >> $GITHUB_OUTPUT
+
+      - name: Update README build info
+        run: node scripts/update-readme-build-info.mjs
+        env:
+          VUEHEX_VERSION: ${{ steps.version.outputs.new_version }}
+          VUEHEX_TARBALL_BYTES: ${{ steps.pack.outputs.tarball_bytes }}
+          VUEHEX_DIST_BYTES: ${{ steps.pack.outputs.dist_bytes }}
+          VUEHEX_UPDATED_AT: ${{ github.run_id }}
+
+      - name: Commit README update
+        run: |
+          if git diff --quiet; then
+            echo "README unchanged; skipping commit."
+            exit 0
+          fi
+          git add README.md
+          git commit -m "docs: update build info"
+          git push
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
