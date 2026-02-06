@@ -1,6 +1,6 @@
 {
 	"name": "vuehex",
-	"version": "0.6.3",
+	"version": "0.6.4",
 	"private": false,
 	"description": "A fast and flexible Vue 3 component for viewing and editing binary data as a hexadecimal view",
 	"author": "Vincent Vollers",
