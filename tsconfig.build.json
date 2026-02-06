@@ -1,0 +1,17 @@
+{
+	"extends": "./tsconfig.app.json",
+	"compilerOptions": {
+		"noEmit": false,
+		"declaration": true,
+		"emitDeclarationOnly": true,
+		"outDir": "./dist",
+		"rootDir": "./src"
+	},
+	"include": [
+		"src/index.ts",
+		"src/styles.ts",
+		"src/components/**/*.ts",
+		"src/components/**/*.vue"
+	],
+	"exclude": ["src/stories/**", "src/main.ts", "src/App.vue"]
+}

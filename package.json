@@ -16,19 +16,21 @@
 		},
 		"./styles": {
 			"import": "./dist/styles.js",
-			"types": "./dist/styles.d.ts"
+			"types": "./types/styles.d.ts"
 		},
-		"./style.css": "./dist/style.css",
+		"./styles.css": "./dist/styles.css",
+		"./style.css": "./dist/styles.css",
 		"./package.json": "./package.json"
 	},
 	"files": [
 		"dist",
+		"types",
 		"README.md",
 		"LICENSE.txt"
 	],
 	"scripts": {
 		"dev": "vite",
-		"build": "vite build && vue-tsc --declaration --emitDeclarationOnly --outDir dist",
+		"build": "vite build && vue-tsc -p tsconfig.build.json",
 		"build:demo": "vite build --mode demo",
 		"preview": "vite preview",
 		"storybook": "storybook dev -p 6006 --disable-telemetry",

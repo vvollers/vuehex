@@ -38,6 +38,8 @@ app.use(VueHex);
 app.mount("#app");
 ```
 
+`vuehex/styles` resolves to the package's stylesheet entry module. If you want the raw CSS file directly, import `vuehex/styles.css`.
+
 ## Quick start
 
 It can be as simple as this
@@ -192,7 +194,7 @@ function handleEdit(intent: VueHexEditIntent) {
 
 ## Styling options
 
-1. Import `vuehex/styles` for the default look.
+1. Import `vuehex/styles` for the default look (or `vuehex/styles.css` for the raw CSS file).
 2. Pass `theme="dark" | "light" | "terminal" | "sunset" | "auto"` to toggle bundled palettes explicitly (or skip the prop entirely to stick with OS detection).
 3. Roll your own styles targeting the emitted class names (`.vuehex`, `.vuehex-byte`, `.vuehex-ascii-char`, etc.). The default sheet sets `.vuehex { height: 100%; }`, so remember to give the wrapper a concrete height.
 
