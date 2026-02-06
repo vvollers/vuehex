@@ -1,3 +1,4 @@
+import "./assets/vuehex.css";
 import type { App } from "vue";
 import VueHex from "./components/VueHex.vue";
 

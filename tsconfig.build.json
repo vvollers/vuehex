@@ -9,7 +9,6 @@
 	},
 	"include": [
 		"src/index.ts",
-		"src/styles.ts",
 		"src/components/**/*.ts",
 		"src/components/**/*.vue"
 	],

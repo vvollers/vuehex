@@ -31,13 +31,9 @@ export default defineConfig(({ mode }) => {
 				: {
 						// Library build
 						lib: {
-							entry: {
-								index: resolve(__dirname, "src/index.ts"),
-								styles: resolve(__dirname, "src/styles.ts"),
-							},
+							entry: resolve(__dirname, "src/index.ts"),
 							formats: ["es"],
-							fileName: (_format, entryName) =>
-								entryName === "index" ? "index.js" : `${entryName}.js`,
+							fileName: () => "index.js",
 						},
 						rolldownOptions: {
 							external: ["vue"],
