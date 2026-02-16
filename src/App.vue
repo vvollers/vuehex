@@ -4,19 +4,23 @@
       <header class="demo-header">
         <h1>VueHex Demo</h1>
         <label class="file-input-wrapper">
-          <input
-            type="file"
-            @change="handleFileSelect"
-            class="file-input"
-          />
+          <input type="file" @change="handleFileSelect" class="file-input" />
           <span class="file-button">Select File</span>
         </label>
+        <button
+          type="button"
+          class="download-button"
+          :disabled="!fileData.length"
+          @click="downloadFile"
+        >
+          Download File
+        </button>
         <span v-if="fileName" class="file-name">{{ fileName }}</span>
-    <label class="switch">
-      <input type="checkbox" v-model="isEditMode" />
-      <span class="switch-ui" aria-hidden="true"></span>
-      <span class="switch-text">Edit mode</span>
-    </label>
+        <label class="switch">
+          <input type="checkbox" v-model="isEditMode" />
+          <span class="switch-ui" aria-hidden="true"></span>
+          <span class="switch-text">Edit mode</span>
+        </label>
       </header>
 
       <main class="demo-main">
@@ -24,13 +28,13 @@
           v-model="fileData"
           v-model:window-offset="offset"
           statusbar="top"
-		      :statusbar-layout="statusbarLayout"
+          :statusbar-layout="statusbarLayout"
           :theme="selectedTheme"
           :cell-class-for-byte="selectedHighlighting"
           :is-printable="selectedPreset.isPrintable"
           :render-ascii="selectedPreset.renderAscii"
           :cursor="true"
-		      :editable="isEditMode"
+          :editable="isEditMode"
           :bytes-per-row="16"
           :show-chunk-navigator="true"
           chunk-navigator-placement="left"
@@ -43,7 +47,9 @@
             <span>ASCII Preset:</span>
             <select v-model="selectedPresetKey" class="demo-select">
               <option value="standard">Standard ASCII (0x20-0x7E)</option>
-              <option value="latin1">Latin-1 Supplement (0x20-0x7E, 0xA0-0xFF)</option>
+              <option value="latin1">
+                Latin-1 Supplement (0x20-0x7E, 0xA0-0xFF)
+              </option>
               <option value="visibleWhitespace">Visible Whitespace</option>
             </select>
           </label>
@@ -64,8 +70,8 @@
               <option value="auto">Auto (System)</option>
               <option value="light">Light</option>
               <option value="dark">Dark</option>
-			  <option value="terminal">Terminal</option>
-			  <option value="sunset">Sunset</option>
+              <option value="terminal">Terminal</option>
+              <option value="sunset">Sunset</option>
             </select>
           </label>
         </div>
@@ -159,6 +165,26 @@ async function handleFileSelect(event: Event) {
 		fileData.value = new Uint8Array(0);
 	}
 }
+
+function downloadFile() {
+	if (fileData.value.length === 0) {
+		return;
+	}
+
+	const blob = new Blob([fileData.value.buffer as ArrayBuffer], {
+		type: "application/octet-stream",
+	});
+	const downloadName = fileName.value || "edited-file.bin";
+	const url = URL.createObjectURL(blob);
+	const link = document.createElement("a");
+
+	link.href = url;
+	link.download = downloadName;
+	document.body.appendChild(link);
+	link.click();
+	document.body.removeChild(link);
+	URL.revokeObjectURL(url);
+}
 </script>
 
 <style>
@@ -208,7 +234,7 @@ body {
   color: var(--demo-text);
   /* Make native widgets (select/option, scrollbars) follow the scheme. */
   color-scheme: dark;
-  font-family: 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+  font-family: "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
 }
 
 .demo-container {
@@ -268,6 +294,27 @@ body {
 
 .file-button:hover {
   background: #2ea043;
+}
+
+.download-button {
+  padding: 0.5rem 1rem;
+  background: #1f6feb;
+  color: #ffffff;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid rgba(240, 246, 252, 0.1);
+  transition: background 0.2s;
+}
+
+.download-button:hover:not(:disabled) {
+  background: #388bfd;
+}
+
+.download-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .file-name {
@@ -404,36 +451,36 @@ body {
 
 @media (prefers-color-scheme: light) {
   .demo-app {
-  --demo-bg: #f6f8fa;
-  --demo-panel: #ffffff;
-  --demo-border: #d0d7de;
-  --demo-text: #24292f;
-  --demo-muted: #57606a;
-  --demo-control-bg: #ffffff;
-  --demo-control-border: #d0d7de;
-  --demo-control-text: #24292f;
-  --demo-control-hover-bg: #f6f8fa;
-  --demo-control-hover-border: #6e7781;
-  --demo-focus: #0969da;
+    --demo-bg: #f6f8fa;
+    --demo-panel: #ffffff;
+    --demo-border: #d0d7de;
+    --demo-text: #24292f;
+    --demo-muted: #57606a;
+    --demo-control-bg: #ffffff;
+    --demo-control-border: #d0d7de;
+    --demo-control-text: #24292f;
+    --demo-control-hover-bg: #f6f8fa;
+    --demo-control-hover-border: #6e7781;
+    --demo-focus: #0969da;
 
-  background: var(--demo-bg);
-  color: var(--demo-text);
-  color-scheme: light;
+    background: var(--demo-bg);
+    color: var(--demo-text);
+    color-scheme: light;
   }
 
   .demo-container {
-	background: var(--demo-panel);
-	border: 1px solid var(--demo-border);
+    background: var(--demo-panel);
+    border: 1px solid var(--demo-border);
   }
 
   .demo-header,
   .demo-footer {
-	background: var(--demo-panel);
-	border-color: var(--demo-border);
+    background: var(--demo-panel);
+    border-color: var(--demo-border);
   }
 
   .demo-header h1 {
-	color: var(--demo-text);
+    color: var(--demo-text);
   }
 
   .file-button {
@@ -444,12 +491,20 @@ body {
     background: #2c974b;
   }
 
+  .download-button {
+    background: #0969da;
+  }
+
+  .download-button:hover:not(:disabled) {
+    background: #0860ca;
+  }
+
   .file-name {
-	color: var(--demo-muted);
+    color: var(--demo-muted);
   }
 
   .switch {
-	color: var(--demo-text);
+    color: var(--demo-text);
   }
 
   .switch-ui {
@@ -462,22 +517,22 @@ body {
   }
 
   .control-label {
-	color: var(--demo-text);
+    color: var(--demo-text);
   }
 
   .control-label span {
-	color: var(--demo-muted);
+    color: var(--demo-muted);
   }
 
   .demo-select {
-	background: var(--demo-control-bg);
-	color: var(--demo-control-text);
-	border-color: var(--demo-control-border);
+    background: var(--demo-control-bg);
+    color: var(--demo-control-text);
+    border-color: var(--demo-control-border);
   }
 
   .demo-select:hover {
-	border-color: var(--demo-control-hover-border);
-	background: var(--demo-control-hover-bg);
+    border-color: var(--demo-control-hover-border);
+    background: var(--demo-control-hover-bg);
   }
 }
 </style>
