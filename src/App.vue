@@ -88,6 +88,20 @@
             </select>
           </label>
         </div>
+        <a
+          class="github-link"
+          href="https://github.com/vvollers/vuehex"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path
+              fill="currentColor"
+              d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.39.6.11.82-.26.82-.58 0-.29-.01-1.05-.02-2.06-3.34.73-4.04-1.61-4.04-1.61-.55-1.38-1.34-1.75-1.34-1.75-1.09-.75.08-.74.08-.74 1.2.08 1.84 1.23 1.84 1.23 1.07 1.83 2.8 1.3 3.48.99.11-.77.42-1.3.76-1.6-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.23-3.22-.12-.3-.53-1.53.12-3.18 0 0 1.01-.32 3.3 1.23A11.5 11.5 0 0 1 12 6.8c1.02 0 2.05.14 3.01.4 2.29-1.55 3.29-1.23 3.29-1.23.66 1.65.25 2.88.13 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.62-5.48 5.92.43.37.81 1.1.81 2.22 0 1.61-.02 2.91-.02 3.31 0 .32.22.69.83.57A12.01 12.01 0 0 0 24 12C24 5.37 18.63 0 12 0Z"
+            />
+          </svg>
+          <span>https://github.com/vvollers/vuehex</span>
+        </a>
       </footer>
     </div>
   </div>
@@ -458,10 +472,41 @@ body {
 }
 
 .demo-footer {
+  position: relative;
   padding: 1rem 1.5rem;
   background: var(--demo-panel);
   border-top: 1px solid var(--demo-border);
   flex-shrink: 0;
+}
+
+.github-link {
+  position: absolute;
+  right: 1.5rem;
+  top: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--demo-muted);
+  font-size: 0.75rem;
+  text-decoration: none;
+  transform: translateY(-50%);
+  transition: color 0.2s;
+}
+
+.github-link:hover {
+  color: var(--demo-text);
+}
+
+.github-link:focus-visible {
+  outline: 2px solid var(--demo-focus);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+.github-link svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
 }
 
 .demo-controls {
@@ -511,6 +556,18 @@ body {
 .demo-select option {
   background: var(--demo-control-bg);
   color: var(--demo-control-text);
+}
+
+@media (max-width: 900px) {
+  .demo-footer {
+    padding-bottom: 3rem;
+  }
+
+  .github-link {
+    top: auto;
+    bottom: 0.9rem;
+    transform: none;
+  }
 }
 
 @media (prefers-color-scheme: light) {
