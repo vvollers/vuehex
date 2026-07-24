@@ -25,6 +25,172 @@
 	min-height: 0;
 	display: flex;
 	overflow: hidden;
+	position: relative;
+}
+
+.vuehex-search {
+	--vuehex-search-background: var(
+		--vuehex-ui-background,
+		var(--vuehex-background)
+	);
+	--vuehex-search-foreground: var(
+		--vuehex-ui-foreground,
+		var(--vuehex-foreground)
+	);
+	--vuehex-search-border: var(
+		--vuehex-ui-border-color,
+		var(--vuehex-border-color)
+	);
+	--vuehex-search-focus: var(
+		--vuehex-ui-focus-ring-color,
+		rgba(96, 165, 250, 0.9)
+	);
+	position: absolute;
+	top: 0.5rem;
+	right: 0.5rem;
+	z-index: 5;
+	display: grid;
+	gap: 0.35rem;
+	max-width: calc(100% - 1rem);
+	padding: 0.4rem;
+	border: 1px solid var(--vuehex-search-border);
+	border-radius: 0.35rem;
+	background: var(--vuehex-search-background);
+	color: var(--vuehex-search-foreground);
+	box-shadow: var(--vuehex-ui-shadow, 0 8px 20px rgba(15, 23, 42, 0.24));
+	font-family: system-ui, sans-serif;
+	font-size: 0.78rem;
+}
+
+.vuehex-search--expanded {
+	left: 0.5rem;
+	right: 0.5rem;
+	max-width: none;
+}
+
+.vuehex-search__find,
+.vuehex-search__replace,
+.vuehex-search__mode {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+}
+
+.vuehex-search__input {
+	min-width: 12rem;
+	max-width: 18rem;
+	padding: 0.3rem 0.4rem;
+	border: 1px solid var(--vuehex-search-border);
+	border-radius: 0.2rem;
+	background: transparent;
+	color: inherit;
+	font-family:
+		ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+		"DejaVu Sans Mono", "Ubuntu Mono", "Courier New", monospace;
+	font-variant-ligatures: none;
+	font-variant-numeric: tabular-nums;
+}
+
+.vuehex-search__input:focus-visible,
+.vuehex-search button:focus-visible {
+	outline: 2px solid var(--vuehex-search-focus);
+	outline-offset: 1px;
+}
+
+.vuehex-search button {
+	padding: 0.28rem 0.45rem;
+	border: 1px solid var(--vuehex-search-border);
+	border-radius: 0.2rem;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+
+.vuehex-search button:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
+.vuehex-search__icon-button {
+	min-width: 1.8rem;
+	padding-right: 0.25rem;
+	padding-left: 0.25rem;
+	font-weight: 600;
+}
+
+.vuehex-search__mode-button--active {
+	border-color: var(--vuehex-search-focus);
+	background: color-mix(in srgb, var(--vuehex-search-focus) 22%, transparent);
+	box-shadow: inset 0 0 0 1px var(--vuehex-search-focus);
+	font-weight: 700;
+}
+
+.vuehex-search--expanded .vuehex-search__input {
+	flex: 1 1 12rem;
+	max-width: none;
+}
+
+.vuehex-search__results {
+	min-width: 3.8rem;
+	text-align: center;
+	white-space: nowrap;
+	opacity: 0.82;
+}
+
+.vuehex-search__message {
+	max-width: 28rem;
+	margin: 0;
+	font-size: 0.72rem;
+}
+
+.vuehex-search__message--error {
+	color: #ef4444;
+}
+
+.vuehex-search__sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+.vuehex-search-hit {
+	background: var(--vuehex-search-hit-background, rgba(250, 204, 21, 0.35));
+	box-shadow: inset 0 -1px 0
+		var(--vuehex-search-hit-border, rgba(250, 204, 21, 0.95));
+}
+
+.vuehex-search-hit--active {
+	background: var(
+		--vuehex-search-active-hit-background,
+		rgba(96, 165, 250, 0.5)
+	);
+	box-shadow: inset 0 0 0 1px
+		var(--vuehex-search-active-hit-border, rgba(147, 197, 253, 1));
+}
+
+@media (max-width: 540px) {
+	.vuehex-search {
+		left: 0.5rem;
+		right: 0.5rem;
+	}
+
+	.vuehex-search__find,
+	.vuehex-search__replace {
+		flex-wrap: wrap;
+	}
+
+	.vuehex-search__input {
+		flex: 1 1 10rem;
+		min-width: 0;
+		max-width: none;
+	}
 }
 
 .vuehex-viewer--with-statusbar {

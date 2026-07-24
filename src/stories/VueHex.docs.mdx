@@ -14,6 +14,15 @@ VueHex is a fast, virtualized hex viewer/editor component for Vue 3. It can be u
 * Can handle extremely large data sizes (terabytes with virtual data mode)
 * Very flexible and themeable
 * Keyboard navigation and selection support
+* Optional byte-oriented search and replace
+
+## Search and Replace
+
+Set <code>search</code> to enable the compact find overlay. It searches exact, case-sensitive bytes: Text mode encodes the query and replacement as UTF-8, while Hex mode accepts byte pairs, whitespace, and optional <code>0x</code> prefixes. Matches are non-overlapping.
+
+Use <kbd>Ctrl/Cmd+F</kbd> for Find, <kbd>Ctrl/Cmd+H</kbd> for Replace, <kbd>Enter</kbd>/<kbd>Shift+Enter</kbd> or <kbd>F3</kbd>/<kbd>Shift+F3</kbd> to navigate, and <kbd>Escape</kbd> to close. Search works in read-only mode. Replacement requires <code>editable</code>; buffer-mode replacements are one undoable action.
+
+For <code>data-mode="window"</code>, provide <code>searchProvider</code> and <code>replaceProvider</code>. VueHex cannot search the entire parent-owned source from the loaded window (and <code>getSelectionData</code> is only a clipboard selection provider). Providers receive raw <code>Uint8Array</code> values and use absolute, inclusive offsets. A replace provider owns the remote transaction and can return a refreshed window plus the updated total size.
 
 ## Quick Start
 
@@ -149,6 +158,16 @@ function loadWindow({ offset, length }) {
       <td>Enable editor mode (typing/paste emits <code>edit</code> intents). Cursor is automatically enabled while editing.</td>
     </tr>
     <tr>
+      <td><code>search</code></td>
+      <td><code>false</code></td>
+      <td>Enable the Find/Replace overlay and its keyboard shortcuts.</td>
+    </tr>
+    <tr>
+      <td><code>searchProvider</code> / <code>replaceProvider</code></td>
+      <td>—</td>
+      <td>Full-source callbacks required for windowed search and replacement.</td>
+    </tr>
+    <tr>
       <td><code>cursorLocation</code></td>
       <td><code>null</code></td>
       <td>Controlled cursor location. Supports <code>v-model:cursorLocation</code>.</td>
@@ -211,6 +230,11 @@ VueHex uses Vue 3's <code>defineModel</code> for two-way data binding. These sup
       <td><code>edit</code></td>
       <td><code>VueHexEditIntent</code></td>
       <td>Emitted when <code>editable</code> is enabled and the user types, deletes, pastes, or cuts.</td>
+    </tr>
+    <tr>
+      <td><code>search-replace</code></td>
+      <td><code>VueHexReplaceResponse</code></td>
+      <td>Emitted after a successful windowed replacement transaction so the host can refresh controlled state.</td>
     </tr>
     <tr>
       <td><code>byte-click</code></td>
@@ -374,6 +398,7 @@ function applyEditIntent(bytes: Uint8Array, intent: VueHexEditIntent): Uint8Arra
     case "insert-bytes":
     case "delete-byte":
     case "delete-range":
+    case "replace-range":
     case "undo":
     case "redo":
       // See the "Editable (windowed)" story for a complete implementation.

@@ -79,6 +79,10 @@ const windowData = ref(backingFile.slice(0, 16 * 48));
 | `statusbarLayout` | — | Configuration object controlling which items appear in the status bar and their placement (`left`, `middle`, `right` sections). |
 | `cursor` | `false` | Enable keyboard/click cursor navigation. Navigate with arrow keys when focused or click bytes to move cursor. |
 | `editable` | `false` | Enable editor mode. Typing/paste/cut emit `edit` intents. Cursor is automatically enabled while editing. |
+| `search` | `false` | Enable the optional find/replace overlay and its keyboard shortcuts. |
+| `captureSearchKeybindings` | `true` | Whether VueHex captures `Ctrl/Cmd+F`, `Ctrl/Cmd+H`, `F3`, and `Escape` while search is enabled. |
+| `searchProvider` | — | Required to search the complete backing source in `data-mode="window"`. Receives UTF-8 or raw query bytes and returns an absolute hit plus non-overlapping total. |
+| `replaceProvider` | — | Required to replace windowed data. Owns the complete backing-store transaction and may return a refreshed window. |
 
 ## Models
 
@@ -98,6 +102,7 @@ VueHex emits several events to enable interactive features:
 |-------|---------|-------------|
 | `updateVirtualData` | `{ offset: number, length: number }` | Emitted when the component needs more data in windowed mode. Load the requested byte range and update `v-model` with the new data. |
 | `edit` | `VueHexEditIntent` | Emitted when `editable` is enabled and the user types, deletes, pastes, or cuts. In windowed mode, the parent should apply the intent to the backing store and refresh `v-model`. |
+| `search-replace` | `VueHexReplaceResponse` | Emitted after a successful windowed `replaceProvider` transaction so the host can refresh controlled source state. |
 | `byte-click` | `{ index: number, byte: number, kind: 'hex' \| 'ascii' }` | Emitted when a user clicks on a specific byte cell. `index` is the absolute byte position, `byte` is the value (0-255), and `kind` indicates whether the hex or ASCII column was clicked. |
 | `selection-change` | `{ start: number \| null, end: number \| null, length: number }` | Emitted when the selection range changes. `start` and `end` are absolute byte positions (inclusive), or `null` if nothing is selected. `length` is the number of selected bytes. |
 | `row-hover-on` / `row-hover-off` | `{ offset: number }` | Emitted when hovering over/leaving a row. |
@@ -191,6 +196,69 @@ function handleEdit(intent: VueHexEditIntent) {
 }
 </script>
 ```
+
+## Search and replace
+
+Enable `search` to add a VS Code-style overlay. It searches exact, case-sensitive byte sequences and does not interpret rendered ASCII glyphs. Press `Ctrl/Cmd+F` to open Find, `Ctrl/Cmd+H` to show Replace, `Enter`/`Shift+Enter` (or `F3`/`Shift+F3`) to move through hits, and `Escape` to close it. Search and replacement each have independent Text (UTF-8) and Hex (byte pairs with whitespace and optional `0x` prefixes) modes, so either representation can replace the other. Use the leftmost expand control to stretch the overlay to its full available width. Matches are non-overlapping. Set `capture-search-keybindings="false"` when the host application needs to handle these shortcuts itself.
+
+For host controls, a VueHex template ref exposes `openSearch(options?)`, `closeSearch()`, and `toggleSearch(options?)`; pass `{ replace: true }` to open the replace controls.
+
+Search works in read-only viewers. Replace and Replace All require `editable`; buffer mode updates `v-model` directly and each command is one undoable operation.
+
+```vue
+<VueHex v-model="bytes" editable search style="height: 320px" />
+```
+
+### Windowed sources
+
+VueHex only holds the current data window, so `getSelectionData` cannot search a complete remote source. Supply `searchProvider` and `replaceProvider` to search and replace parent-owned data. Both receive raw `Uint8Array` query/replacement bytes; `replaceProvider` additionally receives the independent `mode` and `replacementMode` metadata. Their offsets are absolute and inclusive.
+
+```vue
+<template>
+  <VueHex
+    v-model="windowData"
+    v-model:window-offset="windowOffset"
+    data-mode="window"
+    :total-size="store.length"
+    :search-provider="searchProvider"
+    :replace-provider="replaceProvider"
+    editable
+    search
+    @search-replace="refreshAfterReplace"
+  />
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import VueHex, { type VueHexReplaceRequest, type VueHexSearchRequest } from "vuehex";
+
+const store = ref(new Uint8Array(await file.arrayBuffer()));
+const windowData = ref(store.value.slice(0, 0x4000));
+const windowOffset = ref(0);
+
+async function searchProvider(request: VueHexSearchRequest) {
+  // Search the complete backing store (server, disk, IndexedDB, etc.), not windowData.
+  return { total: 12, hit: { start: 0x1200, end: 0x1203 }, activeOrdinal: 1 };
+}
+
+async function replaceProvider(request: VueHexReplaceRequest) {
+  // Mutate store/server atomically. Replace All is one provider call.
+  // Refresh the controlled total-size prop if the replacement changes length.
+  return {
+    replaced: request.scope === "all" ? 12 : 1,
+    total: 0,
+    totalSize: store.value.length,
+    window: { offset: windowOffset.value, data: store.value.slice(windowOffset.value, windowOffset.value + 0x4000) },
+  };
+}
+
+function refreshAfterReplace() {
+  windowData.value = store.value.slice(windowOffset.value, windowOffset.value + 0x4000);
+}
+</script>
+```
+
+`searchProvider` responses include `activeOrdinal` to display the exact `n of total` position. `replaceProvider` may return a refreshed `window` and `totalSize`; the parent should still update its controlled `totalSize` value after length-changing mutations.
 
 ## Styling options
 

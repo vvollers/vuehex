@@ -15,6 +15,34 @@
 		<template #chunk-navigator-item="itemProps">
 			<slot name="chunk-navigator-item" v-bind="itemProps" />
 		</template>
+		<VueHexSearchBar
+			ref="searchBarRef"
+			:open="searchApi.open.value"
+			:replace-open="searchApi.replaceOpen.value"
+			:expanded="searchApi.expanded.value"
+			:mode="searchApi.mode.value"
+			:replacement-mode="searchApi.replacementMode.value"
+			:query="searchApi.query.value"
+			:replacement="searchApi.replacement.value"
+			:result-text="searchApi.resultText.value"
+			:pending="searchApi.pending.value"
+			:disabled="searchApi.searchDisabled.value"
+			:can-replace="searchApi.canReplace.value"
+			:replace-help="searchApi.replaceHelp.value"
+			:message="searchApi.message.value"
+			:error="searchApi.error.value"
+			@update:mode="searchApi.mode.value = $event"
+			@update:replacement-mode="searchApi.replacementMode.value = $event"
+			@update:query="searchApi.query.value = $event"
+			@update:replacement="searchApi.replacement.value = $event"
+			@next="void searchApi.find('next')"
+			@previous="void searchApi.find('previous')"
+			@toggle-replace="searchApi.replaceOpen.value = !searchApi.replaceOpen.value"
+			@toggle-expanded="searchApi.expanded.value = !searchApi.expanded.value"
+			@replace-one="void searchApi.replace('one')"
+			@replace-all="void searchApi.replace('all')"
+			@close="closeSearch"
+		/>
 			<VueHexStatusBar
 				v-if="showStatusBar"
 				ref="statusBarRef"
@@ -61,22 +89,35 @@
 
 <script setup lang="ts">
 import type { CSSProperties } from "vue";
-import { computed, onBeforeUnmount, onMounted, ref, toRef, watch } from "vue";
+import {
+	computed,
+	nextTick,
+	onBeforeUnmount,
+	onMounted,
+	ref,
+	toRef,
+	watch,
+} from "vue";
 import { useChunking } from "./composables/useChunking";
 import { useCursor } from "./composables/useCursor";
 import { useDataMode } from "./composables/useDataMode";
 import { useEditing } from "./composables/useEditing";
 import { useHexWindow } from "./composables/useHexWindow";
 import { useHoverLinking } from "./composables/useHoverLinking";
+import { useSearch } from "./composables/useSearch";
 import { useSelection } from "./composables/useSelection";
 import { useVueHexTheme } from "./composables/useVueHexTheme";
 import VueHexChunkNavigator from "./VueHexChunkNavigator.vue";
+import VueHexSearchBar from "./VueHexSearchBar.vue";
 import VueHexStatusBar from "./VueHexStatusBar.vue";
 import type {
 	VueHexAsciiRenderer,
 	VueHexCellClassResolverInput,
 	VueHexEditIntent,
 	VueHexPrintableCheck,
+	VueHexReplaceProvider,
+	VueHexReplaceResponse,
+	VueHexSearchProvider,
 	VueHexStatusBarLayout,
 	VueHexWindowRequest,
 } from "./vuehex-api";
@@ -168,6 +209,14 @@ interface VueHexProps {
 	cursor?: boolean;
 	/** When true, enables editor mode (typing emits edit intents). */
 	editable?: boolean;
+	/** Enables the optional find/replace overlay and its keyboard shortcuts. */
+	search?: boolean;
+	/** Whether VueHex captures the find/replace keyboard shortcuts when search is enabled. */
+	captureSearchKeybindings?: boolean;
+	/** Complete-source search callback required when dataMode is windowed. */
+	searchProvider?: VueHexSearchProvider;
+	/** Complete-source mutation callback required to replace windowed data. */
+	replaceProvider?: VueHexReplaceProvider;
 	/**
 	 * Configures which items appear in the status bar and where they render.
 	 *
@@ -183,6 +232,8 @@ const modelValue = defineModel<Uint8Array>({
 const cursorLocation = defineModel<number | null>("cursorLocation", {
 	default: null,
 });
+/** Temporary length supplied by a successful windowed replacement response. */
+const replacementTotalSize = ref<number | null>(null);
 
 const props = withDefaults(defineProps<VueHexProps>(), {
 	dataMode: "auto",
@@ -198,6 +249,8 @@ const props = withDefaults(defineProps<VueHexProps>(), {
 	statusbar: null,
 	cursor: false,
 	editable: false,
+	search: false,
+	captureSearchKeybindings: true,
 	statusbarLayout: null,
 });
 
@@ -206,6 +259,7 @@ const isEditable = computed(() => Boolean(props.editable));
 const emit = defineEmits<{
 	(event: "updateVirtualData", payload: VueHexWindowRequest): void;
 	(event: "edit", payload: VueHexEditIntent): void;
+	(event: "search-replace", payload: VueHexReplaceResponse): void;
 	(
 		event: "byte-click",
 		payload: { index: number; byte: number; kind: "hex" | "ascii" },
@@ -259,7 +313,7 @@ const dataTotalBytes = computed(() => {
 	if (isExpandToContent.value) {
 		return currentWindow.value.data.length;
 	}
-	const provided = props.totalSize;
+	const provided = replacementTotalSize.value ?? props.totalSize;
 	if (typeof provided === "number" && Number.isFinite(provided)) {
 		return Math.max(0, Math.trunc(provided));
 	}
@@ -362,6 +416,10 @@ const cellClassResolver = computed(() =>
 	normalizeCellClassForByteResolver(props.cellClassForByte),
 );
 
+const searchHitStateResolver = ref<
+	(index: number) => "active" | "match" | null
+>(() => null);
+
 /**
  * Remembers the most recent window start offset requested by VueHex.
  *
@@ -409,6 +467,7 @@ const {
 	getCellClassResolver: () => cellClassResolver.value,
 	getNonPrintableChar: () => nonPrintableChar.value,
 	getSelectionRange: () => selectionRange.value,
+	getSearchHitState: (index) => searchHitStateResolver.value(index),
 	requestWindow: (request) => {
 		if (!shouldRequestVirtualData.value) {
 			return;
@@ -425,6 +484,7 @@ const {
 	selectionRange,
 	selectionCount,
 	clearSelection,
+	setSelection,
 	copySelectionToClipboard,
 } = useSelection({
 	containerEl,
@@ -495,10 +555,14 @@ const cursorApi = useCursor({
 });
 
 const isInteractive = computed(
-	() => selectionEnabled.value || cursorEnabled.value,
+	() => selectionEnabled.value || cursorEnabled.value || Boolean(props.search),
 );
 
-const { activeColumn: editorActiveColumn, editorMode } = useEditing({
+const {
+	activeColumn: editorActiveColumn,
+	editorMode,
+	replaceRanges,
+} = useEditing({
 	enabled: isEditable,
 	containerEl,
 	tbodyEl,
@@ -517,6 +581,51 @@ const { activeColumn: editorActiveColumn, editorMode } = useEditing({
 	},
 	emitEdit: (intent) => emit("edit", intent),
 });
+
+const searchBarRef = ref<InstanceType<typeof VueHexSearchBar> | null>(null);
+const searchApi = useSearch({
+	enabled: computed(() => Boolean(props.search)),
+	isWindowed,
+	isEditable,
+	getBytes: () => currentWindow.value.data,
+	replaceLocal: (ranges, values) => replaceRanges(ranges, values),
+	getInitialOffset: () =>
+		cursorApi.cursorLocation.value ??
+		selectionRange.value?.start ??
+		currentWindow.value.offset,
+	searchProvider: () => props.searchProvider,
+	replaceProvider: () => props.replaceProvider,
+	applyWindow: (window) => {
+		windowOffset.value = window.offset;
+		modelValue.value = window.data;
+	},
+	onReplaceResult: (response) => {
+		if (
+			typeof response.totalSize === "number" &&
+			Number.isFinite(response.totalSize)
+		) {
+			replacementTotalSize.value = Math.max(0, Math.trunc(response.totalSize));
+		}
+		emit("search-replace", response);
+	},
+	navigateTo: (hit) => {
+		clearSelection();
+		setSelection(hit.start, hit.end);
+		cursorApi.setCursorLocation(hit.start);
+		scrollToByte(hit.start);
+	},
+});
+
+searchHitStateResolver.value = searchApi.getHighlightState;
+
+watch(
+	[
+		() => searchApi.activeHit.value,
+		() => searchApi.query.value,
+		() => searchApi.open.value,
+	],
+	() => updateRenderedSlice(),
+);
 
 watch(
 	[isEditable, editorActiveColumn, editorMode],
@@ -543,6 +652,81 @@ function handleScroll() {
 		return;
 	}
 	handleVirtualScroll();
+}
+
+function isSearchField(target: EventTarget | null): boolean {
+	return (
+		target instanceof HTMLInputElement ||
+		target instanceof HTMLTextAreaElement ||
+		target instanceof HTMLSelectElement
+	);
+}
+
+function isSearchOverlayTarget(target: EventTarget | null): boolean {
+	return (
+		target instanceof HTMLElement && Boolean(target.closest(".vuehex-search"))
+	);
+}
+
+function openSearch(options?: { replace?: boolean; selectQuery?: boolean }) {
+	searchApi.openSearch(options);
+	void nextTick(() => {
+		if (options?.replace) {
+			void searchBarRef.value?.focusReplacement();
+			return;
+		}
+		void searchBarRef.value?.focusQuery(options?.selectQuery !== false);
+	});
+}
+
+function closeSearch() {
+	searchApi.closeSearch();
+	void nextTick(() => containerEl.value?.focus());
+}
+
+function toggleSearch(options?: { replace?: boolean; selectQuery?: boolean }) {
+	if (searchApi.open.value) {
+		closeSearch();
+		return;
+	}
+	openSearch(options);
+}
+
+function handleSearchKeydown(event: KeyboardEvent) {
+	if (!props.search || !props.captureSearchKeybindings) {
+		return;
+	}
+	const key = event.key.toLowerCase();
+	const hasModifier = event.ctrlKey || event.metaKey;
+	if (hasModifier && key === "f") {
+		event.preventDefault();
+		event.stopImmediatePropagation();
+		openSearch({ selectQuery: true });
+		return;
+	}
+	if (hasModifier && key === "h") {
+		event.preventDefault();
+		event.stopImmediatePropagation();
+		openSearch({ replace: true, selectQuery: true });
+		return;
+	}
+	if (isSearchField(event.target) && !isSearchOverlayTarget(event.target)) {
+		return;
+	}
+	if (!searchApi.open.value) {
+		return;
+	}
+	if (event.key === "Escape") {
+		event.preventDefault();
+		event.stopImmediatePropagation();
+		closeSearch();
+		return;
+	}
+	if (event.key === "F3") {
+		event.preventDefault();
+		event.stopImmediatePropagation();
+		void searchApi.find(event.shiftKey ? "previous" : "next");
+	}
 }
 
 /** Pixel offset applied to translate the table to the rendered slice. */
@@ -639,6 +823,19 @@ watch(
 );
 
 watch(
+	() => props.totalSize,
+	(nextTotalSize) => {
+		if (
+			typeof nextTotalSize === "number" &&
+			Number.isFinite(nextTotalSize) &&
+			replacementTotalSize.value !== Math.max(0, Math.trunc(nextTotalSize))
+		) {
+			replacementTotalSize.value = null;
+		}
+	},
+);
+
+watch(
 	[
 		visualTotalBytes,
 		bytesPerRow,
@@ -658,6 +855,7 @@ let resizeObserver: ResizeObserver | null = null;
 onMounted(() => {
 	const container = containerEl.value;
 	if (container) {
+		container.addEventListener("keydown", handleSearchKeydown, true);
 		containerHeight.value = container.clientHeight;
 		resizeObserver = new ResizeObserver((entries) => {
 			const entry = entries[0];
@@ -690,11 +888,16 @@ onBeforeUnmount(() => {
 		tbody.removeEventListener("pointerout", handlePointerOut);
 	}
 
+	containerEl.value?.removeEventListener("keydown", handleSearchKeydown, true);
+
 	clearHoverState();
 });
 
 defineExpose({
 	scrollToByte,
 	selectChunk,
+	openSearch,
+	closeSearch,
+	toggleSearch,
 });
 </script>

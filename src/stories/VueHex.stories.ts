@@ -1,12 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { action } from "storybook/actions";
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import VueHex from "@/components/VueHex.vue";
 import "./vuehex-custom-theme.css";
 import type {
 	VueHexCellClassResolver,
 	VueHexCellClassResolverInput,
 	VueHexEditIntent,
+	VueHexReplaceRequest,
+	VueHexSearchRequest,
 	VueHexStatusBarLayout,
 	VueHexWindowRequest,
 } from "@/components/vuehex-api";
@@ -14,6 +16,11 @@ import {
 	DEFAULT_ASCII_CATEGORY_CELL_CLASS_RESOLVER,
 	VUE_HEX_ASCII_PRESETS,
 } from "@/components/vuehex-api";
+import {
+	findByteHits,
+	replaceAllByteHits,
+	replaceByteRange,
+} from "@/components/vuehex-search-utils";
 
 const DEMO_TOTAL_BYTES = 4 * 1024 * 1024; // 4 MiB of procedurally generated data
 const SELF_MANAGED_BYTES = 64 * 1024; // 64 KiB sample for the full-data demo
@@ -239,6 +246,23 @@ function applyEditIntent(
 			const next = new Uint8Array(bytes.length - removeCount);
 			next.set(bytes.subarray(0, from), 0);
 			next.set(bytes.subarray(to + 1), from);
+			return next;
+		}
+		case "replace-range": {
+			const start = Math.max(
+				0,
+				Math.min(bytes.length, Math.trunc(intent.start)),
+			);
+			const end = Math.max(
+				start - 1,
+				Math.min(bytes.length - 1, Math.trunc(intent.end)),
+			);
+			const values = Uint8Array.from(intent.values.map(clampByte));
+			const removedLength = end >= start ? end - start + 1 : 0;
+			const next = new Uint8Array(bytes.length - removedLength + values.length);
+			next.set(bytes.subarray(0, start));
+			next.set(values, start);
+			next.set(bytes.subarray(end + 1), start + values.length);
 			return next;
 		}
 		case "undo":
@@ -2055,3 +2079,152 @@ export const InteractiveEvents: StoryObj<typeof VueHex> = (() => {
 		}),
 	};
 })();
+
+export const SearchAndReplace: StoryObj<typeof VueHex> = {
+	name: "Search and replace",
+	render: () => ({
+		components: { VueHex },
+		setup() {
+			const viewer = ref<InstanceType<typeof VueHex> | null>(null);
+			const data = ref(
+				new TextEncoder().encode(
+					"VueHex search demo: hex bytes, UTF-8 text, and VueHex again.",
+				),
+			);
+			onMounted(() => viewer.value?.openSearch({ selectQuery: true }));
+			return { data, viewer };
+		},
+		template: `
+			<div class="story-viewport story-viewport--column">
+			  <section class="story-stack">
+			    <header class="story-card__header">
+			      <p class="story-card__eyebrow">Search</p>
+			      <h3 class="story-card__title">Find and replace bytes</h3>
+			      <p class="story-card__subtitle">Try text <code>VueHex</code>, hex <code>56 75 65 48 65 78</code>, an invalid odd byte pair, or an empty replacement. Ctrl/Cmd+H reveals Replace.</p>
+			    </header>
+			    <div class="story-demo">
+			      <VueHex ref="viewer" v-model="data" editable search cursor style="height: 260px" />
+			    </div>
+			  </section>
+			</div>
+		`,
+	}),
+};
+
+export const SearchWindowed: StoryObj<typeof VueHex> = {
+	name: "Search (windowed provider)",
+	render: () => ({
+		components: { VueHex },
+		setup() {
+			const viewer = ref<InstanceType<typeof VueHex> | null>(null);
+			const store = ref(
+				new TextEncoder().encode(
+					`${"prefix ".repeat(600)}needle ${"middle ".repeat(600)}needle ${"suffix ".repeat(600)}`,
+				),
+			);
+			const totalSize = ref(store.value.length);
+			const windowOffset = ref(0);
+			const windowLength = 128;
+			const windowData = ref(store.value.slice(0, windowLength));
+
+			const refreshWindow = (offset = windowOffset.value) => {
+				windowOffset.value = clamp(offset, 0, store.value.length);
+				windowData.value = store.value.slice(
+					windowOffset.value,
+					windowOffset.value + windowLength,
+				);
+			};
+
+			const searchProvider = async (request: VueHexSearchRequest) => {
+				const hits = findByteHits(store.value, request.query);
+				const from = Math.max(0, request.from);
+				let ordinal = 0;
+				if (request.direction === "next") {
+					ordinal = hits.findIndex((hit) => hit.start >= from);
+					if (ordinal < 0) ordinal = 0;
+				} else {
+					ordinal = hits.length - 1;
+					while (ordinal >= 0 && (hits[ordinal]?.start ?? Infinity) > from)
+						ordinal -= 1;
+					if (ordinal < 0) ordinal = hits.length - 1;
+				}
+				return {
+					total: hits.length,
+					hit: hits[ordinal] ?? null,
+					activeOrdinal: hits.length ? ordinal + 1 : 0,
+				};
+			};
+
+			const replaceProvider = async (request: VueHexReplaceRequest) => {
+				if (request.scope === "all") {
+					const result = replaceAllByteHits(
+						store.value,
+						request.query,
+						request.replacement,
+					);
+					store.value = result.bytes;
+					totalSize.value = store.value.length;
+					refreshWindow();
+					return {
+						replaced: result.replaced,
+						total: 0,
+						totalSize: store.value.length,
+						window: { offset: windowOffset.value, data: windowData.value },
+					};
+				}
+				if (!request.hit) return { replaced: 0, total: 0 };
+				store.value = replaceByteRange(
+					store.value,
+					request.hit.start,
+					request.hit.end,
+					request.replacement,
+				);
+				totalSize.value = store.value.length;
+				refreshWindow();
+				return {
+					replaced: 1,
+					total: findByteHits(store.value, request.query).length,
+					totalSize: store.value.length,
+					window: { offset: windowOffset.value, data: windowData.value },
+				};
+			};
+
+			onMounted(() => viewer.value?.openSearch({ selectQuery: true }));
+			return {
+				viewer,
+				totalSize,
+				windowOffset,
+				windowData,
+				refreshWindow,
+				searchProvider,
+				replaceProvider,
+			};
+		},
+		template: `
+			<div class="story-viewport story-viewport--column">
+			  <section class="story-stack">
+			    <header class="story-card__header">
+			      <p class="story-card__eyebrow">Search provider</p>
+			      <h3 class="story-card__title">Windowed data search</h3>
+			      <p class="story-card__subtitle">Search <code>needle</code>; both matches live outside the initial 128-byte window. Replace All is one provider transaction.</p>
+			    </header>
+			    <div class="story-demo">
+			      <VueHex
+			        ref="viewer"
+			        v-model="windowData"
+			        v-model:window-offset="windowOffset"
+			        data-mode="window"
+			        :total-size="totalSize"
+			        :search-provider="searchProvider"
+			        :replace-provider="replaceProvider"
+			        editable
+			        search
+			        style="height: 260px"
+			        @update-virtual-data="({ offset }) => refreshWindow(offset)"
+			      />
+			    </div>
+			  </section>
+			</div>
+		`,
+	}),
+};

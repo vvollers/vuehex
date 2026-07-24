@@ -162,6 +162,8 @@ export interface HexWindowOptions {
 	getNonPrintableChar: () => string;
 	/** Current selection range (inclusive) for embedding selection classes. */
 	getSelectionRange: () => { start: number; end: number } | null;
+	/** Search highlight state for an absolute byte index. */
+	getSearchHitState?: (index: number) => "active" | "match" | null;
 	/** Issues a window request to the host (used only in windowed mode). */
 	requestWindow: (request: VueHexWindowRequest) => void;
 	/** Clears hover state when markup changes. */
@@ -517,6 +519,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 					asciiRenderer,
 					selectionRange,
 					options.getCellClassResolver(),
+					options.getSearchHitState,
 				);
 				if (markup.value !== nextMarkup) {
 					options.clearHoverState();
@@ -621,6 +624,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 			asciiRenderer,
 			selectionRange,
 			options.getCellClassResolver(),
+			options.getSearchHitState,
 		);
 
 		if (markup.value !== nextMarkup) {
@@ -646,6 +650,7 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 		renderAscii: VueHexAsciiRenderer,
 		selectionRange: { start: number; end: number } | null,
 		resolveCellClass?: VueHexCellClassResolver,
+		getSearchHitState?: (index: number) => "active" | "match" | null,
 	): string {
 		if (renderByteCount <= 0) {
 			return "";
@@ -762,6 +767,14 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 					classString += " vuehex-selected";
 				}
 
+				const searchState = getSearchHitState?.(absoluteIndex);
+				if (searchState) {
+					classString +=
+						searchState === "active"
+							? " vuehex-search-hit vuehex-search-hit--active"
+							: " vuehex-search-hit";
+				}
+
 				// Optional per-cell class resolver provided by consumers.
 				if (resolveCellClass) {
 					const resolved = resolveCellClass({
@@ -849,6 +862,14 @@ export function useHexWindow(options: HexWindowOptions): HexWindowResult {
 					absoluteIndex <= selectionRange.end
 				) {
 					classString += " vuehex-selected vuehex-selected--ascii";
+				}
+
+				const searchState = getSearchHitState?.(absoluteIndex);
+				if (searchState) {
+					classString +=
+						searchState === "active"
+							? " vuehex-search-hit vuehex-search-hit--active"
+							: " vuehex-search-hit";
 				}
 
 				// Optional per-cell class resolver provided by consumers.

@@ -122,6 +122,10 @@ export interface EditingResult {
 	activeColumn: Ref<VueHexEditorColumn>;
 	editorMode: Ref<VueHexEditorMode>;
 	resetPendingHexInput: () => void;
+	replaceRanges: (
+		ranges: ReadonlyArray<{ start: number; end: number }>,
+		values: Uint8Array,
+	) => void;
 }
 
 export function useEditing(options: EditingOptions): EditingResult {
@@ -358,6 +362,35 @@ export function useEditing(options: EditingOptions): EditingResult {
 						},
 					],
 				};
+			}
+			case "replace-range": {
+				const start = Math.max(0, Math.min(total, Math.trunc(intent.start)));
+				const end = Math.max(
+					start - 1,
+					Math.min(total - 1, Math.trunc(intent.end)),
+				);
+				const values = intent.values.map(clampByte);
+				const previous = bytes.slice(start, end + 1);
+				const redo: VueHexEditIntent = {
+					kind: "replace-range",
+					start,
+					end,
+					values,
+				};
+				const undo: VueHexEditIntent = values.length
+					? {
+							kind: "replace-range",
+							start,
+							end: start + values.length - 1,
+							values: Array.from(previous),
+						}
+					: {
+							kind: "insert-bytes",
+							index: start,
+							values: Array.from(previous),
+							column: columnForUndo,
+						};
+				return { redo: [redo], undo: [undo] };
 			}
 			case "undo":
 			case "redo": {
@@ -606,6 +639,21 @@ export function useEditing(options: EditingOptions): EditingResult {
 				options.setSelfManagedBytes(next);
 				return;
 			}
+			case "replace-range": {
+				const start = Math.max(0, Math.min(total, Math.trunc(intent.start)));
+				const end = Math.max(
+					start - 1,
+					Math.min(total - 1, Math.trunc(intent.end)),
+				);
+				const values = Uint8Array.from(intent.values.map(clampByte));
+				const removedLength = end >= start ? end - start + 1 : 0;
+				const next = new Uint8Array(total - removedLength + values.length);
+				next.set(bytes.subarray(0, start));
+				next.set(values, start);
+				next.set(bytes.subarray(end + 1), start + values.length);
+				options.setSelfManagedBytes(next);
+				return;
+			}
 			case "undo":
 			case "redo": {
 				// Windowed mode can emit these as commands; buffer mode handles undo/redo internally.
@@ -660,6 +708,32 @@ export function useEditing(options: EditingOptions): EditingResult {
 		if (options.isSelfManagedData.value) {
 			applyToSelfManaged(intent);
 		}
+	}
+
+	function replaceRanges(
+		ranges: ReadonlyArray<{ start: number; end: number }>,
+		values: Uint8Array,
+	) {
+		if (!options.enabled.value || !ranges.length) {
+			return;
+		}
+		resetPendingHexInput();
+		options.clearSelection();
+		runHistoryTransaction(() => {
+			for (let index = ranges.length - 1; index >= 0; index -= 1) {
+				const range = ranges[index];
+				if (!range) {
+					continue;
+				}
+				emitAndMaybeApply({
+					kind: "replace-range",
+					start: range.start,
+					end: range.end,
+					values: Array.from(values),
+				});
+			}
+			options.setCursorIndex(Math.max(0, ranges[0]?.start ?? 0));
+		});
 	}
 
 	function deleteSelectionIfAny(): { start: number } | null {
@@ -1079,5 +1153,5 @@ export function useEditing(options: EditingOptions): EditingResult {
 		}
 	});
 
-	return { activeColumn, editorMode, resetPendingHexInput };
+	return { activeColumn, editorMode, resetPendingHexInput, replaceRanges };
 }

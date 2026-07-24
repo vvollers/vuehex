@@ -14,6 +14,81 @@ export interface VueHexWindowRequest {
 	length: number;
 }
 
+/** The interpretation used for search and replace input. */
+export type VueHexSearchMode = "hex" | "text";
+
+/** The direction used while moving through matching byte sequences. */
+export type VueHexSearchDirection = "next" | "previous";
+
+/** An absolute, inclusive byte range returned by a search operation. */
+export interface VueHexSearchHit {
+	start: number;
+	end: number;
+}
+
+/**
+ * A complete-source search request for parent-managed/windowed data.
+ *
+ * Query bytes are exact and case-sensitive. Text-mode input is encoded as UTF-8
+ * before this request is made; hex-mode input is parsed into raw byte pairs.
+ */
+export interface VueHexSearchRequest {
+	mode: VueHexSearchMode;
+	query: Uint8Array;
+	direction: VueHexSearchDirection;
+	from: number;
+	wrap: boolean;
+	signal?: AbortSignal;
+}
+
+/** Result of a complete-source search request. Match totals are non-overlapping. */
+export interface VueHexSearchResponse {
+	total: number;
+	hit: VueHexSearchHit | null;
+	/** One-based ordinal of hit within all non-overlapping matches; use 0 when hit is null. */
+	activeOrdinal: number;
+}
+
+/** A parent-managed mutation request for an active or complete search result set. */
+export interface VueHexReplaceRequest {
+	/** The interpretation used for the search query. */
+	mode: VueHexSearchMode;
+	/** The independent interpretation used for the replacement input. */
+	replacementMode: VueHexSearchMode;
+	query: Uint8Array;
+	replacement: Uint8Array;
+	scope: "one" | "all";
+	hit?: VueHexSearchHit;
+	signal?: AbortSignal;
+}
+
+/**
+ * Result returned after a parent-managed replacement transaction.
+ *
+ * Windowed hosts should also refresh their controlled `totalSize` prop after a
+ * length-changing operation. When `window` is supplied, VueHex uses it
+ * immediately instead of displaying stale bytes.
+ */
+export interface VueHexReplaceResponse {
+	replaced: number;
+	total: number;
+	totalSize?: number;
+	window?: VueHexWindow;
+	activeHit?: VueHexSearchHit | null;
+	/** One-based ordinal of activeHit within all remaining matches, when known. */
+	activeOrdinal?: number;
+}
+
+/** Searches the full parent-owned backing source in windowed data mode. */
+export type VueHexSearchProvider = (
+	request: VueHexSearchRequest,
+) => Promise<VueHexSearchResponse> | VueHexSearchResponse;
+
+/** Replaces search hits in a parent-owned backing source in windowed data mode. */
+export type VueHexReplaceProvider = (
+	request: VueHexReplaceRequest,
+) => Promise<VueHexReplaceResponse> | VueHexReplaceResponse;
+
 /**
  * Built-in theme keys supported by VueHex out of the box.
  *
@@ -94,6 +169,13 @@ export type VueHexEditIntent =
 			kind: "delete-range";
 			start: number;
 			end: number;
+	  }
+	| {
+			/** Replaces the inclusive range with arbitrary bytes, including none. */
+			kind: "replace-range";
+			start: number;
+			end: number;
+			values: number[];
 	  }
 	| {
 			/** Undo the most recent edit action (Ctrl/Cmd+Z). */

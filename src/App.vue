@@ -16,6 +16,17 @@
           Download File
         </button>
         <span v-if="fileName" class="file-name">{{ fileName }}</span>
+        <div class="search-controls">
+          <button type="button" class="search-button" @click="toggleSearchReplace">
+            Search / Replace
+          </button>
+          <span
+            class="search-shortcuts"
+            aria-label="Keyboard shortcuts: Control or Command F to open search; Control or Command H to open replace"
+          >
+            <kbd>Ctrl/Cmd+F</kbd> Find · <kbd>Ctrl/Cmd+H</kbd> Replace
+          </span>
+        </div>
         <label class="switch">
           <input type="checkbox" v-model="isEditMode" />
           <span class="switch-ui" aria-hidden="true"></span>
@@ -25,6 +36,7 @@
 
       <main class="demo-main">
         <VueHex
+			ref="viewer"
           v-model="fileData"
           v-model:window-offset="offset"
           statusbar="top"
@@ -34,6 +46,7 @@
           :is-printable="selectedPreset.isPrintable"
           :render-ascii="selectedPreset.renderAscii"
           :cursor="true"
+          search
           :editable="isEditMode"
           :bytes-per-row="16"
           :show-chunk-navigator="true"
@@ -94,6 +107,7 @@ const fileData = ref<Uint8Array>(new Uint8Array(0));
 const offset = ref<number>(0);
 
 const isEditMode = ref(false);
+const viewer = ref<InstanceType<typeof VueHex> | null>(null);
 
 const fileName = ref<string>("");
 const selectedPresetKey = ref<"standard" | "latin1" | "visibleWhitespace">(
@@ -144,6 +158,10 @@ const selectedHighlighting = computed(() => {
 			return undefined;
 	}
 });
+
+function toggleSearchReplace() {
+	viewer.value?.toggleSearch({ replace: true, selectQuery: true });
+}
 
 async function handleFileSelect(event: Event) {
 	const input = event.target as HTMLInputElement;
@@ -308,6 +326,53 @@ body {
   transition: background 0.2s;
 }
 
+.search-button {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  color: var(--demo-text);
+  border: 1px solid var(--demo-control-border);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+
+.search-button:hover {
+  background: var(--demo-control-hover-bg);
+  border-color: var(--demo-control-hover-border);
+}
+
+.search-button:focus-visible {
+  outline: 2px solid var(--demo-focus);
+  outline-offset: 2px;
+}
+
+.search-controls {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.search-shortcuts {
+  color: var(--demo-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.search-shortcuts kbd {
+  padding: 0.1rem 0.25rem;
+  border: 1px solid var(--demo-control-border);
+  border-radius: 3px;
+  background: var(--demo-control-bg);
+  color: var(--demo-text);
+  font-family: inherit;
+  font-size: 0.7rem;
+}
+
 .download-button:hover:not(:disabled) {
   background: #388bfd;
 }
@@ -324,7 +389,6 @@ body {
 }
 
 .switch {
-  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 0.5rem;

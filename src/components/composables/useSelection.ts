@@ -79,6 +79,8 @@ export interface SelectionResult {
 	selectionCount: ComputedRef<number>;
 	/** Clears any active selection (no-op if none). */
 	clearSelection: () => void;
+	/** Selects an absolute inclusive range when selection support is available. */
+	setSelection: (start: number, end: number) => void;
 	/** Copies the current selection to the clipboard (no-op if none). */
 	copySelectionToClipboard: () => Promise<boolean>;
 }
@@ -320,6 +322,20 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 			return;
 		}
 		selectionState.value = null;
+		scheduleSelectionSync();
+	}
+
+	function setSelection(start: number, end: number) {
+		if (!selectionEnabled.value || options.totalBytes.value <= 0) {
+			return;
+		}
+		const max = options.totalBytes.value - 1;
+		selectionState.value = {
+			mode: selectionState.value?.mode ?? "hex",
+			anchor: clamp(Math.trunc(start), 0, max),
+			focus: clamp(Math.trunc(end), 0, max),
+		};
+		finishPointerSelection();
 		scheduleSelectionSync();
 	}
 
@@ -617,6 +633,7 @@ export function useSelection(options: SelectionOptions): SelectionResult {
 		selectionRange,
 		selectionCount,
 		clearSelection,
+		setSelection,
 		copySelectionToClipboard,
 	};
 }
