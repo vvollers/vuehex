@@ -31,6 +31,45 @@
 	flex-direction: column;
 }
 
+.vuehex {
+	--vuehex-background: #0f172a;
+	--vuehex-foreground: #e2e8f0;
+	--vuehex-border-color: rgba(148, 163, 184, 0.25);
+	--vuehex-offset-color: #94a3b8;
+	--vuehex-offset-leading-opacity: 0.4;
+	--vuehex-row-divider: rgba(148, 163, 184, 0.2);
+	--vuehex-byte-color: #f8fafc;
+	--vuehex-ascii-color: #f1f5f9;
+	--vuehex-ascii-non-printable-color: rgba(148, 163, 184, 0.45);
+	--vuehex-ascii-column-border: rgba(148, 163, 184, 0.2);
+	--vuehex-mid-column-gutter: 1.5ch;
+	--vuehex-bytes-column-padding-right: 0.5ch;
+	--vuehex-ascii-column-padding-left: 0.5ch;
+	--vuehex-scrollbar-track: rgba(15, 23, 42, 0.3);
+	--vuehex-scrollbar-thumb: rgba(148, 163, 184, 0.4);
+	--vuehex-scrollbar-thumb-hover: rgba(148, 163, 184, 0.6);
+
+	font-family:
+		ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+		"DejaVu Sans Mono", "Ubuntu Mono", "Courier New", monospace;
+	font-variant-ligatures: none;
+	font-variant-numeric: tabular-nums;
+	text-rendering: optimizeSpeed;
+	background: var(--vuehex-background);
+	color: var(--vuehex-foreground);
+	padding: 0 1rem;
+	border: 1px solid var(--vuehex-border-color);
+	overflow-x: auto;
+	overflow-y: auto;
+	position: relative;
+	box-sizing: border-box;
+	user-select: none;
+
+	/* Firefox scrollbar styling */
+	scrollbar-color: var(--vuehex-scrollbar-thumb) var(--vuehex-scrollbar-track);
+	scrollbar-width: thin;
+}
+
 .vuehex-viewer > .vuehex {
 	flex: 1 1 auto;
 	min-height: 0;
@@ -238,45 +277,6 @@
 .vuehex-chunk-item__range {
 	font-size: 0.75rem;
 	opacity: 0.8;
-}
-
-.vuehex {
-	--vuehex-background: #0f172a;
-	--vuehex-foreground: #e2e8f0;
-	--vuehex-border-color: rgba(148, 163, 184, 0.25);
-	--vuehex-offset-color: #94a3b8;
-	--vuehex-offset-leading-opacity: 0.4;
-	--vuehex-row-divider: rgba(148, 163, 184, 0.2);
-	--vuehex-byte-color: #f8fafc;
-	--vuehex-ascii-color: #f1f5f9;
-	--vuehex-ascii-non-printable-color: rgba(148, 163, 184, 0.45);
-	--vuehex-ascii-column-border: rgba(148, 163, 184, 0.2);
-	--vuehex-mid-column-gutter: 1.5ch;
-	--vuehex-bytes-column-padding-right: 0.5ch;
-	--vuehex-ascii-column-padding-left: 0.5ch;
-	--vuehex-scrollbar-track: rgba(15, 23, 42, 0.3);
-	--vuehex-scrollbar-thumb: rgba(148, 163, 184, 0.4);
-	--vuehex-scrollbar-thumb-hover: rgba(148, 163, 184, 0.6);
-
-	font-family:
-		ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-		"DejaVu Sans Mono", "Ubuntu Mono", "Courier New", monospace;
-	font-variant-ligatures: none;
-	font-variant-numeric: tabular-nums;
-	text-rendering: optimizeSpeed;
-	background: var(--vuehex-background);
-	color: var(--vuehex-foreground);
-	padding: 0 1rem;
-	border: 1px solid var(--vuehex-border-color);
-	overflow-x: auto;
-	overflow-y: auto;
-	position: relative;
-	box-sizing: border-box;
-	user-select: none;
-
-	/* Firefox scrollbar styling */
-	scrollbar-color: var(--vuehex-scrollbar-thumb) var(--vuehex-scrollbar-track);
-	scrollbar-width: thin;
 }
 
 /* Webkit/Chromium scrollbar styling */

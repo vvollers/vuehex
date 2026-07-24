@@ -177,7 +177,9 @@ interface VueHexProps {
 }
 
 const windowOffset = defineModel<number>("windowOffset", { default: 0 });
-const modelValue = defineModel<Uint8Array>({ default: new Uint8Array(0) });
+const modelValue = defineModel<Uint8Array>({
+	default: () => new Uint8Array(0),
+});
 const cursorLocation = defineModel<number | null>("cursorLocation", {
 	default: null,
 });

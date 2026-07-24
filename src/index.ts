@@ -13,6 +13,5 @@ export function install(app: App, options: VueHexPluginOptions = {}) {
 
 export default { install };
 
-export { VueHex };
-
 export * from "./components/vuehex-api";
+export { VueHex };
